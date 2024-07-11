@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34511.84
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Research-Arcade-Launcher", "Research-Arcade-Launcher.csproj", "{CD0CD7EA-876C-45BD-A52E-F978A6CACEFC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CD0CD7EA-876C-45BD-A52E-F978A6CACEFC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD0CD7EA-876C-45BD-A52E-F978A6CACEFC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD0CD7EA-876C-45BD-A52E-F978A6CACEFC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD0CD7EA-876C-45BD-A52E-F978A6CACEFC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {AEDAE227-BCA9-4AEE-B0B7-3D066F46D602}
+	EndGlobalSection
+EndGlobal
