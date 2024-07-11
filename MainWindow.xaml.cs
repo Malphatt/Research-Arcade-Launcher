@@ -13,7 +13,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace Research_Arcade_Launcher
+namespace TutorialWPFApp
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -23,6 +23,16 @@ namespace Research_Arcade_Launcher
         public MainWindow()
         {
             InitializeComponent();
+        }
+
+        private void Window_ContentRendered(object sender, EventArgs e)
+        {
+
+        }
+
+        private void StartButton_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("Hello World!");
         }
     }
 }
