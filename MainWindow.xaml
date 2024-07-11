@@ -36,6 +36,7 @@
                 <RowDefinition Height="4*"/>
                 <RowDefinition Height="8*"/>
                 <RowDefinition Height="3*"/>
+                <RowDefinition Height="0.5*"/>
             </Grid.RowDefinitions>
             <!-- Game Image -->
             <Grid Grid.Row="0" Background="Black">
@@ -45,17 +46,88 @@
                     <Image Source="/Images/Thumbnail.png" Stretch="UniformToFill"/>
                 </Border>
             </Grid>
-            <!-- Game Title -->
             <Grid Grid.Row="1" Background="Black">
-                <TextBlock Text="Select A Game" Foreground="White" FontSize="48" Margin="50,25" VerticalAlignment="Center" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="3*"/>
+                    <RowDefinition Height="1*"/>
+                    <RowDefinition Height="1*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Game Title -->
+                <Grid Grid.Row="0" Margin="50,25,50,0">
+                    <TextBlock Text="Select A Game" Foreground="White" FontSize="48" VerticalAlignment="Bottom" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
+                </Grid>
+                
+                <!-- Game Author(s) -->
+                <Grid Grid.Row="1" Margin="50,0">
+                    <TextBlock Text="Authors:" Foreground="#777" FontSize="24" VerticalAlignment="Center" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
+                </Grid>
+
+                <!-- Game Tag(s) -->
+                <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="50,0">
+                    <WrapPanel.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="Margin" Value="5"/>
+                        </Style>
+                    </WrapPanel.Resources>
+                    
+                    <Border BorderThickness="1"
+                            BorderBrush="#777">
+                        <TextBlock Text="Tag 1" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                    </Border>
+
+                    <Border BorderThickness="1"
+                            BorderBrush="#777" Visibility="Hidden">
+                        <TextBlock Text="Tag 2" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                    </Border>
+
+                    <Border BorderThickness="1"
+                            BorderBrush="#777" Visibility="Hidden">
+                        <TextBlock Text="Tag 3" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                    </Border>
+
+                    <Border BorderThickness="1"
+                            BorderBrush="#777" Visibility="Hidden">
+                        <TextBlock Text="Tag 4" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                    </Border>
+
+                    <Border BorderThickness="1"
+                            BorderBrush="#777" Visibility="Hidden">
+                        <TextBlock Text="Tag 5" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                    </Border>
+
+                    <Border BorderThickness="1"
+                            BorderBrush="#777" Visibility="Hidden">
+                        <TextBlock Text="Tag 6" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                    </Border>
+
+                    <Border BorderThickness="1"
+                            BorderBrush="#777" Visibility="Hidden">
+                        <TextBlock Text="Tag 7" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                    </Border>
+
+                    <Border BorderThickness="1"
+                            BorderBrush="#777" Visibility="Hidden">
+                        <TextBlock Text="Tag 8" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                    </Border>
+
+                    <Border BorderThickness="1"
+                            BorderBrush="#777" Visibility="Hidden">
+                        <TextBlock Text="Tag 9" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                    </Border>
+                </WrapPanel>
             </Grid>
             <!-- Game Description -->
-            <Grid Grid.Row="2" Background="Black">
-                <TextBlock Text="Select a game using the joystick and by pressing A." Foreground="White" FontSize="18" Margin="50" VerticalAlignment="Top" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
+            <Grid Grid.Row="2" Background="Black" Margin="50">
+                <TextBlock Text="Select a game using the joystick and by pressing A." Foreground="White" FontSize="18" VerticalAlignment="Top" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
             </Grid>
             <!-- Game Start/Update -->
-            <Grid Grid.Row="3" Background="Black">
-                <Button x:Name="StartButton" Content="Start" Click="StartButton_Click" FontSize="32" Margin="25" Style="{StaticResource Early GameBoy}"/>
+            <Grid Grid.Row="3" Background="Black" Margin="25">
+                <Button x:Name="StartButton" Content="Checking For Updates..." Click="StartButton_Click" FontSize="28" Style="{StaticResource Early GameBoy}" Background="#FF333333" Foreground="White" BorderBrush="White" BorderThickness="3"/>
+            </Grid>
+            <!-- Game Version -->
+            <Grid Grid.Row="4" Background="Black" Margin="25,0">
+                <TextBlock x:Name="VersionText" Text="0.0.0" Foreground="White" FontSize="10" VerticalAlignment="Top" HorizontalAlignment="Right" Style="{StaticResource Early GameBoy}"/>
             </Grid>
         </Grid>
     </Grid>
