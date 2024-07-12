@@ -2,11 +2,11 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Net;
 using System.Windows;
 using System.Windows.Controls;
 using System.Xml.Linq;
+using ICSharpCode.SharpZipLib.Zip;
 using Newtonsoft.Json.Linq;
 
 namespace TutorialWPFApp
@@ -29,20 +29,13 @@ namespace TutorialWPFApp
 
         private string localGameDatabasePath;
         private JObject gameDatabaseFile;
-        // this should contain the following:
-        // game info links
-        // local game folder names
 
         private string localGameInfoPath = "";
         private JObject gameInfoFile;
-        // this should contain the following:
-        // game name
-        // author(s)
-        // tag(s)
-        // game description
-        // name of executable
-        // game zip link
-        // version
+
+        int updateIndexOfGame;
+
+        int currentlySelectedGameIndex;
 
         private LauncherState _state;
         internal LauncherState State
@@ -93,9 +86,9 @@ namespace TutorialWPFApp
             }
         }
 
-        private void CheckForUpdates(int index)
+        private void CheckForUpdates()
         {
-            string folderName = gameDatabaseFile["Games"][index]["FolderName"].ToString();
+            string folderName = gameDatabaseFile["Games"][updateIndexOfGame]["FolderName"].ToString();
 
             if (folderName != "")
             {
@@ -112,13 +105,13 @@ namespace TutorialWPFApp
                 try
                 {
                     WebClient webClient = new WebClient();
-                    JObject onlineJson = JObject.Parse(webClient.DownloadString(gameDatabaseFile["Games"][index]["LinkToGameInfo"].ToString()));
+                    JObject onlineJson = JObject.Parse(webClient.DownloadString(gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString()));
 
                     Version onlineVersion = new Version(onlineJson["GameVersion"].ToString());
 
                     if (onlineVersion.IsDifferentVersion(localVersion))
                     {
-                        InstallGameFiles(true, onlineJson, gameDatabaseFile["Games"][index]["LinkToGameInfo"].ToString());
+                        InstallGameFiles(true, onlineJson, gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString());
                     }
                     else
                     {
@@ -148,7 +141,7 @@ namespace TutorialWPFApp
             }
             else
             {
-                InstallGameFiles(false, JObject.Parse("{\r\n\"GameVersion\": \"0.0.0\"\r\n}\r\n"), gameDatabaseFile["Games"][index]["LinkToGameInfo"].ToString());
+                InstallGameFiles(false, JObject.Parse("{\r\n\"GameVersion\": \"0.0.0\"\r\n}\r\n"), gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString());
             }
         }
 
@@ -184,8 +177,15 @@ namespace TutorialWPFApp
                 JObject onlineJson = (JObject)e.UserState;
 
                 string pathToZip = Path.Combine(rootPath, onlineJson["GameName"].ToString() + ".zip");
-                ZipFile.ExtractToDirectory(pathToZip, Path.Combine(gameDirectoryPath, onlineJson["GameName"].ToString()));
+                FastZip fastZip = new FastZip();
+                fastZip.ExtractZip(pathToZip, Path.Combine(gameDirectoryPath, onlineJson["GameName"].ToString()), null);
                 File.Delete(pathToZip);
+
+                JObject gameDatabase = JObject.Parse(File.ReadAllText(localGameDatabasePath));
+                gameDatabase["Games"][updateIndexOfGame]["FolderName"] = onlineJson["GameName"].ToString();
+                File.WriteAllText(localGameDatabasePath, gameDatabase.ToString());
+
+                gameDatabaseFile = gameDatabase;
 
                 localGameInfoPath = Path.Combine(gameDirectoryPath, onlineJson["GameName"].ToString(), "GameInfo.json");
 
@@ -239,7 +239,11 @@ namespace TutorialWPFApp
 
                     if (games.Count > 0)
                     {
-                        CheckForUpdates(0);
+                        for (int i = 0; i < games.Count; i++)
+                        {
+                            updateIndexOfGame = i;
+                            CheckForUpdates();
+                        }
                     }
                     else
                     {
@@ -262,9 +266,7 @@ namespace TutorialWPFApp
 
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
-            int currentIndexOfGame = 0;
-
-            string currentGameFolder = /*gameDatabaseFile["Games"][currentIndexOfGame]["FolderName"].ToString();*/ "Game";
+            string currentGameFolder = gameDatabaseFile["Games"][currentlySelectedGameIndex]["FolderName"].ToString();
 
             JObject currentGameInfo = JObject.Parse(File.ReadAllText(Path.Combine(gameDirectoryPath, currentGameFolder, "GameInfo.json")));
             string currentGameExe = Path.Combine(gameDirectoryPath, currentGameFolder, currentGameInfo["NameOfExecutable"].ToString());
@@ -277,7 +279,7 @@ namespace TutorialWPFApp
             }
             else if (State == LauncherState.failed)
             {
-                //CheckForUpdates();
+                CheckForUpdates();
             }
         }
     }
