@@ -5,6 +5,9 @@ using System.IO;
 using System.IO.Compression;
 using System.Net;
 using System.Windows;
+using System.Windows.Controls;
+using System.Xml.Linq;
+using Newtonsoft.Json.Linq;
 
 namespace TutorialWPFApp
 {
@@ -19,7 +22,23 @@ namespace TutorialWPFApp
     public partial class MainWindow : Window
     {
         private string rootPath;
-        private string versionFile;
+
+        private JObject gameDatabaseFile;
+        // this should contain the following:
+        // game info links
+        // local game folder names
+
+        private string localJson;
+        private JObject gameInfoFile;
+        // this should contain the following:
+        // game name
+        // author(s)
+        // tag(s)
+        // game description
+        // name of executable
+        // game zip link
+        // version
+
         private string gameZip;
         private string gameExe;
 
@@ -60,32 +79,48 @@ namespace TutorialWPFApp
 
             rootPath = Directory.GetCurrentDirectory();
 
-            // print the current directory
-            MessageBox.Show(rootPath);
-
-            versionFile = System.IO.Path.Combine(rootPath, "Version.txt");
+            localJson = System.IO.Path.Combine(rootPath, "GameInfo.json");
             gameZip = System.IO.Path.Combine(rootPath, "game.zip");
             gameExe = System.IO.Path.Combine(rootPath, "Game", "Game.exe");
         }
 
         private void CheckForUpdates()
         {
-            if (File.Exists(versionFile))
+            if (File.Exists(localJson))
             {
-                Version localVersion = new Version(File.ReadAllText(versionFile));
-                VersionText.Text = localVersion.ToString();
+                gameInfoFile = JObject.Parse(File.ReadAllText(localJson));
+
+                Version localVersion = new Version(gameInfoFile["GameVersion"].ToString());
+                VersionText.Text = "v" + localVersion.ToString();
 
                 try
                 {
                     WebClient webClient = new WebClient();
-                    Version onlineVersion = new Version(webClient.DownloadString("https://0n9dag.am.files.1drv.com/y4mBrLQI3x4d63TAUjTRXNSExnIGSZb5IymzBVcy19NAM4KnXYMh3qGaNUGmdwfNVIHM2v9V8-BpR03fDPMQaGFiaaCv3e0xxHQNrUW3DVkvbLStN00smpFbjsYtfQdTr48DfMkldb82sZA1DgCza2eJFDN-zm7L_PuNlUUTxWHGnTp8O32TSAzHUkTIiCoSGlLyfDfl4DKUPmzMAGZlJCcXQ"));
+                    JObject onlineJson = JObject.Parse(webClient.DownloadString("https://3iywda.am.files.1drv.com/y4mP7LMMcjZVxDvCtppkkUuNWZQTTJjjnIB4v4uqFQffiRHFSdg5x6HwCd4O2Bxrpj-9Mhiy6bi2bKtnxDl4gMcCJNFVOruvZmsJJhmAVIYpl6W0d8UThBR82E3xX_9GfDa4mJpB26KskGJaM3Ig_MBuO3egoq9EU0gtj_dezg0yhW4TyjT1kgtT3HAmzPdD2PuC6QwS4FhycAFKxvrjrxMpQ"));
+
+                    Version onlineVersion = new Version(onlineJson["GameVersion"].ToString());
 
                     if (onlineVersion.IsDifferentVersion(localVersion))
                     {
-                        InstallGameFiles(true, onlineVersion);
+                        InstallGameFiles(true, onlineJson);
                     }
                     else
                     {
+                        GameTitle.Text = onlineJson["GameName"].ToString();
+                        GameAuthors.Text = string.Join(", ", onlineJson["GameAuthors"].ToObject<string[]>());
+
+                        Border[] GameTagBorder = new Border[9] { GameTagBorder0, GameTagBorder1, GameTagBorder2, GameTagBorder3, GameTagBorder4, GameTagBorder5, GameTagBorder6, GameTagBorder7, GameTagBorder8 };
+                        TextBlock[] GameTag = new TextBlock[9] { GameTag0, GameTag1, GameTag2, GameTag3, GameTag4, GameTag5, GameTag6, GameTag7, GameTag8 };
+
+                        string[] tags = onlineJson["GameTags"].ToObject<string[]>();
+                        for (int i = 0; i < tags.Length; i++)
+                        {
+                            GameTagBorder[i].Visibility = Visibility.Visible;
+                            GameTag[i].Text = tags[i];
+                        }
+
+                        GameDescription.Text = onlineJson["GameDescription"].ToString();
+
                         State = LauncherState.ready;
                     }
                 }
@@ -97,11 +132,11 @@ namespace TutorialWPFApp
             }
             else
             {
-                InstallGameFiles(false, Version.zero);
+                InstallGameFiles(false, JObject.Parse("{\r\n\"GameVersion\": \"0.0.0\"\r\n}\r\n"));
             }
         }
 
-        private void InstallGameFiles(bool _isUpdate, Version _onlineVersion)
+        private void InstallGameFiles(bool _isUpdate, JObject _onlineJson)
         {
             try
             {
@@ -113,11 +148,11 @@ namespace TutorialWPFApp
                 else
                 {
                     State = LauncherState.downloadingGame;
-                    _onlineVersion = new Version(webClient.DownloadString("https://0n9dag.am.files.1drv.com/y4mBrLQI3x4d63TAUjTRXNSExnIGSZb5IymzBVcy19NAM4KnXYMh3qGaNUGmdwfNVIHM2v9V8-BpR03fDPMQaGFiaaCv3e0xxHQNrUW3DVkvbLStN00smpFbjsYtfQdTr48DfMkldb82sZA1DgCza2eJFDN-zm7L_PuNlUUTxWHGnTp8O32TSAzHUkTIiCoSGlLyfDfl4DKUPmzMAGZlJCcXQ"));
+                    _onlineJson = JObject.Parse(webClient.DownloadString("https://3iywda.am.files.1drv.com/y4mP7LMMcjZVxDvCtppkkUuNWZQTTJjjnIB4v4uqFQffiRHFSdg5x6HwCd4O2Bxrpj-9Mhiy6bi2bKtnxDl4gMcCJNFVOruvZmsJJhmAVIYpl6W0d8UThBR82E3xX_9GfDa4mJpB26KskGJaM3Ig_MBuO3egoq9EU0gtj_dezg0yhW4TyjT1kgtT3HAmzPdD2PuC6QwS4FhycAFKxvrjrxMpQ"));
                 }
 
                 webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(DownloadGameCompletedCallback);
-                webClient.DownloadFileAsync(new Uri("https://0npo9q.am.files.1drv.com/y4meBbHRkvORxovZ7cNP40jZGawTVyNv3aHWsPRnr-iboavooDmyW4SGcinXxaCZIsYfKWgmsr9cmYlLp25VnCVkMBQQryaOg1bLDSHDvaZw304xiLDqa3NsXlwyQqDBRRxPOa0SFyvhvCgYW85yyFoJ2b6gcVYRHz46YzERxEK9qcnvt8MlIQwfQGCVJ7kY_4IkRYGkdI754O-vSYWKkOMUw"), gameZip, _onlineVersion);
+                webClient.DownloadFileAsync(new Uri(_onlineJson["LinkToGameZip"].ToString()), gameZip, _onlineJson);
             }
             catch (Exception ex)
             {
@@ -130,13 +165,30 @@ namespace TutorialWPFApp
         {
             try
             {
-                string onlineVersion = ((Version)e.UserState).ToString();
-                ZipFile.ExtractToDirectory(gameZip, System.IO.Path.Combine(rootPath, "Game"));
+                JObject onlineJson = (JObject)e.UserState;
+                ZipFile.ExtractToDirectory(gameZip, System.IO.Path.Combine(rootPath, onlineJson["GameName"].ToString()));
                 File.Delete(gameZip);
 
-                File.WriteAllText(versionFile, onlineVersion);
+                File.WriteAllText(localJson, onlineJson.ToString());
 
-                VersionText.Text = onlineVersion;
+                gameInfoFile = onlineJson;
+
+                GameTitle.Text = onlineJson["GameName"].ToString();
+                GameAuthors.Text = string.Join(", ", onlineJson["GameAuthors"].ToObject<string[]>());
+
+                Border[] GameTagBorder = new Border[9] { GameTagBorder0, GameTagBorder1, GameTagBorder2, GameTagBorder3, GameTagBorder4, GameTagBorder5, GameTagBorder6, GameTagBorder7, GameTagBorder8 };
+                TextBlock[] GameTag = new TextBlock[9] { GameTag0, GameTag1, GameTag2, GameTag3, GameTag4, GameTag5, GameTag6, GameTag7, GameTag8 };
+
+                string[] tags = onlineJson["GameTags"].ToObject<string[]>();
+                for (int i = 0; i < tags.Length; i++)
+                {
+                    GameTagBorder[i].Visibility = Visibility.Visible;
+                    GameTag[i].Text = tags[i];
+                }
+
+                GameDescription.Text = onlineJson["GameDescription"].ToString();
+
+                VersionText.Text = "v" + onlineJson["GameVersion"].ToString();
                 State = LauncherState.ready;
             }
             catch (Exception ex)

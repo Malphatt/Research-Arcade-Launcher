@@ -55,12 +55,12 @@
                 
                 <!-- Game Title -->
                 <Grid Grid.Row="0" Margin="50,25,50,0">
-                    <TextBlock Text="Select A Game" Foreground="White" FontSize="48" VerticalAlignment="Bottom" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="GameTitle" Text="Select A Game" Foreground="White" FontSize="48" VerticalAlignment="Bottom" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
                 </Grid>
                 
                 <!-- Game Author(s) -->
                 <Grid Grid.Row="1" Margin="50,0">
-                    <TextBlock Text="Authors:" Foreground="#777" FontSize="24" VerticalAlignment="Center" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="GameAuthors" Text="Authors:" Foreground="#777" FontSize="24" VerticalAlignment="Center" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
                 </Grid>
 
                 <!-- Game Tag(s) -->
@@ -70,56 +70,56 @@
                             <Setter Property="Margin" Value="5"/>
                         </Style>
                     </WrapPanel.Resources>
-                    
-                    <Border BorderThickness="1"
-                            BorderBrush="#777">
-                        <TextBlock Text="Tag 1" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+
+                    <Border x:Name="GameTagBorder0" BorderThickness="1"
+                            BorderBrush="#777" Visibility="Hidden">
+                        <TextBlock x:Name="GameTag0" Text="Tag 1" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
                     </Border>
 
-                    <Border BorderThickness="1"
+                    <Border x:Name="GameTagBorder1" BorderThickness="1"
                             BorderBrush="#777" Visibility="Hidden">
-                        <TextBlock Text="Tag 2" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                        <TextBlock x:Name="GameTag1" Text="Tag 2" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
                     </Border>
 
-                    <Border BorderThickness="1"
+                    <Border x:Name="GameTagBorder2" BorderThickness="1"
                             BorderBrush="#777" Visibility="Hidden">
-                        <TextBlock Text="Tag 3" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                        <TextBlock x:Name="GameTag2" Text="Tag 3" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
                     </Border>
 
-                    <Border BorderThickness="1"
+                    <Border x:Name="GameTagBorder3" BorderThickness="1"
                             BorderBrush="#777" Visibility="Hidden">
-                        <TextBlock Text="Tag 4" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                        <TextBlock x:Name="GameTag3" Text="Tag 4" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
                     </Border>
 
-                    <Border BorderThickness="1"
+                    <Border x:Name="GameTagBorder4" BorderThickness="1"
                             BorderBrush="#777" Visibility="Hidden">
-                        <TextBlock Text="Tag 5" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                        <TextBlock x:Name="GameTag4" Text="Tag 5" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
                     </Border>
 
-                    <Border BorderThickness="1"
+                    <Border x:Name="GameTagBorder5" BorderThickness="1"
                             BorderBrush="#777" Visibility="Hidden">
-                        <TextBlock Text="Tag 6" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                        <TextBlock x:Name="GameTag5" Text="Tag 6" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
                     </Border>
 
-                    <Border BorderThickness="1"
+                    <Border x:Name="GameTagBorder6" BorderThickness="1"
                             BorderBrush="#777" Visibility="Hidden">
-                        <TextBlock Text="Tag 7" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                        <TextBlock x:Name="GameTag6" Text="Tag 7" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
                     </Border>
 
-                    <Border BorderThickness="1"
+                    <Border x:Name="GameTagBorder7" BorderThickness="1"
                             BorderBrush="#777" Visibility="Hidden">
-                        <TextBlock Text="Tag 8" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                        <TextBlock x:Name="GameTag7" Text="Tag 8" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
                     </Border>
 
-                    <Border BorderThickness="1"
+                    <Border x:Name="GameTagBorder8" BorderThickness="1"
                             BorderBrush="#777" Visibility="Hidden">
-                        <TextBlock Text="Tag 9" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
+                        <TextBlock x:Name="GameTag8" Text="Tag 9" Foreground="#777" FontSize="11" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Early GameBoy}"/>
                     </Border>
                 </WrapPanel>
             </Grid>
             <!-- Game Description -->
             <Grid Grid.Row="2" Background="Black" Margin="50">
-                <TextBlock Text="Select a game using the joystick and by pressing A." Foreground="White" FontSize="18" VerticalAlignment="Top" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
+                <TextBlock x:Name="GameDescription" Text="Select a game using the joystick and by pressing A." Foreground="White" FontSize="18" VerticalAlignment="Top" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
             </Grid>
             <!-- Game Start/Update -->
             <Grid Grid.Row="3" Background="Black" Margin="25">
