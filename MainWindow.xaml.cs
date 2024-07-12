@@ -22,13 +22,18 @@ namespace TutorialWPFApp
     public partial class MainWindow : Window
     {
         private string rootPath;
+        private string gameDirectoryPath;
 
+        private string gameDatabaseURLPath;
+        private string gameDatabaseURL;
+
+        private string localGameDatabasePath;
         private JObject gameDatabaseFile;
         // this should contain the following:
         // game info links
         // local game folder names
 
-        private string localJson;
+        private string localGameInfoPath = "";
         private JObject gameInfoFile;
         // this should contain the following:
         // game name
@@ -38,9 +43,6 @@ namespace TutorialWPFApp
         // name of executable
         // game zip link
         // version
-
-        private string gameZip;
-        private string gameExe;
 
         private LauncherState _state;
         internal LauncherState State
@@ -79,16 +81,30 @@ namespace TutorialWPFApp
 
             rootPath = Directory.GetCurrentDirectory();
 
-            localJson = System.IO.Path.Combine(rootPath, "GameInfo.json");
-            gameZip = System.IO.Path.Combine(rootPath, "game.zip");
-            gameExe = System.IO.Path.Combine(rootPath, "Game", "Game.exe");
+            gameDatabaseURLPath = Path.Combine(rootPath, "GameDatabaseURL.json");
+            gameDirectoryPath = Path.Combine(rootPath, "Games");
+
+            localGameDatabasePath = Path.Combine(gameDirectoryPath, "GameDatabase.json");
+
+            // Create the games directory if it doesn't exist
+            if (!Directory.Exists(gameDirectoryPath))
+            {
+                Directory.CreateDirectory(gameDirectoryPath);
+            }
         }
 
-        private void CheckForUpdates()
+        private void CheckForUpdates(int index)
         {
-            if (File.Exists(localJson))
+            string folderName = gameDatabaseFile["Games"][index]["FolderName"].ToString();
+
+            if (folderName != "")
             {
-                gameInfoFile = JObject.Parse(File.ReadAllText(localJson));
+                localGameInfoPath = Path.Combine(gameDirectoryPath, folderName, "GameInfo.json");
+            }
+
+            if (localGameInfoPath != "" && File.Exists(localGameInfoPath))
+            {
+                gameInfoFile = JObject.Parse(File.ReadAllText(localGameInfoPath));
 
                 Version localVersion = new Version(gameInfoFile["GameVersion"].ToString());
                 VersionText.Text = "v" + localVersion.ToString();
@@ -96,13 +112,13 @@ namespace TutorialWPFApp
                 try
                 {
                     WebClient webClient = new WebClient();
-                    JObject onlineJson = JObject.Parse(webClient.DownloadString("https://3iywda.am.files.1drv.com/y4mP7LMMcjZVxDvCtppkkUuNWZQTTJjjnIB4v4uqFQffiRHFSdg5x6HwCd4O2Bxrpj-9Mhiy6bi2bKtnxDl4gMcCJNFVOruvZmsJJhmAVIYpl6W0d8UThBR82E3xX_9GfDa4mJpB26KskGJaM3Ig_MBuO3egoq9EU0gtj_dezg0yhW4TyjT1kgtT3HAmzPdD2PuC6QwS4FhycAFKxvrjrxMpQ"));
+                    JObject onlineJson = JObject.Parse(webClient.DownloadString(gameDatabaseFile["Games"][index]["LinkToGameInfo"].ToString()));
 
                     Version onlineVersion = new Version(onlineJson["GameVersion"].ToString());
 
                     if (onlineVersion.IsDifferentVersion(localVersion))
                     {
-                        InstallGameFiles(true, onlineJson);
+                        InstallGameFiles(true, onlineJson, gameDatabaseFile["Games"][index]["LinkToGameInfo"].ToString());
                     }
                     else
                     {
@@ -132,11 +148,11 @@ namespace TutorialWPFApp
             }
             else
             {
-                InstallGameFiles(false, JObject.Parse("{\r\n\"GameVersion\": \"0.0.0\"\r\n}\r\n"));
+                InstallGameFiles(false, JObject.Parse("{\r\n\"GameVersion\": \"0.0.0\"\r\n}\r\n"), gameDatabaseFile["Games"][index]["LinkToGameInfo"].ToString());
             }
         }
 
-        private void InstallGameFiles(bool _isUpdate, JObject _onlineJson)
+        private void InstallGameFiles(bool _isUpdate, JObject _onlineJson, string _downloadURL)
         {
             try
             {
@@ -148,11 +164,11 @@ namespace TutorialWPFApp
                 else
                 {
                     State = LauncherState.downloadingGame;
-                    _onlineJson = JObject.Parse(webClient.DownloadString("https://3iywda.am.files.1drv.com/y4mP7LMMcjZVxDvCtppkkUuNWZQTTJjjnIB4v4uqFQffiRHFSdg5x6HwCd4O2Bxrpj-9Mhiy6bi2bKtnxDl4gMcCJNFVOruvZmsJJhmAVIYpl6W0d8UThBR82E3xX_9GfDa4mJpB26KskGJaM3Ig_MBuO3egoq9EU0gtj_dezg0yhW4TyjT1kgtT3HAmzPdD2PuC6QwS4FhycAFKxvrjrxMpQ"));
+                    _onlineJson = JObject.Parse(webClient.DownloadString(_downloadURL));
                 }
 
                 webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(DownloadGameCompletedCallback);
-                webClient.DownloadFileAsync(new Uri(_onlineJson["LinkToGameZip"].ToString()), gameZip, _onlineJson);
+                webClient.DownloadFileAsync(new Uri(_onlineJson["LinkToGameZip"].ToString()), Path.Combine(rootPath, _onlineJson["GameName"].ToString() + ".zip"), _onlineJson);
             }
             catch (Exception ex)
             {
@@ -166,10 +182,14 @@ namespace TutorialWPFApp
             try
             {
                 JObject onlineJson = (JObject)e.UserState;
-                ZipFile.ExtractToDirectory(gameZip, System.IO.Path.Combine(rootPath, onlineJson["GameName"].ToString()));
-                File.Delete(gameZip);
 
-                File.WriteAllText(localJson, onlineJson.ToString());
+                string pathToZip = Path.Combine(rootPath, onlineJson["GameName"].ToString() + ".zip");
+                ZipFile.ExtractToDirectory(pathToZip, Path.Combine(gameDirectoryPath, onlineJson["GameName"].ToString()));
+                File.Delete(pathToZip);
+
+                localGameInfoPath = Path.Combine(gameDirectoryPath, onlineJson["GameName"].ToString(), "GameInfo.json");
+
+                File.WriteAllText(localGameInfoPath, onlineJson.ToString());
 
                 gameInfoFile = onlineJson;
 
@@ -200,20 +220,64 @@ namespace TutorialWPFApp
 
         private void Window_ContentRendered(object sender, EventArgs e)
         {
-            CheckForUpdates();
+            bool foundGameDatabase = false;
+
+            if (File.Exists(gameDatabaseURLPath))
+            {
+                gameDatabaseURL = JObject.Parse(File.ReadAllText(gameDatabaseURLPath))["URL"].ToString();
+
+                try
+                {
+                    WebClient webClient = new WebClient();
+                    gameDatabaseFile = JObject.Parse(webClient.DownloadString(gameDatabaseURL));
+
+                    foundGameDatabase = true;
+
+                    File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
+
+                    JArray games = (JArray)gameDatabaseFile["Games"];
+
+                    if (games.Count > 0)
+                    {
+                        CheckForUpdates(0);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Failed to get game database: No games found.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to get game database: {ex.Message}");
+                }
+            }
+            else MessageBox.Show("Failed to get game database URL: GameDatabaseURL.json does not exist.");
+            
+            if (!foundGameDatabase)
+            {
+                // Quit the application
+                Application.Current.Shutdown();
+            }
         }
 
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
-            if (File.Exists(gameExe) && State == LauncherState.ready)
+            int currentIndexOfGame = 0;
+
+            string currentGameFolder = /*gameDatabaseFile["Games"][currentIndexOfGame]["FolderName"].ToString();*/ "Game";
+
+            JObject currentGameInfo = JObject.Parse(File.ReadAllText(Path.Combine(gameDirectoryPath, currentGameFolder, "GameInfo.json")));
+            string currentGameExe = Path.Combine(gameDirectoryPath, currentGameFolder, currentGameInfo["NameOfExecutable"].ToString());
+
+            if (File.Exists(currentGameExe) && State == LauncherState.ready)
             {
-                ProcessStartInfo startInfo = new ProcessStartInfo(gameExe);
-                startInfo.WorkingDirectory = System.IO.Path.Combine(rootPath, "Game");
+                ProcessStartInfo startInfo = new ProcessStartInfo(currentGameExe);
+                startInfo.WorkingDirectory = currentGameFolder;
                 Process.Start(startInfo);
             }
             else if (State == LauncherState.failed)
             {
-                CheckForUpdates();
+                //CheckForUpdates();
             }
         }
     }
