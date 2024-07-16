@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Windows;
 using System.Windows.Controls;
@@ -30,12 +31,15 @@ namespace TutorialWPFApp
         private string localGameDatabasePath;
         private JObject gameDatabaseFile;
 
-        private string localGameInfoPath = "";
+        private string localGameInfoPath;
         private JObject gameInfoFile;
 
         int updateIndexOfGame;
 
         int currentlySelectedGameIndex;
+        private JObject[] gameInfoFilesList;
+
+        private TextBlock[] gameTitlesList;
 
         private LauncherState _state;
         internal LauncherState State
@@ -78,6 +82,7 @@ namespace TutorialWPFApp
             gameDirectoryPath = Path.Combine(rootPath, "Games");
 
             localGameDatabasePath = Path.Combine(gameDirectoryPath, "GameDatabase.json");
+            localGameInfoPath = "";
 
             // Create the games directory if it doesn't exist
             if (!Directory.Exists(gameDirectoryPath))
@@ -98,6 +103,12 @@ namespace TutorialWPFApp
             if (localGameInfoPath != "" && File.Exists(localGameInfoPath))
             {
                 gameInfoFile = JObject.Parse(File.ReadAllText(localGameInfoPath));
+                gameInfoFilesList[updateIndexOfGame] = gameInfoFile;
+                if (updateIndexOfGame < 10)
+                {
+                    gameTitlesList[updateIndexOfGame].Text = gameInfoFile["GameName"].ToString();
+                    gameTitlesList[updateIndexOfGame].Visibility = Visibility.Visible;
+                }
 
                 Version localVersion = new Version(gameInfoFile["GameVersion"].ToString());
                 VersionText.Text = "v" + localVersion.ToString();
@@ -124,8 +135,8 @@ namespace TutorialWPFApp
                         string[] tags = onlineJson["GameTags"].ToObject<string[]>();
                         for (int i = 0; i < tags.Length; i++)
                         {
-                            GameTagBorder[i].Visibility = Visibility.Visible;
                             GameTag[i].Text = tags[i];
+                            GameTagBorder[i].Visibility = Visibility.Visible;
                         }
 
                         GameDescription.Text = onlineJson["GameDescription"].ToString();
@@ -176,22 +187,50 @@ namespace TutorialWPFApp
             {
                 JObject onlineJson = (JObject)e.UserState;
 
-                string pathToZip = Path.Combine(rootPath, onlineJson["GameName"].ToString() + ".zip");
+                int currentUpdateIndexOfGame = -1;
+
+                WebClient webClient = new WebClient();
+                JArray games = (JArray)gameDatabaseFile["Games"];
+                for (int i = 0; i < games.Count; i++)
+                {
+                    if (JObject.Parse(webClient.DownloadString(games[i]["LinkToGameInfo"].ToString()))["LinkToGameZip"].ToString() == onlineJson["LinkToGameZip"].ToString())
+                    {
+                        currentUpdateIndexOfGame = i;
+                        break;
+                    }
+                }
+
+                if (currentUpdateIndexOfGame == -1)
+                {
+                    MessageBox.Show("Failed to update game: Game not found in database.");
+                    return;
+                }
+
+                string pathToZip = Path.Combine(rootPath, onlineJson["FolderName"].ToString() + ".zip");
                 FastZip fastZip = new FastZip();
-                fastZip.ExtractZip(pathToZip, Path.Combine(gameDirectoryPath, onlineJson["GameName"].ToString()), null);
+                fastZip.ExtractZip(pathToZip, Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString()), null);
                 File.Delete(pathToZip);
 
                 JObject gameDatabase = JObject.Parse(File.ReadAllText(localGameDatabasePath));
-                gameDatabase["Games"][updateIndexOfGame]["FolderName"] = onlineJson["GameName"].ToString();
+                gameDatabase["Games"][currentUpdateIndexOfGame]["FolderName"] = onlineJson["FolderName"].ToString();
                 File.WriteAllText(localGameDatabasePath, gameDatabase.ToString());
 
                 gameDatabaseFile = gameDatabase;
 
-                localGameInfoPath = Path.Combine(gameDirectoryPath, onlineJson["GameName"].ToString(), "GameInfo.json");
+                localGameInfoPath = Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString(), "GameInfo.json");
 
                 File.WriteAllText(localGameInfoPath, onlineJson.ToString());
 
                 gameInfoFile = onlineJson;
+                gameInfoFilesList[currentUpdateIndexOfGame] = onlineJson;
+                if (currentUpdateIndexOfGame < 10)
+                {
+                    gameTitlesList[currentUpdateIndexOfGame].Text = onlineJson["GameName"].ToString();
+                    gameTitlesList[currentUpdateIndexOfGame].Visibility = Visibility.Visible;
+                }
+
+
+                GameThumbnail.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString(), onlineJson["GameThumbnail"].ToString())));
 
                 GameTitle.Text = onlineJson["GameName"].ToString();
                 GameAuthors.Text = string.Join(", ", onlineJson["GameAuthors"].ToObject<string[]>());
@@ -220,6 +259,8 @@ namespace TutorialWPFApp
 
         private void Window_ContentRendered(object sender, EventArgs e)
         {
+            gameTitlesList = new TextBlock[10] { GameTitleText0, GameTitleText1, GameTitleText2, GameTitleText3, GameTitleText4, GameTitleText5, GameTitleText6, GameTitleText7, GameTitleText8, GameTitleText9 };
+
             bool foundGameDatabase = false;
 
             if (File.Exists(gameDatabaseURLPath))
@@ -232,6 +273,30 @@ namespace TutorialWPFApp
                     gameDatabaseFile = JObject.Parse(webClient.DownloadString(gameDatabaseURL));
 
                     foundGameDatabase = true;
+
+                    if (!File.Exists(localGameDatabasePath))
+                    {
+                        File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
+                    }
+
+                    // Save the FolderName property of each local game and write it to the new game database file
+                    JObject localGameDatabaseFile = JObject.Parse(File.ReadAllText(localGameDatabasePath));
+                    JArray localGames = (JArray)localGameDatabaseFile["Games"];
+
+                    gameInfoFilesList = new JObject[localGames.Count];
+
+                    for (int i = 0; i < localGames.Count; i++)
+                    {
+                        // Check if the game is missing the FolderName property
+                        if (localGames[i]["FolderName"] == null)
+                        {
+                            gameDatabaseFile["Games"][i]["FolderName"] = "";
+                        }
+                        else
+                        {
+                            gameDatabaseFile["Games"][i]["FolderName"] = localGames[i]["FolderName"];
+                        }
+                    }
 
                     File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
 
@@ -281,6 +346,11 @@ namespace TutorialWPFApp
             {
                 CheckForUpdates();
             }
+        }
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            Application.Current.Shutdown();
         }
     }
 
