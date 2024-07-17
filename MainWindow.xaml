@@ -1,19 +1,77 @@
-﻿<Window x:Class="TutorialWPFApp.MainWindow"
+﻿<Window x:Class="ArcademiaGameLauncher.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:System="clr-namespace:System;assembly=mscorlib"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:TutorialWPFApp"
+        xmlns:local="clr-namespace:ArcademiaGameLauncher"
         mc:Ignorable="d"
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
         WindowStyle="None"
         ContentRendered="Window_ContentRendered"
-        Title="Launcher" Height="1080" Width="1920">
+        Title="Launcher" Height="1080" Width="1920"
+        xmlns:gif="https://github.com/XamlAnimatedGif/XamlAnimatedGif">
     <Window.Resources>
         <Style x:Key="Early GameBoy">
             <Setter Property="TextElement.FontFamily" Value="/Fonts/#Early GameBoy"/>
+        </Style>
+        <Style x:Key="FocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Rectangle Margin="2" SnapsToDevicePixels="true" Stroke="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}" StrokeThickness="1" StrokeDashArray="1 2"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <SolidColorBrush x:Key="ToggleButton.Static.Background" Color="#FFDDDDDD"/>
+        <SolidColorBrush x:Key="ToggleButton.Static.Border" Color="#FF707070"/>
+        <SolidColorBrush x:Key="ToggleButton.MouseOver.Background" Color="#777"/>
+        <SolidColorBrush x:Key="ToggleButton.MouseOver.Border" Color="#FFF"/>
+        <SolidColorBrush x:Key="ToggleButton.Pressed.Background" Color="#FFC4E5F6"/>
+        <SolidColorBrush x:Key="ToggleButton.Pressed.Border" Color="#FF2C628B"/>
+        <SolidColorBrush x:Key="ToggleButton.Disabled.Background" Color="#222"/>
+        <SolidColorBrush x:Key="ToggleButton.Disabled.Border" Color="#FFF"/>
+        <SolidColorBrush x:Key="ToggleButton.Disabled.Foreground" Color="#FFF"/>
+        <Style x:Key="ToggleButtonStyle" TargetType="{x:Type ToggleButton}">
+            <Setter Property="FontFamily" Value="/Fonts/#Early GameBoy"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+            <Setter Property="Background" Value="{StaticResource ToggleButton.Static.Background}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource ToggleButton.Static.Border}"/>
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ToggleButton}">
+                        <Border x:Name="border" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Background="{TemplateBinding Background}" SnapsToDevicePixels="true">
+                            <ContentPresenter x:Name="contentPresenter" Focusable="False" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsPressed" Value="true">
+                                <Setter Property="Background" TargetName="border" Value="{StaticResource ToggleButton.Pressed.Background}"/>
+                                <Setter Property="BorderBrush" TargetName="border" Value="{StaticResource ToggleButton.Pressed.Border}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="false">
+                                <Setter Property="Background" TargetName="border" Value="{StaticResource ToggleButton.Disabled.Background}"/>
+                                <Setter Property="BorderBrush" TargetName="border" Value="{StaticResource ToggleButton.Disabled.Border}"/>
+                                <Setter Property="TextElement.Foreground" TargetName="contentPresenter" Value="{StaticResource ToggleButton.Disabled.Foreground}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter Property="Background" TargetName="border" Value="{StaticResource ToggleButton.MouseOver.Background}"/>
+                                <Setter Property="BorderBrush" TargetName="border" Value="{StaticResource ToggleButton.MouseOver.Border}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="true">
+                                <Setter Property="Background" TargetName="border" Value="{StaticResource ToggleButton.MouseOver.Background}"/>
+                                <Setter Property="BorderBrush" TargetName="border" Value="{StaticResource ToggleButton.MouseOver.Border}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
     <Grid>
@@ -38,7 +96,7 @@
                         <RowDefinition Height="1*"/>
                     </Grid.RowDefinitions>
                     <Grid Grid.Row="0" HorizontalAlignment="Left">
-                        <Button x:Name="CloseButton" Content="    Go Back" Click="CloseButton_Click" FontSize="18" Style="{StaticResource Early GameBoy}" Background="Transparent" Foreground="White" BorderBrush="White" BorderThickness="3" Width="200" Height="75"/>
+                        <ToggleButton x:Name="CloseButton" Content="    Go Back" Click="CloseButton_Click" Style="{StaticResource ToggleButtonStyle}" FontSize="18" Background="Transparent" Foreground="White" BorderBrush="White" BorderThickness="3" Width="200" Height="75"/>
                         <TextBlock Text="&#10132;" Foreground="White" FontSize="28" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,130,0">
                             <TextBlock.LayoutTransform>
                                 <RotateTransform Angle="180"/>
@@ -126,17 +184,17 @@
                                     <!-- Up Key -->
                                     <Grid Grid.Column="0" Margin="5,0">
                                         <Ellipse Fill="#777"
-                                                 Height="70"
-                                                 Width="70"
-                                                 StrokeThickness="2"
-                                                 Stroke="#777"
-                                                 Margin="4,6,0,0"/>
+                                                    Height="70"
+                                                    Width="70"
+                                                    StrokeThickness="2"
+                                                    Stroke="#777"
+                                                    Margin="4,6,0,0"/>
                                         <Ellipse Fill="#000"
-                                                 Height="68"
-                                                 Width="68"
-                                                 StrokeThickness="4"
-                                                 Stroke="#777"
-                                                 Margin="0,0,4,6"/>
+                                                    Height="68"
+                                                    Width="68"
+                                                    StrokeThickness="4"
+                                                    Stroke="#777"
+                                                    Margin="0,0,4,6"/>
                                         <TextBlock Text="&#10132;" Foreground="White" FontSize="44" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,7,6">
                                             <TextBlock.LayoutTransform>
                                                 <RotateTransform Angle="270"/>
@@ -157,17 +215,17 @@
                                     <!-- Down Key -->
                                     <Grid Grid.Column="0">
                                         <Ellipse Fill="#777"
-                                                 Height="70"
-                                                 Width="70"
-                                                 StrokeThickness="2"
-                                                 Stroke="#777"
-                                                 Margin="4,6,0,0"/>
+                                                    Height="70"
+                                                    Width="70"
+                                                    StrokeThickness="2"
+                                                    Stroke="#777"
+                                                    Margin="4,6,0,0"/>
                                         <Ellipse Fill="#000"
-                                                 Height="68"
-                                                 Width="68"
-                                                 StrokeThickness="4"
-                                                 Stroke="#777"
-                                                 Margin="0,0,4,6"/>
+                                                    Height="68"
+                                                    Width="68"
+                                                    StrokeThickness="4"
+                                                    Stroke="#777"
+                                                    Margin="0,0,4,6"/>
                                         <TextBlock Text="&#10132;" Foreground="White" FontSize="44" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,3,6">
                                             <TextBlock.LayoutTransform>
                                                 <RotateTransform Angle="90"/>
@@ -212,17 +270,17 @@
                                             <!-- Left Key -->
                                             <Grid Grid.Column="0">
                                                 <Ellipse Fill="#777"
-                                                 Height="70"
-                                                 Width="70"
-                                                 StrokeThickness="2"
-                                                 Stroke="#777"
-                                                 Margin="4,6,0,0"/>
+                                                    Height="70"
+                                                    Width="70"
+                                                    StrokeThickness="2"
+                                                    Stroke="#777"
+                                                    Margin="4,6,0,0"/>
                                                 <Ellipse Fill="#000"
-                                                 Height="68"
-                                                 Width="68"
-                                                 StrokeThickness="4"
-                                                 Stroke="#777"
-                                                 Margin="0,0,4,6"/>
+                                                    Height="68"
+                                                    Width="68"
+                                                    StrokeThickness="4"
+                                                    Stroke="#777"
+                                                    Margin="0,0,4,6"/>
                                                 <TextBlock Text="&#10132;" Foreground="White" FontSize="44" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,6,6">
                                                     <TextBlock.LayoutTransform>
                                                         <RotateTransform Angle="180"/>
@@ -243,17 +301,17 @@
                                             <!-- Right Key -->
                                             <Grid Grid.Column="0">
                                                 <Ellipse Fill="#777"
-                                                 Height="70"
-                                                 Width="70"
-                                                 StrokeThickness="2"
-                                                 Stroke="#777"
-                                                 Margin="4,6,0,0"/>
+                                                    Height="70"
+                                                    Width="70"
+                                                    StrokeThickness="2"
+                                                    Stroke="#777"
+                                                    Margin="4,6,0,0"/>
                                                 <Ellipse Fill="#000"
-                                                 Height="68"
-                                                 Width="68"
-                                                 StrokeThickness="4"
-                                                 Stroke="#777"
-                                                 Margin="0,0,4,6"/>
+                                                    Height="68"
+                                                    Width="68"
+                                                    StrokeThickness="4"
+                                                    Stroke="#777"
+                                                    Margin="0,0,4,6"/>
                                                 <TextBlock Text="&#10132;" Foreground="White" FontSize="44" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,6,8"/>
                                             </Grid>
                                             <!-- Right Text -->
@@ -278,17 +336,17 @@
                                     <!-- Start Key -->
                                     <Grid Grid.Column="0">
                                         <Ellipse Fill="#732121"
-                                                 Height="70"
-                                                 Width="70"
-                                                 StrokeThickness="5"
-                                                 Stroke="#732121"
-                                                 Margin="4,6,0,0"/>
+                                                    Height="70"
+                                                    Width="70"
+                                                    StrokeThickness="5"
+                                                    Stroke="#732121"
+                                                    Margin="4,6,0,0"/>
                                         <Ellipse Fill="#E64342"
-                                                 Height="68"
-                                                 Width="68"
-                                                 StrokeThickness="3"
-                                                 Stroke="#E64342"
-                                                 Margin="0,0,4,6"/>
+                                                    Height="68"
+                                                    Width="68"
+                                                    StrokeThickness="3"
+                                                    Stroke="#E64342"
+                                                    Margin="0,0,4,6"/>
                                         <TextBlock Text="A" Foreground="White" FontSize="24" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="2,0,0,4"/>
                                     </Grid>
                                     <!-- Start Text -->
@@ -315,7 +373,17 @@
                 <Border BorderThickness="5"
                         BorderBrush="#FFF"
                         Margin="25">
-                    <Image x:Name="GameThumbnail" Source="/Images/ThumbnailPlaceholder.png" Stretch="UniformToFill"/>
+                    <Image x:Name="NonGif_GameThumbnail"
+                           Source="/Images/ThumbnailPlaceholder.png"
+                           Stretch="UniformToFill" />
+                </Border>
+                <Border BorderThickness="5"
+                        BorderBrush="#FFF"
+                        Margin="25">
+                    <Image x:Name="Gif_GameThumbnail"
+                           gif:AnimationBehavior.CacheFramesInMemory="True"
+                           gif:AnimationBehavior.SourceUri="/Images/ThumbnailPlaceholder.png"
+                           Stretch="UniformToFill" />
                 </Border>
             </Grid>
             <Grid Grid.Row="1" Background="Black">
@@ -332,7 +400,7 @@
                 
                 <!-- Game Author(s) -->
                 <Grid Grid.Row="1" Margin="50,0">
-                    <TextBlock x:Name="GameAuthors" Text="Authors:" Foreground="#777" FontSize="24" VerticalAlignment="Center" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="GameAuthors" Text="" Foreground="#777" FontSize="24" VerticalAlignment="Center" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
                 </Grid>
 
                 <!-- Game Tag(s) -->
@@ -395,7 +463,7 @@
             </Grid>
             <!-- Game Start/Update -->
             <Grid Grid.Row="3" Background="Black" Margin="25">
-                <Button x:Name="StartButton" Content="Checking For Updates..." Click="StartButton_Click" FontSize="28" Style="{StaticResource Early GameBoy}" Background="#FF333333" Foreground="White" BorderBrush="White" BorderThickness="3"/>
+                <ToggleButton x:Name="StartButton" Content="Checking For Updates..." Click="StartButton_Click" Style="{StaticResource ToggleButtonStyle}" FontSize="28" Background="#222" Foreground="White" BorderBrush="White" BorderThickness="3"/>
             </Grid>
             <!-- Game Version -->
             <Grid Grid.Row="4" Background="Black" Margin="25,0">

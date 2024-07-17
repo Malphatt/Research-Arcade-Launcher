@@ -1,16 +1,20 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Windows;
 using System.Windows.Controls;
-using System.Xml.Linq;
 using ICSharpCode.SharpZipLib.Zip;
 using Newtonsoft.Json.Linq;
+using SharpDX.DirectInput;
+using System.Windows.Media;
+using System.Threading.Tasks;
+using System.Windows.Media.Imaging;
+using XamlAnimatedGif;
 
-namespace TutorialWPFApp
+namespace ArcademiaGameLauncher
 {
     enum LauncherState
     {
@@ -18,6 +22,141 @@ namespace TutorialWPFApp
         failed,
         downloadingGame,
         downloadingUpdate
+    }
+
+    public class ControllerState
+    {
+        private int index;
+        private bool[] buttonStates;
+        private int leftStickX;
+        private int leftStickY;
+        private int rightStickX;
+        private int rightStickY;
+
+        int joystickDeadzone = 5000;
+        int joystickMidpoint = 32767;
+
+        public Joystick joystick;
+        public JoystickState state;
+
+        public ControllerState(Joystick _joystick, int index)
+        {
+            this.index = index;
+            joystick = _joystick;
+            state = new JoystickState();
+
+            buttonStates = new bool[128];
+            state = joystick.GetCurrentState();
+        }
+
+        public void UpdateButtonStates()
+        {
+            joystick.Poll();
+            state = joystick.GetCurrentState();
+
+            leftStickX = state.X;
+            leftStickY = state.Y;
+
+            rightStickX = state.RotationX;
+            rightStickY = state.RotationY;
+
+            for (int i = 0; i < buttonStates.Length; i++)
+            {
+                SetButtonState(i, state.Buttons[i]);
+            }
+        }
+
+        public int GetLeftStickX()
+        {
+            return leftStickX;
+        }
+        public int GetLeftStickY() {
+            return leftStickY;
+        }
+        public int GetRightStickX()
+        {
+            return rightStickX;
+        }
+        public int GetRightStickY()
+        {
+            return rightStickY;
+        }
+
+        public int[] GetLeftStickDirection()
+        {
+            int[] direction = new int[2];
+
+            if (leftStickX > joystickMidpoint + joystickDeadzone)
+            {
+                direction[0] = 1;
+            }
+            else if (leftStickX < joystickMidpoint - joystickDeadzone)
+            {
+                direction[0] = -1;
+            }
+            else
+            {
+                direction[0] = 0;
+            }
+
+            if (leftStickY > joystickMidpoint + joystickDeadzone)
+            {
+                direction[1] = 1;
+            }
+            else if (leftStickY < joystickMidpoint - joystickDeadzone)
+            {
+                direction[1] = -1;
+            }
+            else
+            {
+                direction[1] = 0;
+            }
+
+            return direction;
+        }
+
+        public int[] GetRightStickDirection()
+        {
+            int[] direction = new int[2];
+
+            if (rightStickX > joystickMidpoint + joystickDeadzone)
+            {
+                direction[0] = 1;
+            }
+            else if (rightStickX < joystickMidpoint - joystickDeadzone)
+            {
+                direction[0] = -1;
+            }
+            else
+            {
+                direction[0] = 0;
+            }
+
+            if (rightStickY > joystickMidpoint + joystickDeadzone)
+            {
+                direction[1] = 1;
+            }
+            else if (rightStickY < joystickMidpoint - joystickDeadzone)
+            {
+                direction[1] = -1;
+            }
+            else
+            {
+                direction[1] = 0;
+            }
+
+            return direction;
+        }
+
+        public void SetButtonState(int _button, bool _state)
+        {
+            buttonStates[_button] = _state;
+        }
+
+        public bool GetButtonState(int _button)
+        {
+            return buttonStates[_button];
+        }
     }
 
     public partial class MainWindow : Window
@@ -35,11 +174,21 @@ namespace TutorialWPFApp
         private JObject gameInfoFile;
 
         int updateIndexOfGame;
+        private System.Timers.Timer aTimer;
 
+        int selectionUpdateInterval = 150;
+        int selectionUpdateInternalCounter = 0;
+        int selectionUpdateInternalCounterMax = 10;
+        int selectionUpdateCounter = 0;
         int currentlySelectedGameIndex;
+        int previousPageIndex = 0;
+
         private JObject[] gameInfoFilesList;
 
         private TextBlock[] gameTitlesList;
+
+        private DirectInput directInput;
+        private List<ControllerState> controllerStates = new List<ControllerState>();
 
         private LauncherState _state;
         internal LauncherState State
@@ -93,12 +242,13 @@ namespace TutorialWPFApp
 
         private void CheckForUpdates()
         {
+            if (gameDatabaseFile["Games"][updateIndexOfGame]["FolderName"] == null)
+                gameDatabaseFile["Games"][updateIndexOfGame]["FolderName"] = "";
+
             string folderName = gameDatabaseFile["Games"][updateIndexOfGame]["FolderName"].ToString();
 
             if (folderName != "")
-            {
                 localGameInfoPath = Path.Combine(gameDirectoryPath, folderName, "GameInfo.json");
-            }
 
             if (localGameInfoPath != "" && File.Exists(localGameInfoPath))
             {
@@ -126,21 +276,6 @@ namespace TutorialWPFApp
                     }
                     else
                     {
-                        GameTitle.Text = onlineJson["GameName"].ToString();
-                        GameAuthors.Text = string.Join(", ", onlineJson["GameAuthors"].ToObject<string[]>());
-
-                        Border[] GameTagBorder = new Border[9] { GameTagBorder0, GameTagBorder1, GameTagBorder2, GameTagBorder3, GameTagBorder4, GameTagBorder5, GameTagBorder6, GameTagBorder7, GameTagBorder8 };
-                        TextBlock[] GameTag = new TextBlock[9] { GameTag0, GameTag1, GameTag2, GameTag3, GameTag4, GameTag5, GameTag6, GameTag7, GameTag8 };
-
-                        string[] tags = onlineJson["GameTags"].ToObject<string[]>();
-                        for (int i = 0; i < tags.Length; i++)
-                        {
-                            GameTag[i].Text = tags[i];
-                            GameTagBorder[i].Visibility = Visibility.Visible;
-                        }
-
-                        GameDescription.Text = onlineJson["GameDescription"].ToString();
-
                         State = LauncherState.ready;
                     }
                 }
@@ -229,25 +364,6 @@ namespace TutorialWPFApp
                     gameTitlesList[currentUpdateIndexOfGame].Visibility = Visibility.Visible;
                 }
 
-
-                GameThumbnail.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString(), onlineJson["GameThumbnail"].ToString())));
-
-                GameTitle.Text = onlineJson["GameName"].ToString();
-                GameAuthors.Text = string.Join(", ", onlineJson["GameAuthors"].ToObject<string[]>());
-
-                Border[] GameTagBorder = new Border[9] { GameTagBorder0, GameTagBorder1, GameTagBorder2, GameTagBorder3, GameTagBorder4, GameTagBorder5, GameTagBorder6, GameTagBorder7, GameTagBorder8 };
-                TextBlock[] GameTag = new TextBlock[9] { GameTag0, GameTag1, GameTag2, GameTag3, GameTag4, GameTag5, GameTag6, GameTag7, GameTag8 };
-
-                string[] tags = onlineJson["GameTags"].ToObject<string[]>();
-                for (int i = 0; i < tags.Length; i++)
-                {
-                    GameTagBorder[i].Visibility = Visibility.Visible;
-                    GameTag[i].Text = tags[i];
-                }
-
-                GameDescription.Text = onlineJson["GameDescription"].ToString();
-
-                VersionText.Text = "v" + onlineJson["GameVersion"].ToString();
                 State = LauncherState.ready;
             }
             catch (Exception ex)
@@ -327,6 +443,75 @@ namespace TutorialWPFApp
                 // Quit the application
                 Application.Current.Shutdown();
             }
+
+
+            // Initialize Direct Input
+            directInput = new DirectInput();
+
+            // Find a JoyStick Guid
+            var joystickGuid = Guid.Empty;
+
+            // Find a Gamepad Guid
+            foreach (var deviceInstance in directInput.GetDevices(DeviceType.Gamepad, DeviceEnumerationFlags.AllDevices))
+            {
+                joystickGuid = deviceInstance.InstanceGuid;
+                break;
+            }
+
+            // If no Gamepad is found, find a Joystick
+            if (joystickGuid == Guid.Empty)
+            {
+                foreach (var deviceInstance in directInput.GetDevices(DeviceType.Joystick, DeviceEnumerationFlags.AllDevices))
+                {
+                    joystickGuid = deviceInstance.InstanceGuid;
+                    break;
+                }
+            }
+
+            // If no Joystick is found, throw an error
+            if (joystickGuid == Guid.Empty)
+            {
+                MessageBox.Show("No joystick or gamepad found.");
+                Application.Current.Shutdown();
+                return;
+            }
+
+            // Instantiate the joystick
+            Joystick joystick = new Joystick(directInput, joystickGuid);
+
+            // Query all suported ForceFeedback effects
+            var allEffects = joystick.GetEffects();
+            foreach (var effectInfo in allEffects)
+            {
+                Console.WriteLine(effectInfo.Name);
+            }
+
+            // Set BufferSize in order to use buffered data.
+            joystick.Properties.BufferSize = 128;
+
+            // Acquire the joystick
+            joystick.Acquire();
+
+            // Create a new ControllerState object for the joystick
+            ControllerState controllerState = new ControllerState(joystick, controllerStates.Count);
+            controllerStates.Add(controllerState);
+
+            currentlySelectedGameIndex = 0;
+
+            UpdateGameInfoDisplay();
+
+            // Timer Setup
+            aTimer = new System.Timers.Timer();
+            aTimer.Interval = 10;
+
+            // Hook up the Elapsed event for the timer. 
+            aTimer.Elapsed += OnTimedEvent;
+
+            // Have the timer fire repeated events (true is the default)
+            aTimer.AutoReset = true;
+
+            // Start the timer
+            aTimer.Enabled = true;
         }
 
         private void StartButton_Click(object sender, RoutedEventArgs e)
@@ -351,6 +536,245 @@ namespace TutorialWPFApp
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             Application.Current.Shutdown();
+        }
+
+        private void Window_Closing(object sender, CancelEventArgs e)
+        {
+            aTimer.Stop();
+            aTimer.Dispose();
+        }
+
+        private void OnTimedEvent(Object source, System.Timers.ElapsedEventArgs e)
+        {
+            controllerStates[0].UpdateButtonStates();
+
+            if (Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        UpdateCurrentSelection();
+                    });
+                }
+                catch (TaskCanceledException ex)
+                {
+                    Console.WriteLine("Task was canceled: " + ex.Message);
+                }
+            }
+
+            if (selectionUpdateCounter > selectionUpdateInterval)
+                selectionUpdateInternalCounter = 0;
+            selectionUpdateCounter += 10;
+        }
+
+        private void UpdateCurrentSelection()
+        {
+            double multiplier = 1.00;
+
+            if (selectionUpdateInternalCounter > 0)
+                multiplier = (double)1.00 - ((double)selectionUpdateInternalCounter / ((double)selectionUpdateInternalCounterMax * 1.6));
+
+
+            if (selectionUpdateCounter >= selectionUpdateInterval * multiplier)
+            {
+                int[] leftStickDirection = controllerStates[0].GetLeftStickDirection();
+                int[] rightStickDirection = controllerStates[0].GetRightStickDirection();
+
+                if (leftStickDirection[1] == -1 || rightStickDirection[1] == -1)
+                {
+                    currentlySelectedGameIndex -= 1;
+                    if (currentlySelectedGameIndex < -1)
+                        currentlySelectedGameIndex = -1;
+
+                    selectionUpdateCounter = 0;
+                    if (selectionUpdateInternalCounter < selectionUpdateInternalCounterMax)
+                        selectionUpdateInternalCounter++;
+                    UpdateGameInfoDisplay();
+                }
+                else if (leftStickDirection[1] == 1 || rightStickDirection[1] == 1)
+                {
+                    currentlySelectedGameIndex += 1;
+                    if (currentlySelectedGameIndex > gameInfoFilesList.Length - 1)
+                        currentlySelectedGameIndex = gameInfoFilesList.Length - 1;
+
+                    selectionUpdateCounter = 0;
+                    if (selectionUpdateInternalCounter < selectionUpdateInternalCounterMax)
+                        selectionUpdateInternalCounter++;
+                    UpdateGameInfoDisplay();
+                }
+            }
+
+            // Check if the A button is pressed
+            if (controllerStates[0].GetButtonState(0))
+                if (currentlySelectedGameIndex >= 0) StartButton_Click(null, null);
+                else CloseButton_Click(null, null);
+        }
+
+        private void ChangePage(int _pageIndex)
+        {
+            if (_pageIndex < 0)
+                _pageIndex = 0;
+            else if (_pageIndex > gameInfoFilesList.Length / 10)
+                _pageIndex = gameInfoFilesList.Length / 10;
+
+            previousPageIndex = _pageIndex;
+
+            for (int i = 0; i < 10; i++)
+            {
+                gameTitlesList[i].Visibility = Visibility.Hidden;
+            }
+
+            for (int i = 0; i < 10; i++)
+            {
+                if (i + _pageIndex * 10 >= gameInfoFilesList.Length)
+                    break;
+
+                gameTitlesList[i].Text = gameInfoFilesList[i + _pageIndex * 10]["GameName"].ToString();
+                gameTitlesList[i].Visibility = Visibility.Visible;
+            }
+        }
+
+        private void ResetTitles()
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                gameTitlesList[i].Visibility = Visibility.Hidden;
+            }
+        }
+
+        private void ResetGameInfoDisplay()
+        {
+            NonGif_GameThumbnail.Source = new BitmapImage(new Uri("Images/ThumbnailPlaceholder.png", UriKind.Relative));
+            AnimationBehavior.SetSourceUri(Gif_GameThumbnail, new Uri("Images/ThumbnailPlaceholder.png", UriKind.Relative));
+
+            GameTitle.Text = "Select A Game";
+            GameAuthors.Text = "";
+            GameDescription.Text = "Select a game using the joystick and by pressing A.";
+            VersionText.Text = "";
+
+            GameTagBorder0.Visibility = Visibility.Hidden;
+            GameTagBorder1.Visibility = Visibility.Hidden;
+            GameTagBorder2.Visibility = Visibility.Hidden;
+            GameTagBorder3.Visibility = Visibility.Hidden;
+            GameTagBorder4.Visibility = Visibility.Hidden;
+            GameTagBorder5.Visibility = Visibility.Hidden;
+            GameTagBorder6.Visibility = Visibility.Hidden;
+            GameTagBorder7.Visibility = Visibility.Hidden;
+            GameTagBorder8.Visibility = Visibility.Hidden;
+
+            GameTag0.Text = "";
+            GameTag1.Text = "";
+            GameTag2.Text = "";
+            GameTag3.Text = "";
+            GameTag4.Text = "";
+            GameTag5.Text = "";
+            GameTag6.Text = "";
+            GameTag7.Text = "";
+            GameTag8.Text = "";
+            
+            GameTag0.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTag1.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTag2.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTag3.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTag4.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTag5.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTag6.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTag7.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTag8.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+
+            GameTagBorder0.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTagBorder1.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTagBorder2.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTagBorder3.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTagBorder4.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTagBorder5.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTagBorder6.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTagBorder7.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+            GameTagBorder8.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+        }
+
+        private void UpdateGameInfoDisplay()
+        {
+
+            if (currentlySelectedGameIndex < 0)
+            {
+                ResetGameInfoDisplay();
+
+                foreach (TextBlock title in gameTitlesList)
+                    title.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+
+                CloseButton.IsChecked = true;
+                StartButton.IsChecked = false;
+                StartButton.Content = "Select a Game";
+                StartButton.IsEnabled = false;
+
+                return;
+            }
+            CloseButton.IsChecked = false;
+            StartButton.Content = "Start";
+
+            int pageIndex = currentlySelectedGameIndex / 10;
+            if (pageIndex != previousPageIndex)
+            {
+                ChangePage(pageIndex);
+            }
+
+            for (int i = pageIndex * 10; i < (pageIndex + 1) * 10; i++)
+            {
+
+                if (i == currentlySelectedGameIndex)
+                {
+                    gameTitlesList[i % 10].Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0x3D, 0x71));
+
+                    // Update the game info
+                    if (gameInfoFilesList[i] != null)
+                    {
+                        ResetGameInfoDisplay();
+
+                        StartButton.IsChecked = true;
+
+                        NonGif_GameThumbnail.Source = new BitmapImage(new Uri(Path.Combine(gameDirectoryPath, gameInfoFilesList[i]["FolderName"].ToString(), gameInfoFilesList[i]["GameThumbnail"].ToString()), UriKind.Absolute));
+                        AnimationBehavior.SetSourceUri(Gif_GameThumbnail, new Uri(Path.Combine(gameDirectoryPath, gameInfoFilesList[i]["FolderName"].ToString(), gameInfoFilesList[i]["GameThumbnail"].ToString()), UriKind.Absolute));
+
+                        GameTitle.Text = gameInfoFilesList[i]["GameName"].ToString();
+                        GameAuthors.Text = string.Join(", ", gameInfoFilesList[i]["GameAuthors"].ToObject<string[]>());
+
+                        Border[] GameTagBorder = new Border[9] { GameTagBorder0, GameTagBorder1, GameTagBorder2, GameTagBorder3, GameTagBorder4, GameTagBorder5, GameTagBorder6, GameTagBorder7, GameTagBorder8 };
+                        TextBlock[] GameTag = new TextBlock[9] { GameTag0, GameTag1, GameTag2, GameTag3, GameTag4, GameTag5, GameTag6, GameTag7, GameTag8 };
+
+                        JArray tags = (JArray)gameInfoFilesList[i]["GameTags"];
+
+                        for (int j = 0; j < tags.Count; j++)
+                        {
+                            // Change Visibility
+                            GameTagBorder[j].Visibility = Visibility.Visible;
+
+                            // Change Text Content
+                            GameTag[j].Text = tags[j]["Name"].ToString();
+
+                            // Change Border and Text Colour
+                            string colour = "#FF777777";
+
+                            if (tags[j]["Colour"] != null && tags[j]["Colour"].ToString() != "")
+                            {
+                                colour = tags[j]["Colour"].ToString();
+                            }
+
+                            GameTag[j].Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colour));
+                            GameTagBorder[j].BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colour));
+                        }
+
+                        GameDescription.Text = gameInfoFilesList[i]["GameDescription"].ToString();
+
+                        VersionText.Text = "v" + gameInfoFilesList[i]["GameVersion"].ToString();
+                    }
+                }
+                else
+                {
+                    gameTitlesList[i % 10].Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                }
+            }
         }
     }
 
