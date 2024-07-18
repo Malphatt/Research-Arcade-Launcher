@@ -6,6 +6,7 @@ using System.IO;
 using System.Net;
 using System.Windows;
 using System.Windows.Controls;
+using System.Runtime.InteropServices;
 using ICSharpCode.SharpZipLib.Zip;
 using Newtonsoft.Json.Linq;
 using SharpDX.DirectInput;
@@ -161,6 +162,14 @@ namespace ArcademiaGameLauncher
 
     public partial class MainWindow : Window
     {
+        [DllImport("User32.dll")]
+        public static extern int GetAsyncKeyState(Int32 i);
+
+        [DllImport("User32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+
+
         private string rootPath;
         private string gameDirectoryPath;
 
@@ -183,12 +192,18 @@ namespace ArcademiaGameLauncher
         int currentlySelectedGameIndex;
         int previousPageIndex = 0;
 
+        int afkTimer = 0;
+        int timeSinceStart = 0;
+        bool afkTimerActive = false;
+
         private JObject[] gameInfoFilesList;
 
         private TextBlock[] gameTitlesList;
 
         private DirectInput directInput;
         private List<ControllerState> controllerStates = new List<ControllerState>();
+
+        private Process currentlyRunningProcess;
 
         private LauncherState _state;
         internal LauncherState State
@@ -525,7 +540,10 @@ namespace ArcademiaGameLauncher
             {
                 ProcessStartInfo startInfo = new ProcessStartInfo(currentGameExe);
                 startInfo.WorkingDirectory = currentGameFolder;
-                Process.Start(startInfo);
+                if (currentlyRunningProcess == null || currentlyRunningProcess.HasExited)
+                    currentlyRunningProcess = Process.Start(startInfo);
+                else // Set focus to the currently running process
+                    SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
             }
             else if (State == LauncherState.failed)
             {
@@ -548,7 +566,94 @@ namespace ArcademiaGameLauncher
         {
             controllerStates[0].UpdateButtonStates();
 
-            if (Application.Current != null && Application.Current.Dispatcher != null)
+            // Keylogger for AFK Timer
+            if (afkTimerActive)
+            {
+                // Check for any key press and reset the timer if any key is pressed
+                for (int i = 8; i < 91; i++)
+                    if (GetAsyncKeyState(i) != 0)
+                    {
+                        afkTimer = 0;
+                        break;
+                    }
+            }
+            else
+            {
+                // Check for any key press and start the timer if any key is pressed
+                for (int i = 8; i < 91; i++)
+                    if (GetAsyncKeyState(i) != 0)
+                    {
+                        afkTimerActive = true;
+                        afkTimer = 0;
+
+                        // Show the Selection Menu
+                        if (Application.Current != null && Application.Current.Dispatcher != null)
+                        {
+                            try
+                            {
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    SelectionMenu.Visibility = Visibility.Visible;
+                                    StartMenu.Visibility = Visibility.Collapsed;
+                                });
+                            }
+                            catch (TaskCanceledException) { }
+                        }
+
+                        // Set the focus to the game launcher
+                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+
+                        break;
+                    }
+            }
+
+            // If the user is AFK for 3 minutes, Warn them and then close the currently running application
+            if (afkTimer >= /*18000*/0)
+            {
+                if (afkTimer >= /*18*/5000)
+                {
+                    // Reset the timer
+                    afkTimerActive = false;
+                    afkTimer = 0;
+                    timeSinceStart = 0;
+
+                    // Close the currently running application
+                    if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
+                    {
+                        currentlyRunningProcess.Kill();
+                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+                        currentlyRunningProcess = null;
+                    }
+
+                    // Show the Start Menu
+                    if (Application.Current != null && Application.Current.Dispatcher != null)
+                    {
+                        try
+                        {
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                StartMenu.Visibility = Visibility.Visible;
+                                SelectionMenu.Visibility = Visibility.Collapsed;
+                            });
+                        }
+                        catch (TaskCanceledException) { }
+                    }
+
+                }
+                else
+                {
+                    // Warn the user
+
+                }
+            }
+            else
+            {
+                // Hide the warning
+
+            }
+
+            // Update the Selection Menu
+            if (timeSinceStart > 500 && Application.Current != null && Application.Current.Dispatcher != null)
             {
                 try
                 {
@@ -557,11 +662,21 @@ namespace ArcademiaGameLauncher
                         UpdateCurrentSelection();
                     });
                 }
-                catch (TaskCanceledException ex)
-                {
-                    Console.WriteLine("Task was canceled: " + ex.Message);
-                }
+                catch (TaskCanceledException) { }
             }
+
+            // Check if the currently running process has exited, and set the focus back to the launcher
+            if (currentlyRunningProcess != null && currentlyRunningProcess.HasExited)
+            {
+                SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+                currentlyRunningProcess = null;
+            }
+
+            if (SelectionMenu.Visibility == Visibility.Visible && timeSinceStart <= 500)
+                timeSinceStart += 10;
+
+            if (afkTimerActive)
+                afkTimer += 10;
 
             if (selectionUpdateCounter > selectionUpdateInterval)
                 selectionUpdateInternalCounter = 0;
