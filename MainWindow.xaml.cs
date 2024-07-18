@@ -250,9 +250,7 @@ namespace ArcademiaGameLauncher
 
             // Create the games directory if it doesn't exist
             if (!Directory.Exists(gameDirectoryPath))
-            {
                 Directory.CreateDirectory(gameDirectoryPath);
-            }
         }
 
         private void CheckForUpdates()
