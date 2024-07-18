@@ -33,7 +33,7 @@ namespace ArcademiaGameLauncher
         private int rightStickX;
         private int rightStickY;
 
-        int joystickDeadzone = 5000;
+        int joystickDeadzone = 7700;
         int joystickMidpoint = 32767;
 
         public Joystick joystick;
