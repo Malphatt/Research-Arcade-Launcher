@@ -189,15 +189,20 @@ namespace ArcademiaGameLauncher
         int selectionUpdateInternalCounter = 0;
         int selectionUpdateInternalCounterMax = 10;
         int selectionUpdateCounter = 0;
+
+        int currentlySelectedHomeIndex = 0;
+
         int currentlySelectedGameIndex;
         int previousPageIndex = 0;
 
         int afkTimer = 0;
-        int timeSinceStart = 0;
         bool afkTimerActive = false;
+
+        int timeSinceLastAButton = 0;
 
         private JObject[] gameInfoFilesList;
 
+        private TextBlock[] homeOptionsList;
         private TextBlock[] gameTitlesList;
 
         private DirectInput directInput;
@@ -388,6 +393,8 @@ namespace ArcademiaGameLauncher
 
         private void Window_ContentRendered(object sender, EventArgs e)
         {
+            Copyright.Text = "Copyright ©️ 2018 - " + DateTime.Now.Year + " University of Lincoln, All rights reserved.";
+            homeOptionsList = new TextBlock[3] { GameLibraryText, AboutText, ExitText };
             gameTitlesList = new TextBlock[10] { GameTitleText0, GameTitleText1, GameTitleText2, GameTitleText3, GameTitleText4, GameTitleText5, GameTitleText6, GameTitleText7, GameTitleText8, GameTitleText9 };
 
             bool foundGameDatabase = false;
@@ -527,6 +534,80 @@ namespace ArcademiaGameLauncher
             aTimer.Enabled = true;
         }
 
+        private void GameLibraryButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Show the Selection Menu
+            if (Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        StartMenu.Visibility = Visibility.Collapsed;
+                        HomeMenu.Visibility = Visibility.Collapsed;
+                        SelectionMenu.Visibility = Visibility.Visible;
+                    });
+                }
+                catch (TaskCanceledException) { }
+            }
+
+            // Set the focus to the game launcher
+            SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+        }
+
+        private void ExitButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Show the Start Menu
+            if (Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        StartMenu.Visibility = Visibility.Visible;
+                        HomeMenu.Visibility = Visibility.Collapsed;
+                        SelectionMenu.Visibility = Visibility.Collapsed;
+                    });
+                }
+                catch (TaskCanceledException) { }
+            }
+
+            // Set the focus to the game launcher
+            SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+
+            // Reset AFK Timer after Half a Second
+            Task.Delay(500).ContinueWith(t =>
+            {
+                afkTimerActive = false;
+                afkTimer = 0;
+            });
+        }
+
+        private void BackFromGameLibraryButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Show the Home Menu
+            if (Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        StartMenu.Visibility = Visibility.Collapsed;
+                        HomeMenu.Visibility = Visibility.Visible;
+                        SelectionMenu.Visibility = Visibility.Collapsed;
+                    });
+                }
+                catch (TaskCanceledException) { }
+            }
+
+            // Set the focus to the game launcher
+            SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+
+            // Set the currently selected Home Index to 0
+            currentlySelectedHomeIndex = 0;
+            HighlightCurrentHomeMenuOption();
+        }
+
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
             string currentGameFolder = gameDatabaseFile["Games"][currentlySelectedGameIndex]["FolderName"].ToString();
@@ -547,11 +628,6 @@ namespace ArcademiaGameLauncher
             {
                 CheckForUpdates();
             }
-        }
-
-        private void CloseButton_Click(object sender, RoutedEventArgs e)
-        {
-            Application.Current.Shutdown();
         }
 
         private void Window_Closing(object sender, CancelEventArgs e)
@@ -583,16 +659,21 @@ namespace ArcademiaGameLauncher
                     {
                         afkTimerActive = true;
                         afkTimer = 0;
+                        timeSinceLastAButton = 0;
 
-                        // Show the Selection Menu
+                        // Show the Home Menu
                         if (Application.Current != null && Application.Current.Dispatcher != null)
                         {
                             try
                             {
                                 Application.Current.Dispatcher.Invoke(() =>
                                 {
-                                    SelectionMenu.Visibility = Visibility.Visible;
                                     StartMenu.Visibility = Visibility.Collapsed;
+                                    HomeMenu.Visibility = Visibility.Visible;
+                                    SelectionMenu.Visibility = Visibility.Collapsed;
+
+                                    currentlySelectedHomeIndex = 0;
+                                    HighlightCurrentHomeMenuOption();
                                 });
                             }
                             catch (TaskCanceledException) { }
@@ -613,7 +694,6 @@ namespace ArcademiaGameLauncher
                     // Reset the timer
                     afkTimerActive = false;
                     afkTimer = 0;
-                    timeSinceStart = 0;
 
                     // Close the currently running application
                     if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
@@ -631,6 +711,7 @@ namespace ArcademiaGameLauncher
                             Application.Current.Dispatcher.Invoke(() =>
                             {
                                 StartMenu.Visibility = Visibility.Visible;
+                                HomeMenu.Visibility = Visibility.Collapsed;
                                 SelectionMenu.Visibility = Visibility.Collapsed;
                             });
                         }
@@ -651,7 +732,9 @@ namespace ArcademiaGameLauncher
             }
 
             // Update the Selection Menu
-            if (timeSinceStart > 500 && Application.Current != null && Application.Current.Dispatcher != null)
+            if ((HomeMenu.Visibility == Visibility.Visible || SelectionMenu.Visibility == Visibility.Visible) &&
+                Application.Current != null &&
+                Application.Current.Dispatcher != null)
             {
                 try
                 {
@@ -670,15 +753,13 @@ namespace ArcademiaGameLauncher
                 currentlyRunningProcess = null;
             }
 
-            if (SelectionMenu.Visibility == Visibility.Visible && timeSinceStart <= 500)
-                timeSinceStart += 10;
-
             if (afkTimerActive)
                 afkTimer += 10;
 
             if (selectionUpdateCounter > selectionUpdateInterval)
                 selectionUpdateInternalCounter = 0;
             selectionUpdateCounter += 10;
+            timeSinceLastAButton += 10;
         }
 
         private void UpdateCurrentSelection()
@@ -688,7 +769,6 @@ namespace ArcademiaGameLauncher
             if (selectionUpdateInternalCounter > 0)
                 multiplier = (double)1.00 - ((double)selectionUpdateInternalCounter / ((double)selectionUpdateInternalCounterMax * 1.6));
 
-
             if (selectionUpdateCounter >= selectionUpdateInterval * multiplier)
             {
                 int[] leftStickDirection = controllerStates[0].GetLeftStickDirection();
@@ -696,32 +776,89 @@ namespace ArcademiaGameLauncher
 
                 if (leftStickDirection[1] == -1 || rightStickDirection[1] == -1)
                 {
-                    currentlySelectedGameIndex -= 1;
-                    if (currentlySelectedGameIndex < -1)
-                        currentlySelectedGameIndex = -1;
-
                     selectionUpdateCounter = 0;
                     if (selectionUpdateInternalCounter < selectionUpdateInternalCounterMax)
                         selectionUpdateInternalCounter++;
-                    UpdateGameInfoDisplay();
+
+                    if (HomeMenu.Visibility == Visibility.Visible)
+                    {
+                        currentlySelectedHomeIndex -= 1;
+                        if (currentlySelectedHomeIndex < 0)
+                            currentlySelectedHomeIndex = 0;
+
+                        HighlightCurrentHomeMenuOption();
+                    }
+                    else if (SelectionMenu.Visibility == Visibility.Visible)
+                    {
+                        currentlySelectedGameIndex -= 1;
+                        if (currentlySelectedGameIndex < -1)
+                            currentlySelectedGameIndex = -1;
+
+                        UpdateGameInfoDisplay();
+                    }
                 }
                 else if (leftStickDirection[1] == 1 || rightStickDirection[1] == 1)
                 {
-                    currentlySelectedGameIndex += 1;
-                    if (currentlySelectedGameIndex > gameInfoFilesList.Length - 1)
-                        currentlySelectedGameIndex = gameInfoFilesList.Length - 1;
-
                     selectionUpdateCounter = 0;
                     if (selectionUpdateInternalCounter < selectionUpdateInternalCounterMax)
                         selectionUpdateInternalCounter++;
-                    UpdateGameInfoDisplay();
+
+                    if (HomeMenu.Visibility == Visibility.Visible)
+                    {
+                        currentlySelectedHomeIndex += 1;
+                        if (currentlySelectedHomeIndex > 2)
+                            currentlySelectedHomeIndex = 2;
+
+                        HighlightCurrentHomeMenuOption();
+                    }
+                    else if (SelectionMenu.Visibility == Visibility.Visible)
+                    {
+                        currentlySelectedGameIndex += 1;
+                        if (currentlySelectedGameIndex > gameInfoFilesList.Length - 1)
+                            currentlySelectedGameIndex = gameInfoFilesList.Length - 1;
+
+                        UpdateGameInfoDisplay();
+                    }
                 }
             }
 
             // Check if the A button is pressed
-            if (controllerStates[0].GetButtonState(0))
-                if (currentlySelectedGameIndex >= 0) StartButton_Click(null, null);
-                else CloseButton_Click(null, null);
+            if (timeSinceLastAButton > 500 && controllerStates[0].GetButtonState(0))
+            {
+                timeSinceLastAButton = 0;
+
+                if (HomeMenu.Visibility == Visibility.Visible)
+                {
+                    if (currentlySelectedHomeIndex == 0)
+                    {
+                        // Run the GameLibraryButton_Click method
+                        GameLibraryButton_Click(null, null);
+                    }
+                    else if (currentlySelectedHomeIndex == 1)
+                    {
+                        // Open the About menu
+                        MessageBox.Show("Arcademia Game Launcher\n\nVersion: 1.0.0\n\nDeveloped by:\nMatthew Freeman\n\n©️ 2018 - " + DateTime.Now.Year + " University of Lincoln, All rights reserved.");
+                    }
+                    else if (currentlySelectedHomeIndex == 2)
+                    {
+                        // Run the ExitButton_Click method
+                        ExitButton_Click(null, null);
+                    }
+                }
+                else if (SelectionMenu.Visibility == Visibility.Visible)
+                {
+                    if (currentlySelectedGameIndex >= 0) StartButton_Click(null, null);
+                    else BackFromGameLibraryButton_Click(null, null);
+                }
+            }
+        }
+
+        private void HighlightCurrentHomeMenuOption()
+        {
+            foreach (TextBlock option in homeOptionsList)
+                option.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+
+            homeOptionsList[currentlySelectedHomeIndex].Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0x3D, 0x71));
         }
 
         private void ChangePage(int _pageIndex)
@@ -817,14 +954,14 @@ namespace ArcademiaGameLauncher
                 foreach (TextBlock title in gameTitlesList)
                     title.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
 
-                CloseButton.IsChecked = true;
+                BackFromGameLibraryButton.IsChecked = true;
                 StartButton.IsChecked = false;
                 StartButton.Content = "Select a Game";
                 StartButton.IsEnabled = false;
 
                 return;
             }
-            CloseButton.IsChecked = false;
+            BackFromGameLibraryButton.IsChecked = false;
             StartButton.Content = "Start";
 
             int pageIndex = currentlySelectedGameIndex / 10;
