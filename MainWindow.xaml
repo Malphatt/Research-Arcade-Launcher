@@ -86,18 +86,28 @@
             <Grid.Background>
                 <SolidColorBrush Color="Black"/>
             </Grid.Background>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="4*"/>
-                <RowDefinition Height="1*"/>
-            </Grid.RowDefinitions>
-            <Grid Grid.Row="0" Background="#333">
-                <Image gif:AnimationBehavior.AutoStart="True"
-                       gif:AnimationBehavior.SourceUri="/Images/Background.gif"
+            <Canvas Background="#333">
+                <Image Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}"
+                       Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}"
+                       gif:AnimationBehavior.CacheFramesInMemory="True"
+                       gif:AnimationBehavior.SourceUri="/Images/StartMenu_Background.gif"
                        Stretch="UniformToFill"/>
-            </Grid>
-            <Grid Grid.Row="1">
-                <TextBlock x:Name="PressStartText" Text="Press Any Button To Start" Style="{StaticResource Early GameBoy}" FontSize="36" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-            </Grid>
+                <Rectangle Fill="#000" Width="1069" Height="1701" Canvas.Left="838" Canvas.Top="-164" HorizontalAlignment="Center" VerticalAlignment="Top">
+                    <Rectangle.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform/>
+                            <SkewTransform/>
+                            <RotateTransform Angle="5.326"/>
+                            <TranslateTransform/>
+                        </TransformGroup>
+                    </Rectangle.RenderTransform>
+                </Rectangle>
+                <Image Source="/Images/Arcademia_Logo.png"
+                       Width="800"
+                       Height="400"
+                       Stretch="Uniform" Canvas.Left="880"/>
+                <TextBlock x:Name="PressStartText" Text="PRESS START" Style="{StaticResource Early GameBoy}" FontSize="60" Foreground="White" VerticalAlignment="Top" HorizontalAlignment="Left" Canvas.Left="950" Canvas.Top="690"/>
+            </Canvas>
         </Grid>
 
         <Grid x:Name="HomeMenu" Visibility="Collapsed" Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
@@ -237,36 +247,36 @@
                             </Border>
                         </Grid>
                         <Grid Grid.Column="2">
-                        <Border BorderThickness="1,0,0,0">
-                            <Border.BorderBrush>
-                                <DrawingBrush Viewport="0,0,8,8" ViewportUnits="Absolute" TileMode="Tile">
-                                    <DrawingBrush.Drawing>
-                                        <DrawingGroup>
-                                            <GeometryDrawing Brush="#777">
-                                                <GeometryDrawing.Geometry>
-                                                    <GeometryGroup>
-                                                        <RectangleGeometry Rect="0,0,50,50" />
-                                                        <RectangleGeometry Rect="50,50,50,50" />
-                                                    </GeometryGroup>
-                                                </GeometryDrawing.Geometry>
-                                            </GeometryDrawing>
-                                        </DrawingGroup>
-                                    </DrawingBrush.Drawing>
-                                </DrawingBrush>
-                            </Border.BorderBrush>
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="1*"/>
-                                    <RowDefinition Height="1*"/>
-                                </Grid.RowDefinitions>
-                                <!-- Start Control -->
-                                <Grid Grid.Row="0" Margin="0,5">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="3*"/>
-                                        <ColumnDefinition Width="5*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <!-- Start Key -->
-                                    <Grid Grid.Column="0">
+                            <Border BorderThickness="1,0,0,0">
+                                <Border.BorderBrush>
+                                    <DrawingBrush Viewport="0,0,8,8" ViewportUnits="Absolute" TileMode="Tile">
+                                        <DrawingBrush.Drawing>
+                                            <DrawingGroup>
+                                                <GeometryDrawing Brush="#777">
+                                                    <GeometryDrawing.Geometry>
+                                                        <GeometryGroup>
+                                                            <RectangleGeometry Rect="0,0,50,50" />
+                                                            <RectangleGeometry Rect="50,50,50,50" />
+                                                        </GeometryGroup>
+                                                    </GeometryDrawing.Geometry>
+                                                </GeometryDrawing>
+                                            </DrawingGroup>
+                                        </DrawingBrush.Drawing>
+                                    </DrawingBrush>
+                                </Border.BorderBrush>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="1*"/>
+                                        <RowDefinition Height="1*"/>
+                                    </Grid.RowDefinitions>
+                                    <!-- Start Control -->
+                                    <Grid Grid.Row="0" Margin="0,5">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="3*"/>
+                                            <ColumnDefinition Width="5*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <!-- Start Key -->
+                                        <Grid Grid.Column="0">
                                             <Ellipse Fill="#FF217300"
                                                  Height="70"
                                                  Width="70"
@@ -279,30 +289,33 @@
                                                  StrokeThickness="3"
                                                  Stroke="#FF42E600"
                                                  Margin="0,0,4,6"/>
-                                        <TextBlock Text="A" Foreground="White" FontSize="24" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                                    </Grid>
-                                    <!-- Start Text -->
-                                    <Grid Grid.Column="1" Margin="10,0">
-                                        <TextBlock Text="Select" Foreground="White" FontSize="24" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="A" Foreground="White" FontSize="24" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                        </Grid>
+                                        <!-- Start Text -->
+                                        <Grid Grid.Column="1" Margin="10,0">
+                                            <TextBlock Text="Select" Foreground="White" FontSize="24" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center"/>
+                                        </Grid>
                                     </Grid>
                                 </Grid>
-                            </Grid>
-                        </Border>
-                    </Grid>
+                            </Border>
+                        </Grid>
                     </Grid>
                 </Grid>
                 <Grid Grid.Row="4" Margin="100,50">
-                    <TextBlock x:Name="Copyright" Text="Copyright ©️ 2018 - Now University of Lincoln, All rights reserved." Foreground="#777" FontSize="22" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="Copyright" Text="Copyright ©️ 2018 - Now University of Lincoln, All rights reserved." Foreground="#777" FontSize="22" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left" TextWrapping="Wrap" LineHeight="40"/>
                 </Grid>
             </Grid>
-            <Grid Grid.Column="1">
-                <StackPanel>
-                    <Grid x:Name="HomeImage" Visibility="Collapsed" Background="#333" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
+            <Grid x:Name="HomeMenuImageArea" Grid.Column="1">
+                <Canvas>
+                    <Grid x:Name="HomeImage" Visibility="Visible" Background="#333" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
                         <Image Source="/Images/ThumbnailPlaceholder.png"
                                Stretch="UniformToFill"/>
                     </Grid>
-                    <Grid x:Name="CreditsPanel" Visibility="Visible" Background="#000"/>
-                </StackPanel>
+                    <!-- Lock width of Credits Panel to the Width of HomeMenuImageArea -->
+                    <Grid x:Name="CreditsPanel" Visibility="Collapsed" Background="#000" Canvas.Top="{StaticResource {x:Static SystemParameters.PrimaryScreenHeightKey}}" Width="{Binding ElementName=HomeMenuImageArea, Path=ActualWidth}"/>
+                    <Image x:Name="UoL_Logo" Source="/Images/uolwhite.png" Visibility="Collapsed" Opacity="0.8" Width="200" Canvas.Bottom="10" Canvas.Right="10" Stretch="Uniform"/>
+                    <Image x:Name="intlab_Logo" Source="/Images/intlab.png" Visibility="Collapsed" Opacity="0.8" Width="200" Canvas.Bottom="10" Canvas.Right="220" Stretch="Uniform"/>
+                </Canvas>
             </Grid>
         </Grid>
 

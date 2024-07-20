@@ -187,9 +187,23 @@ namespace ArcademiaGameLauncher
         int updateIndexOfGame;
         private System.Timers.Timer aTimer;
 
+        int selectionAnimationFrame = 0;
+        int selectionAnimationFrameRate = 100;
+        SolidColorBrush[] selectionAnimationFrames = new SolidColorBrush[8]
+        {
+            new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xD9, 0x66)),
+            new SolidColorBrush(Color.FromArgb(0xFF, 0xE5, 0xC3, 0x5C)),
+            new SolidColorBrush(Color.FromArgb(0xFF, 0xBF, 0xA3, 0x4C)),
+            new SolidColorBrush(Color.FromArgb(0xFF, 0x9E, 0x86, 0x3F)),
+            new SolidColorBrush(Color.FromArgb(0xFF, 0x7F, 0x6c, 0x33)),
+            new SolidColorBrush(Color.FromArgb(0xFF, 0x9E, 0x86, 0x3F)),
+            new SolidColorBrush(Color.FromArgb(0xFF, 0xBF, 0xA3, 0x4C)),
+            new SolidColorBrush(Color.FromArgb(0xFF, 0xE5, 0xC3, 0x5C)),
+        };
+
         int selectionUpdateInterval = 150;
-        int selectionUpdateInternalCounter = 0;
-        int selectionUpdateInternalCounterMax = 10;
+        int selectionUpdateIntervalCounter = 0;
+        int selectionUpdateIntervalCounterMax = 10;
         int selectionUpdateCounter = 0;
 
         int currentlySelectedHomeIndex = 0;
@@ -583,7 +597,7 @@ namespace ArcademiaGameLauncher
                             titleText.Text = creditsArray[i]["Value"].ToString();
                             titleText.Style = (Style)FindResource("Early GameBoy");
                             titleText.FontSize = 24;
-                            titleText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                            titleText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xD9, 0x66));
                             titleText.HorizontalAlignment = HorizontalAlignment.Left;
                             titleText.VerticalAlignment = VerticalAlignment.Center;
 
@@ -598,7 +612,7 @@ namespace ArcademiaGameLauncher
                                 subtitleText.Text = creditsArray[i]["Subtitle"].ToString();
                                 subtitleText.Style = (Style)FindResource("Early GameBoy");
                                 subtitleText.FontSize = 16;
-                                subtitleText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                                subtitleText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
                                 subtitleText.HorizontalAlignment = HorizontalAlignment.Left;
                                 subtitleText.VerticalAlignment = VerticalAlignment.Center;
 
@@ -626,27 +640,55 @@ namespace ArcademiaGameLauncher
                             headingGrid.HorizontalAlignment = HorizontalAlignment.Left;
                             headingGrid.VerticalAlignment = VerticalAlignment.Center;
 
+                            // Create 2 new ColumnDefinitions
+                            ColumnDefinition headingGridBorderColumn = new ColumnDefinition();
+                            headingGridBorderColumn.Width = new GridLength(3, GridUnitType.Pixel);
+                            headingGrid.ColumnDefinitions.Add(headingGridBorderColumn);
+
+                            ColumnDefinition headingGridContentColumn = new ColumnDefinition();
+                            headingGridContentColumn.Width = new GridLength(1, GridUnitType.Star);
+                            headingGrid.ColumnDefinitions.Add(headingGridContentColumn);
+
+                            // Create a Grid to function as a border
+                            Grid headingBorderGrid = new Grid();
+                            headingBorderGrid.Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x33, 0x33, 0x33));
+                            headingBorderGrid.Margin = new Thickness(0, 10, 0, 10);
+
+                            // Add the Grid to the Grid
+                            Grid.SetColumn(headingBorderGrid, 0);
+                            headingGrid.Children.Add(headingBorderGrid);
+
+                            // Create a new Grid to hold the Title and Subheadings
+                            Grid headingContentGrid = new Grid();
+                            headingContentGrid.HorizontalAlignment = HorizontalAlignment.Left;
+                            headingContentGrid.VerticalAlignment = VerticalAlignment.Center;
+                            headingContentGrid.Margin = new Thickness(25, 0, 0, 0);
+
+                            // Add the Grid to the Grid
+                            Grid.SetColumn(headingContentGrid, 1);
+                            headingGrid.Children.Add(headingContentGrid);
+
                             // Create 2 new RowDefinitions
                             RowDefinition headingGridTitleRow = new RowDefinition();
                             headingGridTitleRow.Height = new GridLength(30, GridUnitType.Pixel);
-                            headingGrid.RowDefinitions.Add(headingGridTitleRow);
+                            headingContentGrid.RowDefinitions.Add(headingGridTitleRow);
 
                             RowDefinition headingGridSubheadingsRow = new RowDefinition();
                             headingGridSubheadingsRow.Height = new GridLength(subheadingsArray.Count * 25, GridUnitType.Pixel);
-                            headingGrid.RowDefinitions.Add(headingGridSubheadingsRow);
+                            headingContentGrid.RowDefinitions.Add(headingGridSubheadingsRow);
 
                             // Create a new TextBlock (Title)
                             TextBlock headingText = new TextBlock();
                             headingText.Text = creditsArray[i]["Value"].ToString();
                             headingText.Style = (Style)FindResource("Early GameBoy");
-                            headingText.FontSize = 20;
-                            headingText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                            headingText.FontSize = 16;
+                            headingText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x85, 0x8E, 0xFF));
                             headingText.HorizontalAlignment = HorizontalAlignment.Left;
                             headingText.VerticalAlignment = VerticalAlignment.Center;
 
                             // Add the TextBlock to the Grid
                             Grid.SetRow(headingText, 0);
-                            headingGrid.Children.Add(headingText);
+                            headingContentGrid.Children.Add(headingText);
 
                             // Create a new Grid for the Subheadings
                             Grid subheadingsGrid = new Grid();
@@ -666,7 +708,7 @@ namespace ArcademiaGameLauncher
                                 TextBlock subheadingText = new TextBlock();
                                 subheadingText.Text = subheadingsArray[j]["Value"].ToString();
                                 subheadingText.Style = (Style)FindResource("Early GameBoy");
-                                subheadingText.FontSize = 16;
+                                subheadingText.FontSize = 18;
                                 subheadingText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(subheadingsArray[j]["Colour"].ToString()));
                                 subheadingText.HorizontalAlignment = HorizontalAlignment.Left;
                                 subheadingText.VerticalAlignment = VerticalAlignment.Center;
@@ -677,14 +719,14 @@ namespace ArcademiaGameLauncher
                             }
 
                             // Add the Subheading Grid to the Heading Grid
-                            headingGrid.Children.Add(subheadingsGrid);
+                            headingContentGrid.Children.Add(subheadingsGrid);
 
                             // Add the Grid to the CreditsPanel
                             CreditsPanel.Children.Add(headingGrid);
 
                             break;
                         case "Note":
-                            int noteHeight = 25 + (creditsArray[i]["Value"].ToString().Length / 100 * 25);
+                            int noteHeight = 15 + (creditsArray[i]["Value"].ToString().Length / 150 * 15);
 
                             // Create a new RowDefinition
                             RowDefinition noteRow = new RowDefinition();
@@ -696,16 +738,18 @@ namespace ArcademiaGameLauncher
                             Grid.SetRow(noteGrid, 2 * i);
                             noteGrid.HorizontalAlignment = HorizontalAlignment.Left;
                             noteGrid.VerticalAlignment = VerticalAlignment.Center;
+                            noteGrid.Margin = new Thickness(0, 0, 100, 0);
 
                             // Create a new TextBlock
                             TextBlock noteText = new TextBlock();
                             noteText.Text = creditsArray[i]["Value"].ToString();
                             noteText.Style = (Style)FindResource("Early GameBoy");
-                            noteText.FontSize = 16;
-                            noteText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                            noteText.FontSize = 11;
+                            noteText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
                             noteText.HorizontalAlignment = HorizontalAlignment.Left;
                             noteText.VerticalAlignment = VerticalAlignment.Center;
                             noteText.TextWrapping = TextWrapping.Wrap;
+                            noteText.LineHeight = 15;
 
                             // Add the TextBlock to the Grid
                             noteGrid.Children.Add(noteText);
@@ -717,7 +761,7 @@ namespace ArcademiaGameLauncher
                         case "Break":
                             // Create a new RowDefinition
                             RowDefinition breakRow = new RowDefinition();
-                            breakRow.Height = new GridLength(25, GridUnitType.Pixel);
+                            breakRow.Height = new GridLength(10, GridUnitType.Pixel);
                             CreditsPanel.RowDefinitions.Add(breakRow);
 
                             // Create a new Grid
@@ -799,11 +843,23 @@ namespace ArcademiaGameLauncher
                     if (i < creditsArray.Count - 1)
                     {
                         RowDefinition spaceRow = new RowDefinition();
-                        spaceRow.Height = new GridLength(25, GridUnitType.Pixel);
+                        spaceRow.Height = new GridLength(50, GridUnitType.Pixel);
                         CreditsPanel.RowDefinitions.Add(spaceRow);
                     }
                 }
             }
+        }
+
+        private void AutoScrollCredits()
+        {
+            // Change Canvas.Top of the CreditsPanel
+            double currentTop = Canvas.GetTop(CreditsPanel);
+            double newTop = currentTop - 0.5;
+            Canvas.SetTop(CreditsPanel, newTop);
+
+            // If the CreditsPanel is off the screen, reset it to the bottom
+            if (newTop < -CreditsPanel.ActualHeight)
+                Canvas.SetTop(CreditsPanel, (int)SystemParameters.PrimaryScreenHeight);
         }
 
         private void GameLibraryButton_Click(object sender, RoutedEventArgs e)
@@ -833,8 +889,32 @@ namespace ArcademiaGameLauncher
 
         private void AboutButton_Click(object sender, RoutedEventArgs e)
         {
-            // Open the About menu
-            MessageBox.Show("Arcademia Game Launcher\n\nVersion: 1.0.0\n\nDeveloped by:\nMatthew Freeman\n\n©️ 2018 - " + DateTime.Now.Year + " University of Lincoln, All rights reserved.");
+            // Show the About Menu
+            if (Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        StartMenu.Visibility = Visibility.Collapsed;
+                        HomeMenu.Visibility = Visibility.Visible;
+                        SelectionMenu.Visibility = Visibility.Collapsed;
+
+                        HomeImage.Visibility = Visibility.Collapsed;
+                        CreditsPanel.Visibility = Visibility.Visible;
+
+                        // Show the CreditsPanel Logos
+                        UoL_Logo.Visibility = Visibility.Visible;
+                        intlab_Logo.Visibility = Visibility.Visible;
+
+                        // Set Canvas.Top of the CreditsPanel to the screen height
+                        Canvas.SetTop(CreditsPanel, (int)SystemParameters.PrimaryScreenHeight);
+                    });
+                }
+                catch (TaskCanceledException) { }
+            }
+
+
         }
 
         private void ExitButton_Click(object sender, RoutedEventArgs e)
@@ -849,6 +929,13 @@ namespace ArcademiaGameLauncher
                         StartMenu.Visibility = Visibility.Visible;
                         HomeMenu.Visibility = Visibility.Collapsed;
                         SelectionMenu.Visibility = Visibility.Collapsed;
+
+                        HomeImage.Visibility = Visibility.Visible;
+                        CreditsPanel.Visibility = Visibility.Collapsed;
+
+                        // Hide the CreditsPanel Logos
+                        UoL_Logo.Visibility = Visibility.Collapsed;
+                        intlab_Logo.Visibility = Visibility.Collapsed;
                     });
                 }
                 catch (TaskCanceledException) { }
@@ -1013,18 +1100,39 @@ namespace ArcademiaGameLauncher
 
             }
 
+            // Increment the selection animation frame
+            if ((HomeMenu.Visibility == Visibility.Visible || SelectionMenu.Visibility == Visibility.Visible) && selectionUpdateCounter % selectionAnimationFrameRate == 0)
+            {
+                if (selectionAnimationFrame < selectionAnimationFrames.Length - 1)
+                    selectionAnimationFrame++;
+                else
+                    selectionAnimationFrame = 0;
+
+                if (HomeMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
+                {
+                    try { Application.Current.Dispatcher.Invoke(() => { HighlightCurrentHomeMenuOption(); }); }
+                    catch (TaskCanceledException) { }
+                }
+                else if (SelectionMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
+                {
+                    try { Application.Current.Dispatcher.Invoke(() => { HighlightCurrentGameMenuOption(); }); }
+                    catch (TaskCanceledException) { }
+                }
+            }
+
             // Update the Selection Menu
             if ((HomeMenu.Visibility == Visibility.Visible || SelectionMenu.Visibility == Visibility.Visible) &&
                 Application.Current != null &&
                 Application.Current.Dispatcher != null)
             {
-                try
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        UpdateCurrentSelection();
-                    });
-                }
+                try { Application.Current.Dispatcher.Invoke(() => { UpdateCurrentSelection(); }); }
+                catch (TaskCanceledException) { }
+            }
+
+            // Auto Scroll the Credits Panel
+            if (CreditsPanel.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try { Application.Current.Dispatcher.Invoke(() => { AutoScrollCredits(); }); }
                 catch (TaskCanceledException) { }
             }
 
@@ -1035,21 +1143,38 @@ namespace ArcademiaGameLauncher
                 currentlyRunningProcess = null;
             }
 
+            // Flash the Start Button if the Start Menu is visible
+            if (StartMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try {
+                    Application.Current.Dispatcher.Invoke(() => {
+                        if (timeSinceLastButton % 300 == 0)
+                            PressStartText.Visibility = PressStartText.Visibility == Visibility.Visible ? Visibility.Hidden : Visibility.Visible;
+                    });
+                }
+                catch (TaskCanceledException) { }
+            }
+
             if (afkTimerActive)
                 afkTimer += 10;
 
             if (selectionUpdateCounter > selectionUpdateInterval)
-                selectionUpdateInternalCounter = 0;
+                selectionUpdateIntervalCounter = 0;
             selectionUpdateCounter += 10;
             timeSinceLastButton += 10;
+        }
+
+        private SolidColorBrush GetCurrentSelectionAnimationBrush()
+        {
+            return selectionAnimationFrames[selectionAnimationFrame];
         }
 
         private void UpdateCurrentSelection()
         {
             double multiplier = 1.00;
 
-            if (selectionUpdateInternalCounter > 0)
-                multiplier = (double)1.00 - ((double)selectionUpdateInternalCounter / ((double)selectionUpdateInternalCounterMax * 1.6));
+            if (selectionUpdateIntervalCounter > 0)
+                multiplier = (double)1.00 - ((double)selectionUpdateIntervalCounter / ((double)selectionUpdateIntervalCounterMax * 1.6));
 
             if (selectionUpdateCounter >= selectionUpdateInterval * multiplier)
             {
@@ -1059,8 +1184,8 @@ namespace ArcademiaGameLauncher
                 if (leftStickDirection[1] == -1 || rightStickDirection[1] == -1)
                 {
                     selectionUpdateCounter = 0;
-                    if (selectionUpdateInternalCounter < selectionUpdateInternalCounterMax)
-                        selectionUpdateInternalCounter++;
+                    if (selectionUpdateIntervalCounter < selectionUpdateIntervalCounterMax)
+                        selectionUpdateIntervalCounter++;
 
                     if (HomeMenu.Visibility == Visibility.Visible)
                     {
@@ -1076,14 +1201,15 @@ namespace ArcademiaGameLauncher
                         if (currentlySelectedGameIndex < -1)
                             currentlySelectedGameIndex = -1;
 
+                        HighlightCurrentGameMenuOption();
                         UpdateGameInfoDisplay();
                     }
                 }
                 else if (leftStickDirection[1] == 1 || rightStickDirection[1] == 1)
                 {
                     selectionUpdateCounter = 0;
-                    if (selectionUpdateInternalCounter < selectionUpdateInternalCounterMax)
-                        selectionUpdateInternalCounter++;
+                    if (selectionUpdateIntervalCounter < selectionUpdateIntervalCounterMax)
+                        selectionUpdateIntervalCounter++;
 
                     if (HomeMenu.Visibility == Visibility.Visible)
                     {
@@ -1099,6 +1225,7 @@ namespace ArcademiaGameLauncher
                         if (currentlySelectedGameIndex > gameInfoFilesList.Length - 1)
                             currentlySelectedGameIndex = gameInfoFilesList.Length - 1;
 
+                        HighlightCurrentGameMenuOption();
                         UpdateGameInfoDisplay();
                     }
                 }
@@ -1153,9 +1280,32 @@ namespace ArcademiaGameLauncher
         private void HighlightCurrentHomeMenuOption()
         {
             foreach (TextBlock option in homeOptionsList)
+            {
                 option.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                if (option.Text.EndsWith(" <"))
+                    option.Text = option.Text.Substring(0, option.Text.Length - 2);
+            }
 
-            homeOptionsList[currentlySelectedHomeIndex].Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0x3D, 0x71));
+            homeOptionsList[currentlySelectedHomeIndex].Foreground = GetCurrentSelectionAnimationBrush();
+            if (!homeOptionsList[currentlySelectedHomeIndex].Text.EndsWith(" <"))
+                homeOptionsList[currentlySelectedHomeIndex].Text += " <";
+        }
+
+        private void HighlightCurrentGameMenuOption()
+        {
+            foreach (TextBlock title in gameTitlesList)
+            {
+                title.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                if (title.Text.EndsWith(" <"))
+                    title.Text = title.Text.Substring(0, title.Text.Length - 2);
+            }
+
+            if (currentlySelectedGameIndex >= 0)
+            {
+                gameTitlesList[currentlySelectedGameIndex % 10].Foreground = GetCurrentSelectionAnimationBrush();
+                if (!gameTitlesList[currentlySelectedGameIndex % 10].Text.EndsWith(" <"))
+                    gameTitlesList[currentlySelectedGameIndex % 10].Text += " <";
+            }
         }
 
         private void ChangePage(int _pageIndex)
@@ -1243,13 +1393,9 @@ namespace ArcademiaGameLauncher
 
         private void UpdateGameInfoDisplay()
         {
-
             if (currentlySelectedGameIndex < 0)
             {
                 ResetGameInfoDisplay();
-
-                foreach (TextBlock title in gameTitlesList)
-                    title.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
 
                 BackFromGameLibraryButton.IsChecked = true;
                 StartButton.IsChecked = false;
@@ -1272,8 +1418,6 @@ namespace ArcademiaGameLauncher
 
                 if (i == currentlySelectedGameIndex)
                 {
-                    gameTitlesList[i % 10].Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0x3D, 0x71));
-
                     // Update the game info
                     if (gameInfoFilesList[i] != null)
                     {
