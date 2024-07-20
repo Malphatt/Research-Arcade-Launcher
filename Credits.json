@@ -1,0 +1,390 @@
+{
+  "Credits": [
+    {
+      "Type": "Note",
+      "Value": "The following is a list of contributors to either the Arcademia or Research Arcade projects. Contributors and contribution areas below are listed in no particular order."
+    },
+    {
+      "Type": "Break"
+    },
+    {
+      "Type": "Title",
+      "Value": "Arcademia",
+      "Subtitle": "2024-"
+    },
+    {
+      "Type": "Note",
+      "Value": "The Arcademia project has been rebooted since its initial development in 2022. It focuses on showcasing video games developed by the student cohort in the University of Lincoln. A successor to The Research Arcade project (and Arcademia 2022), its emphasis is shifted towards showcasing student work rather than collecting valuable data for research purposes."
+    },
+    {
+      "Type": "Heading",
+      "Value": "Lead Developer / Project Lead / Resource Lead / Management",
+      "Subheadings": [
+        {
+          "Value": "Matthew Freeman",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Tech Support",
+      "Subheadings": [
+        {
+          "Value": "Oliver Grooby",
+          "Colour": "White"
+        },
+        {
+            "Value": "Matthew Freeman",
+            "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "UI / UX Support",
+      "Subheadings": [
+        {
+          "Value": "Alex Dickinson",
+          "Colour": "White"
+        },
+        {
+            "Value": "Oliver Grooby",
+            "Colour": "White"
+        },
+        {
+            "Value": "Mike Lowen",
+            "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Game Developers - \"Robot Wars\" (Arcademia Jam 2024 Winner)",
+      "Subheadings": [
+        {
+          "Value": "Alex \"Dicko\" Dickinson",
+          "Colour": "Gold"
+        },
+        {
+          "Value": "Matthew \"Malphatt\" Freeman",
+          "Colour": "Gold"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Game Developers - \"  \"",
+      "Subheadings": [
+        {
+          "Value": "Name",
+          "Colour": "Magenta"
+        },
+        {
+          "Value": "Name",
+          "Colour": "Magenta"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Original Cabinet Design",
+      "Subheadings": [
+        {
+          "Value": "Chris Headleand",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Original Cabinet Build",
+      "Subheadings": [
+        {
+          "Value": "Chris Headleand",
+          "Colour": "White"
+        },
+        {
+          "Value": "Jeff Pashley",
+          "Colour": "White"
+        },
+        {
+          "Value": "Alex Chapman",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Break"
+    },
+    {
+      "Type": "Title",
+      "Value": "Arcademia",
+      "Subtitle": "(2022-2024)"
+    },
+    {
+      "Type": "Note",
+      "Value": "The Arcademia project focuses on showcasing video games developed by the student cohort in the University of Lincoln. A successor to The Research Arcade project, its emphasis is shifted towards showcasing student work rather than collecting valuable data for research purposes."
+    },
+    {
+      "Type": "Heading",
+      "Value": "Project Design",
+      "Subheadings": [
+        {
+          "Value": "Matt Ashton",
+          "Colour": "White"
+        },
+        {
+          "Value": "Oliver Grooby",
+          "Colour": "White"
+        },
+        {
+          "Value": "Kieran Hicks",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Resource Lead / Management",
+      "Subheadings": [
+        {
+          "Value": "Matt Ashton",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Back-End / Dockerisation / Support",
+      "Subheadings": [
+        {
+          "Value": "Oliver Grooby",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Front-End / Back-End Development",
+      "Subheadings": [
+        {
+          "Value": "Benjamin Williams",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Architecture Lead / Design",
+      "Subheadings": [
+        {
+          "Value": "Benjamin Williams",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "UI / UX Support",
+      "Subheadings": [
+        {
+          "Value": "Ally Garton",
+          "Colour": "White"
+        },
+        {
+          "Value": "Bethany Davies",
+          "Colour": "White"
+        },
+        {
+          "Value": "Oliver Grooby",
+          "Colour": "White"
+        },
+        {
+          "Value": "Kieran Hicks",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Game Developers",
+      "Subheadings": [
+        {
+          "Value": "Joe McLellland",
+          "Colour": "White"
+        },
+        {
+          "Value": "Benjamin Williams",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Original Cabinet Design",
+      "Subheadings": [
+        {
+          "Value": "Chris Headleand",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Original Cabinet Build",
+      "Subheadings": [
+        {
+          "Value": "Chris Headleand",
+          "Colour": "White"
+        },
+        {
+          "Value": "Jeff Pashley",
+          "Colour": "White"
+        },
+        {
+          "Value": "Alex Chapman",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Break"
+    },
+    {
+      "Type": "Title",
+      "Value": "The Research Arcade",
+      "Subtitle": "(2018-2022)"
+    },
+    {
+        "Type": "Gif",
+        "Stretch": "Uniform",
+        "Path": "/Images/creditEnemy.gif"
+    },
+    {
+      "Type": "Note",
+      "Value": "The Research Arcade project focused on student-created video games for research purposes. It was an experimental University of Lincoln project, running from 2018 to its closure in 2022."
+    },
+    {
+      "Type": "Heading",
+      "Value": "Project Lead",
+      "Subheadings": [
+        {
+          "Value": "Chris Headleand",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Cabinet Design",
+      "Subheadings": [
+        {
+          "Value": "Chris Headleand",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Architecture Lead",
+      "Subheadings": [
+        {
+          "Value": "Benjamin Williams",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Cabinet Build",
+      "Subheadings": [
+        {
+          "Value": "Chris Headleand",
+          "Colour": "White"
+        },
+        {
+          "Value": "Jeff Pashley",
+          "Colour": "White"
+        },
+        {
+          "Value": "Alex Chapman",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Technical Support",
+      "Subheadings": [
+        {
+          "Value": "Matt Ashton",
+          "Colour": "White"
+        },
+        {
+          "Value": "Jeff Pashley",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Game Developers",
+      "Subheadings": [
+        {
+          "Value": "Ben Hide",
+          "Colour": "White"
+        },
+        {
+          "Value": "Benjamin Williams",
+          "Colour": "White"
+        },
+        {
+          "Value": "Chris Ross",
+          "Colour": "White"
+        },
+        {
+          "Value": "Marlon Gilliam",
+          "Colour": "White"
+        },
+        {
+          "Value": "Tom Smith",
+          "Colour": "White"
+        },
+        {
+          "Value": "Alex Chapman",
+          "Colour": "White"
+        },
+        {
+          "Value": "Jake Harrington",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Special Thanks",
+      "Subheadings": [
+        {
+          "Value": "Kieran Hicks",
+          "Colour": "White"
+        },
+        {
+          "Value": "Bethany Davies",
+          "Colour": "White"
+        },
+        {
+          "Value": "Carla Taylor-Rutterford",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Break"
+    },
+    {
+      "Type": "Note",
+      "Value": "An extra thanks goes to everybody who has engaged with this project, including you!"
+    }
+  ]
+}
