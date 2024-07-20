@@ -4,15 +4,17 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Xml;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Controls;
+using System.Windows.Markup;
 using System.Runtime.InteropServices;
 using ICSharpCode.SharpZipLib.Zip;
 using Newtonsoft.Json.Linq;
 using SharpDX.DirectInput;
-using System.Windows.Media;
 using System.Threading.Tasks;
-using System.Windows.Media.Imaging;
 using XamlAnimatedGif;
 
 namespace ArcademiaGameLauncher
@@ -173,7 +175,7 @@ namespace ArcademiaGameLauncher
         private string rootPath;
         private string gameDirectoryPath;
 
-        private string gameDatabaseURLPath;
+        private string configPath;
         private string gameDatabaseURL;
 
         private string localGameDatabasePath;
@@ -198,7 +200,7 @@ namespace ArcademiaGameLauncher
         int afkTimer = 0;
         bool afkTimerActive = false;
 
-        int timeSinceLastAButton = 0;
+        int timeSinceLastButton = 0;
 
         private JObject[] gameInfoFilesList;
 
@@ -247,7 +249,7 @@ namespace ArcademiaGameLauncher
 
             rootPath = Directory.GetCurrentDirectory();
 
-            gameDatabaseURLPath = Path.Combine(rootPath, "GameDatabaseURL.json");
+            configPath = Path.Combine(rootPath, "Config.json");
             gameDirectoryPath = Path.Combine(rootPath, "Games");
 
             localGameDatabasePath = Path.Combine(gameDirectoryPath, "GameDatabase.json");
@@ -397,11 +399,13 @@ namespace ArcademiaGameLauncher
             homeOptionsList = new TextBlock[3] { GameLibraryText, AboutText, ExitText };
             gameTitlesList = new TextBlock[10] { GameTitleText0, GameTitleText1, GameTitleText2, GameTitleText3, GameTitleText4, GameTitleText5, GameTitleText6, GameTitleText7, GameTitleText8, GameTitleText9 };
 
+            GenerateCredits();
+
             bool foundGameDatabase = false;
 
-            if (File.Exists(gameDatabaseURLPath))
+            if (File.Exists(configPath))
             {
-                gameDatabaseURL = JObject.Parse(File.ReadAllText(gameDatabaseURLPath))["URL"].ToString();
+                gameDatabaseURL = JObject.Parse(File.ReadAllText(configPath))["GameDatabaseURL"].ToString();
 
                 try
                 {
@@ -534,6 +538,274 @@ namespace ArcademiaGameLauncher
             aTimer.Enabled = true;
         }
 
+        private void GenerateCredits()
+        {
+            // Read the Credits.json file
+            string creditsPath = Path.Combine(rootPath, "Credits.json");
+
+            if (File.Exists(creditsPath))
+            {
+                JObject creditsFile = JObject.Parse(File.ReadAllText(creditsPath));
+
+                JArray creditsArray = (JArray)creditsFile["Credits"];
+
+                CreditsPanel.RowDefinitions.Clear();
+                CreditsPanel.Children.Clear();
+
+                // Create a new TextBlock for each credit
+                for (int i = 0; i < creditsArray.Count; i++)
+                {
+                    switch(creditsArray[i]["Type"].ToString())
+                    {
+                        case "Title":
+                            // Create a new RowDefinition
+                            RowDefinition titleRow = new RowDefinition();
+                            titleRow.Height = new GridLength(60, GridUnitType.Pixel);
+                            CreditsPanel.RowDefinitions.Add(titleRow);
+
+                            // Create a new Grid
+                            Grid titleGrid = new Grid();
+                            Grid.SetRow(titleGrid, 2 * i);
+                            titleGrid.HorizontalAlignment = HorizontalAlignment.Left;
+                            titleGrid.VerticalAlignment = VerticalAlignment.Center;
+
+                            // Create 2 new RowDefinitions
+                            RowDefinition titleGridTitleRow = new RowDefinition();
+                            titleGridTitleRow.Height = new GridLength(40, GridUnitType.Pixel);
+                            titleGrid.RowDefinitions.Add(titleGridTitleRow);
+
+                            RowDefinition titleGridSubtitleRow = new RowDefinition();
+                            titleGridSubtitleRow.Height = new GridLength(20, GridUnitType.Pixel);
+                            titleGrid.RowDefinitions.Add(titleGridSubtitleRow);
+
+                            // Create a new TextBlock (Title)
+                            TextBlock titleText = new TextBlock();
+                            titleText.Text = creditsArray[i]["Value"].ToString();
+                            titleText.Style = (Style)FindResource("Early GameBoy");
+                            titleText.FontSize = 24;
+                            titleText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                            titleText.HorizontalAlignment = HorizontalAlignment.Left;
+                            titleText.VerticalAlignment = VerticalAlignment.Center;
+
+                            // Add the TextBlock to the Grid
+                            Grid.SetRow(titleText, 0);
+                            titleGrid.Children.Add(titleText);
+
+                            // Create a new TextBlock (Subtitle)
+                            if (creditsArray[i]["Subtitle"] != null)
+                            {
+                                TextBlock subtitleText = new TextBlock();
+                                subtitleText.Text = creditsArray[i]["Subtitle"].ToString();
+                                subtitleText.Style = (Style)FindResource("Early GameBoy");
+                                subtitleText.FontSize = 16;
+                                subtitleText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                                subtitleText.HorizontalAlignment = HorizontalAlignment.Left;
+                                subtitleText.VerticalAlignment = VerticalAlignment.Center;
+
+                                // Add the TextBlock to the Grid
+                                Grid.SetRow(subtitleText, 1);
+                                titleGrid.Children.Add(subtitleText);
+                            }
+
+                            // Add the Grid to the CreditsPanel
+                            CreditsPanel.Children.Add(titleGrid);
+
+                            break;
+                        case "Heading":
+                            // Check the Subheadings property
+                            JArray subheadingsArray = (JArray)creditsArray[i]["Subheadings"];
+
+                            // Create a new RowDefinition
+                            RowDefinition headingRow = new RowDefinition();
+                            headingRow.Height = new GridLength(30 + (subheadingsArray.Count * 25), GridUnitType.Pixel);
+                            CreditsPanel.RowDefinitions.Add(headingRow);
+
+                            // Create a new Grid
+                            Grid headingGrid = new Grid();
+                            Grid.SetRow(headingGrid, 2 * i);
+                            headingGrid.HorizontalAlignment = HorizontalAlignment.Left;
+                            headingGrid.VerticalAlignment = VerticalAlignment.Center;
+
+                            // Create 2 new RowDefinitions
+                            RowDefinition headingGridTitleRow = new RowDefinition();
+                            headingGridTitleRow.Height = new GridLength(30, GridUnitType.Pixel);
+                            headingGrid.RowDefinitions.Add(headingGridTitleRow);
+
+                            RowDefinition headingGridSubheadingsRow = new RowDefinition();
+                            headingGridSubheadingsRow.Height = new GridLength(subheadingsArray.Count * 25, GridUnitType.Pixel);
+                            headingGrid.RowDefinitions.Add(headingGridSubheadingsRow);
+
+                            // Create a new TextBlock (Title)
+                            TextBlock headingText = new TextBlock();
+                            headingText.Text = creditsArray[i]["Value"].ToString();
+                            headingText.Style = (Style)FindResource("Early GameBoy");
+                            headingText.FontSize = 20;
+                            headingText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                            headingText.HorizontalAlignment = HorizontalAlignment.Left;
+                            headingText.VerticalAlignment = VerticalAlignment.Center;
+
+                            // Add the TextBlock to the Grid
+                            Grid.SetRow(headingText, 0);
+                            headingGrid.Children.Add(headingText);
+
+                            // Create a new Grid for the Subheadings
+                            Grid subheadingsGrid = new Grid();
+                            Grid.SetRow(subheadingsGrid, 1);
+                            subheadingsGrid.HorizontalAlignment = HorizontalAlignment.Left;
+                            subheadingsGrid.VerticalAlignment = VerticalAlignment.Center;
+
+                            // For each Subheading
+                            for (int j = 0; j < subheadingsArray.Count; j++)
+                            {
+                                // Create new RowDefinitions & for each Subheading
+                                RowDefinition subheadingRow = new RowDefinition();
+                                subheadingRow.Height = new GridLength(25, GridUnitType.Pixel);
+                                subheadingsGrid.RowDefinitions.Add(subheadingRow);
+
+                                // Create a new TextBlock (Subheading)
+                                TextBlock subheadingText = new TextBlock();
+                                subheadingText.Text = subheadingsArray[j]["Value"].ToString();
+                                subheadingText.Style = (Style)FindResource("Early GameBoy");
+                                subheadingText.FontSize = 16;
+                                subheadingText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(subheadingsArray[j]["Colour"].ToString()));
+                                subheadingText.HorizontalAlignment = HorizontalAlignment.Left;
+                                subheadingText.VerticalAlignment = VerticalAlignment.Center;
+
+                                // Add the TextBlock to the Grid
+                                Grid.SetRow(subheadingText, j);
+                                subheadingsGrid.Children.Add(subheadingText);
+                            }
+
+                            // Add the Subheading Grid to the Heading Grid
+                            headingGrid.Children.Add(subheadingsGrid);
+
+                            // Add the Grid to the CreditsPanel
+                            CreditsPanel.Children.Add(headingGrid);
+
+                            break;
+                        case "Note":
+                            int noteHeight = 25 + (creditsArray[i]["Value"].ToString().Length / 100 * 25);
+
+                            // Create a new RowDefinition
+                            RowDefinition noteRow = new RowDefinition();
+                            noteRow.Height = new GridLength(noteHeight, GridUnitType.Pixel);
+                            CreditsPanel.RowDefinitions.Add(noteRow);
+
+                            // Create a new Grid
+                            Grid noteGrid = new Grid();
+                            Grid.SetRow(noteGrid, 2 * i);
+                            noteGrid.HorizontalAlignment = HorizontalAlignment.Left;
+                            noteGrid.VerticalAlignment = VerticalAlignment.Center;
+
+                            // Create a new TextBlock
+                            TextBlock noteText = new TextBlock();
+                            noteText.Text = creditsArray[i]["Value"].ToString();
+                            noteText.Style = (Style)FindResource("Early GameBoy");
+                            noteText.FontSize = 16;
+                            noteText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                            noteText.HorizontalAlignment = HorizontalAlignment.Left;
+                            noteText.VerticalAlignment = VerticalAlignment.Center;
+                            noteText.TextWrapping = TextWrapping.Wrap;
+
+                            // Add the TextBlock to the Grid
+                            noteGrid.Children.Add(noteText);
+
+                            // Add the Grid to the CreditsPanel
+                            CreditsPanel.Children.Add(noteGrid);
+
+                            break;
+                        case "Break":
+                            // Create a new RowDefinition
+                            RowDefinition breakRow = new RowDefinition();
+                            breakRow.Height = new GridLength(25, GridUnitType.Pixel);
+                            CreditsPanel.RowDefinitions.Add(breakRow);
+
+                            // Create a new Grid
+                            Grid breakGrid = new Grid();
+                            Grid.SetRow(breakGrid, 2 * i);
+                            breakGrid.HorizontalAlignment = HorizontalAlignment.Left;
+                            breakGrid.VerticalAlignment = VerticalAlignment.Center;
+
+                            // Create a new TextBlock
+                            TextBlock breakText = new TextBlock();
+                            breakText.Text = "----------------------";
+                            breakText.Style = (Style)FindResource("Early GameBoy");
+                            breakText.FontSize = 16;
+                            breakText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                            breakText.HorizontalAlignment = HorizontalAlignment.Left;
+                            breakText.VerticalAlignment = VerticalAlignment.Center;
+
+                            // Add the TextBlock to the Grid
+                            breakGrid.Children.Add(breakText);
+
+                            // Add the Grid to the CreditsPanel
+                            CreditsPanel.Children.Add(breakGrid);
+
+                            break;
+                        case "Image":
+                            // Create a new RowDefinition
+                            RowDefinition imageRow = new RowDefinition();
+                            imageRow.Height = new GridLength(100, GridUnitType.Pixel);
+                            CreditsPanel.RowDefinitions.Add(imageRow);
+
+                            // Create a new Grid
+                            Grid imageGrid = new Grid();
+                            Grid.SetRow(imageGrid, 2 * i);
+                            imageGrid.HorizontalAlignment = HorizontalAlignment.Left;
+                            imageGrid.VerticalAlignment = VerticalAlignment.Center;
+
+                            string imagePath = creditsArray[i]["Path"].ToString();
+
+                            // Create a new Image (Static)
+                            Image imageStatic = new Image();
+                            imageStatic.Source = new BitmapImage(new Uri(imagePath, UriKind.Relative));
+                            imageStatic.Stretch = Stretch.None;
+
+                            // Add the Image to the Grid
+                            imageGrid.Children.Add(imageStatic);
+
+                            // Set Grid Height to Image Height
+                            double imageHeight = imageStatic.Source.Height;
+                            imageGrid.Height = imageHeight;
+
+                            // Create a new Image (Gif)
+                            if (imagePath.EndsWith(".gif"))
+                            {
+                                // Copy GifTemplateElement_Parent's child element to make a new Image
+                                Image imageGif = CloneXamlElement((Image)GifTemplateElement_Parent.Children[0]);
+                                AnimationBehavior.SetSourceUri(imageGif, new Uri(imagePath, UriKind.Relative));
+                                imageGif.Stretch = Stretch.None;
+
+                                // Add the Image to the Grid
+                                imageGrid.Children.Add(imageGif);
+
+                                AnimationBehavior.AddLoadedHandler(imageGif, (sender, e) =>
+                                {
+                                    // Hide the static image
+                                    imageStatic.Visibility = Visibility.Collapsed;
+                                });
+                            }
+
+                            // Add the Grid to the CreditsPanel
+                            CreditsPanel.Children.Add(imageGrid);
+
+                            break;
+                        default:
+                            break;
+                    }
+
+
+                    // Create a space between each credit
+                    if (i < creditsArray.Count - 1)
+                    {
+                        RowDefinition spaceRow = new RowDefinition();
+                        spaceRow.Height = new GridLength(25, GridUnitType.Pixel);
+                        CreditsPanel.RowDefinitions.Add(spaceRow);
+                    }
+                }
+            }
+        }
+
         private void GameLibraryButton_Click(object sender, RoutedEventArgs e)
         {
             // Show the Selection Menu
@@ -553,6 +825,16 @@ namespace ArcademiaGameLauncher
 
             // Set the focus to the game launcher
             SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+
+            // Set the currently selected game index to 0
+            currentlySelectedGameIndex = 0;
+            UpdateGameInfoDisplay();
+        }
+
+        private void AboutButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Open the About menu
+            MessageBox.Show("Arcademia Game Launcher\n\nVersion: 1.0.0\n\nDeveloped by:\nMatthew Freeman\n\n©️ 2018 - " + DateTime.Now.Year + " University of Lincoln, All rights reserved.");
         }
 
         private void ExitButton_Click(object sender, RoutedEventArgs e)
@@ -659,7 +941,7 @@ namespace ArcademiaGameLauncher
                     {
                         afkTimerActive = true;
                         afkTimer = 0;
-                        timeSinceLastAButton = 0;
+                        timeSinceLastButton = 0;
 
                         // Show the Home Menu
                         if (Application.Current != null && Application.Current.Dispatcher != null)
@@ -687,9 +969,9 @@ namespace ArcademiaGameLauncher
             }
 
             // If the user is AFK for 3 minutes, Warn them and then close the currently running application
-            if (afkTimer >= /*18000*/0)
+            if (afkTimer >= 180000)
             {
-                if (afkTimer >= /*18*/5000)
+                if (afkTimer >= 185000)
                 {
                     // Reset the timer
                     afkTimerActive = false;
@@ -759,7 +1041,7 @@ namespace ArcademiaGameLauncher
             if (selectionUpdateCounter > selectionUpdateInterval)
                 selectionUpdateInternalCounter = 0;
             selectionUpdateCounter += 10;
-            timeSinceLastAButton += 10;
+            timeSinceLastButton += 10;
         }
 
         private void UpdateCurrentSelection()
@@ -823,9 +1105,9 @@ namespace ArcademiaGameLauncher
             }
 
             // Check if the A button is pressed
-            if (timeSinceLastAButton > 500 && controllerStates[0].GetButtonState(0))
+            if (timeSinceLastButton > 250 && controllerStates[0].GetButtonState(0))
             {
-                timeSinceLastAButton = 0;
+                timeSinceLastButton = 0;
 
                 if (HomeMenu.Visibility == Visibility.Visible)
                 {
@@ -836,8 +1118,8 @@ namespace ArcademiaGameLauncher
                     }
                     else if (currentlySelectedHomeIndex == 1)
                     {
-                        // Open the About menu
-                        MessageBox.Show("Arcademia Game Launcher\n\nVersion: 1.0.0\n\nDeveloped by:\nMatthew Freeman\n\n©️ 2018 - " + DateTime.Now.Year + " University of Lincoln, All rights reserved.");
+                        // Run the AboutButton_Click method
+                        AboutButton_Click(null, null);
                     }
                     else if (currentlySelectedHomeIndex == 2)
                     {
@@ -849,6 +1131,21 @@ namespace ArcademiaGameLauncher
                 {
                     if (currentlySelectedGameIndex >= 0) StartButton_Click(null, null);
                     else BackFromGameLibraryButton_Click(null, null);
+                }
+            }
+
+            // Check if the B button is pressed
+            if (timeSinceLastButton > 250 && controllerStates[0].GetButtonState(1))
+            {
+                timeSinceLastButton = 0;
+
+                if (HomeMenu.Visibility == Visibility.Visible)
+                {
+                    ExitButton_Click(null, null);
+                }
+                else if (SelectionMenu.Visibility == Visibility.Visible)
+                {
+                    BackFromGameLibraryButton_Click(null, null);
                 }
             }
         }
@@ -1025,6 +1322,14 @@ namespace ArcademiaGameLauncher
                     gameTitlesList[i % 10].Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
                 }
             }
+        }
+    
+        private T CloneXamlElement<T>(T element) where T : UIElement
+        {
+            string xaml = XamlWriter.Save(element);
+            StringReader stringReader = new StringReader(xaml);
+            XmlReader xmlReader = XmlReader.Create(stringReader);
+            return (T)XamlReader.Load(xmlReader);
         }
     }
 
