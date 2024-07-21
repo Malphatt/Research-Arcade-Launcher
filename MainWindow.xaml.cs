@@ -19,6 +19,8 @@ using XamlAnimatedGif;
 
 namespace ArcademiaGameLauncher
 {
+    // Launcher State Enum
+
     enum LauncherState
     {
         ready,
@@ -26,6 +28,8 @@ namespace ArcademiaGameLauncher
         downloadingGame,
         downloadingUpdate
     }
+
+    // Controller State Class
 
     public class ControllerState
     {
@@ -36,39 +40,47 @@ namespace ArcademiaGameLauncher
         private int rightStickX;
         private int rightStickY;
 
-        int joystickDeadzone = 7700;
-        int joystickMidpoint = 32767;
+        // Deadzone and Midpoint values for the joystick
+        readonly int joystickDeadzone = 7700;
+        readonly int joystickMidpoint = 32767;
 
         public Joystick joystick;
         public JoystickState state;
 
-        public ControllerState(Joystick _joystick, int index)
+        public ControllerState(Joystick _joystick, int _index)
         {
-            this.index = index;
+            // Set the index of the controller
+            index = _index;
+            // Set the joystick
             joystick = _joystick;
-            state = new JoystickState();
 
+            // Initialize the button states
+            state = new JoystickState();
             buttonStates = new bool[128];
             state = joystick.GetCurrentState();
         }
 
         public void UpdateButtonStates()
         {
+            // Poll the joystick for the current state
             joystick.Poll();
             state = joystick.GetCurrentState();
 
+            // Update the joystick states
             leftStickX = state.X;
             leftStickY = state.Y;
 
             rightStickX = state.RotationX;
             rightStickY = state.RotationY;
 
+            // Update the button states
             for (int i = 0; i < buttonStates.Length; i++)
             {
                 SetButtonState(i, state.Buttons[i]);
             }
         }
 
+        // Getters for the joystick states
         public int GetLeftStickX()
         {
             return leftStickX;
@@ -85,6 +97,7 @@ namespace ArcademiaGameLauncher
             return rightStickY;
         }
 
+        // Getters for the joystick directions
         public int[] GetLeftStickDirection()
         {
             int[] direction = new int[2];
@@ -117,7 +130,6 @@ namespace ArcademiaGameLauncher
 
             return direction;
         }
-
         public int[] GetRightStickDirection()
         {
             int[] direction = new int[2];
@@ -151,14 +163,14 @@ namespace ArcademiaGameLauncher
             return direction;
         }
 
-        public void SetButtonState(int _button, bool _state)
-        {
-            buttonStates[_button] = _state;
-        }
-
+        // Getter and Setter for the button states
         public bool GetButtonState(int _button)
         {
             return buttonStates[_button];
+        }
+        public void SetButtonState(int _button, bool _state)
+        {
+            buttonStates[_button] = _state;
         }
     }
 
@@ -170,26 +182,23 @@ namespace ArcademiaGameLauncher
         [DllImport("User32.dll")]
         public static extern bool SetForegroundWindow(IntPtr hWnd);
 
+        private readonly string rootPath;
+        private readonly string gameDirectoryPath;
 
-
-        private string rootPath;
-        private string gameDirectoryPath;
-
-        private string configPath;
+        private readonly string configPath;
         private string gameDatabaseURL;
 
-        private string localGameDatabasePath;
+        private readonly string localGameDatabasePath;
         private JObject gameDatabaseFile;
 
-        private string localGameInfoPath;
-        private JObject gameInfoFile;
-
-        int updateIndexOfGame;
+        private int updateIndexOfGame;
         private System.Timers.Timer aTimer;
 
-        int selectionAnimationFrame = 0;
-        int selectionAnimationFrameRate = 100;
-        SolidColorBrush[] selectionAnimationFrames = new SolidColorBrush[8]
+        private int selectionAnimationFrame = 0;
+        private int selectionAnimationFrameRate = 100;
+
+        // Colours for the Text Blocks Selection Animation
+        private readonly SolidColorBrush[] selectionAnimationFrames = new SolidColorBrush[8]
         {
             new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xD9, 0x66)),
             new SolidColorBrush(Color.FromArgb(0xFF, 0xE5, 0xC3, 0x5C)),
@@ -201,20 +210,24 @@ namespace ArcademiaGameLauncher
             new SolidColorBrush(Color.FromArgb(0xFF, 0xE5, 0xC3, 0x5C)),
         };
 
-        int selectionUpdateInterval = 150;
-        int selectionUpdateIntervalCounter = 0;
-        int selectionUpdateIntervalCounterMax = 10;
-        int selectionUpdateCounter = 0;
+        private int globalCounter = 0;
 
-        int currentlySelectedHomeIndex = 0;
+        private int selectionUpdateInterval = 150;
+        private int selectionUpdateIntervalCounter = 0;
+        private int selectionUpdateIntervalCounterMax = 10;
+        private int selectionUpdateCounter = 0;
 
-        int currentlySelectedGameIndex;
-        int previousPageIndex = 0;
+        private int currentlySelectedHomeIndex = 0;
 
-        int afkTimer = 0;
-        bool afkTimerActive = false;
+        private int currentlySelectedGameIndex;
+        private int previousPageIndex = 0;
+        private System.Timers.Timer updateGameInfoDisplayDebounceTimer;
+        private bool showingDebouncedGame = false;
 
-        int timeSinceLastButton = 0;
+        private int afkTimer = 0;
+        private bool afkTimerActive = false;
+
+        private int timeSinceLastButton = 0;
 
         private JObject[] gameInfoFilesList;
 
@@ -257,70 +270,104 @@ namespace ArcademiaGameLauncher
             }
         }
 
+        // MAIN WINDOW
+
         public MainWindow()
         {
             InitializeComponent();
 
+            // Setup Directories
             rootPath = Directory.GetCurrentDirectory();
 
             configPath = Path.Combine(rootPath, "Config.json");
             gameDirectoryPath = Path.Combine(rootPath, "Games");
 
             localGameDatabasePath = Path.Combine(gameDirectoryPath, "GameDatabase.json");
-            localGameInfoPath = "";
 
             // Create the games directory if it doesn't exist
             if (!Directory.Exists(gameDirectoryPath))
                 Directory.CreateDirectory(gameDirectoryPath);
         }
 
-        private void CheckForUpdates()
+        // Downloading and Installing Game Methods
+
+        private void CheckForUpdatesInit(int totalGames)
         {
+            // Check for updates for each game
+            for (int i = 0; i < totalGames; i++)
+                CheckForUpdates(i);
+
+            // Once all games have been checked for updates, set the state to ready
+            if (Application.Current != null && Application.Current.Dispatcher != null)
+                try { Application.Current.Dispatcher.Invoke(() => { State = LauncherState.ready; }); }
+                catch (TaskCanceledException) { }
+        }
+
+        private void CheckForUpdates(int _updateIndexOfGame)
+        {
+            // Set the updateIndexOfGame to the index of the game being updated
+            updateIndexOfGame = _updateIndexOfGame;
+
             if (gameDatabaseFile["Games"][updateIndexOfGame]["FolderName"] == null)
                 gameDatabaseFile["Games"][updateIndexOfGame]["FolderName"] = "";
 
             string folderName = gameDatabaseFile["Games"][updateIndexOfGame]["FolderName"].ToString();
+            string localGameInfoPath = "";
 
             if (folderName != "")
                 localGameInfoPath = Path.Combine(gameDirectoryPath, folderName, "GameInfo.json");
 
+            // Check if the game has a local GameInfo.json file
             if (localGameInfoPath != "" && File.Exists(localGameInfoPath))
             {
-                gameInfoFile = JObject.Parse(File.ReadAllText(localGameInfoPath));
-                gameInfoFilesList[updateIndexOfGame] = gameInfoFile;
+                gameInfoFilesList[updateIndexOfGame] = JObject.Parse(File.ReadAllText(localGameInfoPath));
+
+                // Update the game title text block if it's on the first page of the Selection Menu
                 if (updateIndexOfGame < 10)
                 {
-                    gameTitlesList[updateIndexOfGame].Text = gameInfoFile["GameName"].ToString();
-                    gameTitlesList[updateIndexOfGame].Visibility = Visibility.Visible;
+                    if (Application.Current != null && Application.Current.Dispatcher != null)
+                    {
+                        try
+                        {
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                gameTitlesList[updateIndexOfGame].Text = gameInfoFilesList[updateIndexOfGame]["GameName"].ToString();
+                                gameTitlesList[updateIndexOfGame].Visibility = Visibility.Visible;
+                            });
+                        }
+                        catch (TaskCanceledException) { }
+                    }
                 }
 
-                Version localVersion = new Version(gameInfoFile["GameVersion"].ToString());
-                VersionText.Text = "v" + localVersion.ToString();
+                // Get the local version of the game and update the VersionText text block
+                Version localVersion = new Version(gameInfoFilesList[updateIndexOfGame]["GameVersion"].ToString());
+                if (Application.Current != null && Application.Current.Dispatcher != null)
+                    try { Application.Current.Dispatcher.Invoke(() => { VersionText.Text = "v" + localVersion.ToString(); }); }
+                    catch (TaskCanceledException) { }
 
                 try
                 {
+                    // Get the online version of the game
                     WebClient webClient = new WebClient();
                     JObject onlineJson = JObject.Parse(webClient.DownloadString(gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString()));
-
                     Version onlineVersion = new Version(onlineJson["GameVersion"].ToString());
 
+                    // Compare the local version with the online version to see if an update is needed
                     if (onlineVersion.IsDifferentVersion(localVersion))
-                    {
                         InstallGameFiles(true, onlineJson, gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString());
-                    }
-                    else
-                    {
-                        State = LauncherState.ready;
-                    }
                 }
                 catch (Exception ex)
                 {
-                    State = LauncherState.failed;
+                    if (Application.Current != null && Application.Current.Dispatcher != null)
+                        try { Application.Current.Dispatcher.Invoke(() => { State = LauncherState.failed; }); }
+                        catch (TaskCanceledException) { }
+
                     MessageBox.Show($"Failed to check for updates: {ex.Message}");
                 }
             }
             else
             {
+                // If the game does not have a local GameInfo.json file, install the game files with a temporary GameInfo.json file of file version 0.0.0
                 InstallGameFiles(false, JObject.Parse("{\r\n\"GameVersion\": \"0.0.0\"\r\n}\r\n"), gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString());
             }
         }
@@ -332,20 +379,39 @@ namespace ArcademiaGameLauncher
                 WebClient webClient = new WebClient();
                 if (_isUpdate)
                 {
-                    State = LauncherState.downloadingUpdate;
+                    // If the game has an update, set the state to downloadingUpdate
+                    if (Application.Current != null && Application.Current.Dispatcher != null)
+                        try { Application.Current.Dispatcher.Invoke(() => { State = LauncherState.downloadingUpdate; }); }
+                        catch (TaskCanceledException) { }
                 }
                 else
                 {
-                    State = LauncherState.downloadingGame;
+                    // If the game doesn't have an update, set the state to downloadingGame
+                    if (Application.Current != null && Application.Current.Dispatcher != null)
+                        try { Application.Current.Dispatcher.Invoke(() => { State = LauncherState.downloadingGame; }); }
+                        catch (TaskCanceledException) { }
+
+                    // Set _onlineJson to the online JSON object
                     _onlineJson = JObject.Parse(webClient.DownloadString(_downloadURL));
                 }
 
+                // Asynchronously download the game zip file
                 webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(DownloadGameCompletedCallback);
                 webClient.DownloadFileAsync(new Uri(_onlineJson["LinkToGameZip"].ToString()), Path.Combine(rootPath, _onlineJson["GameName"].ToString() + ".zip"), _onlineJson);
             }
             catch (Exception ex)
             {
-                State = LauncherState.failed;
+                // If the download fails due to (403 Forbidden) retry the download
+                if (ex.Message.Contains("403"))
+                {
+                    InstallGameFiles(_isUpdate, _onlineJson, _downloadURL);
+                    return;
+                }
+
+                // If the download fails, set the state to failed and show an error message
+                if (Application.Current != null && Application.Current.Dispatcher != null)
+                    try { Application.Current.Dispatcher.Invoke(() => { State = LauncherState.failed; }); }
+                    catch (TaskCanceledException) { }
                 MessageBox.Show($"Failed installing game files: {ex.Message}");
             }
         }
@@ -354,12 +420,15 @@ namespace ArcademiaGameLauncher
         {
             try
             {
+                // Get the online JSON object from the AsyncCompletedEventArgs
                 JObject onlineJson = (JObject)e.UserState;
 
                 int currentUpdateIndexOfGame = -1;
 
                 WebClient webClient = new WebClient();
                 JArray games = (JArray)gameDatabaseFile["Games"];
+
+                // Find the index of the game being updated from the game database
                 for (int i = 0; i < games.Count; i++)
                 {
                     if (JObject.Parse(webClient.DownloadString(games[i]["LinkToGameInfo"].ToString()))["LinkToGameZip"].ToString() == onlineJson["LinkToGameZip"].ToString())
@@ -369,65 +438,255 @@ namespace ArcademiaGameLauncher
                     }
                 }
 
+                // If the game is not found in the game database, show an error message and return
                 if (currentUpdateIndexOfGame == -1)
                 {
                     MessageBox.Show("Failed to update game: Game not found in database.");
                     return;
                 }
 
+                // Extract the downloaded zip file to the game directory
                 string pathToZip = Path.Combine(rootPath, onlineJson["FolderName"].ToString() + ".zip");
                 FastZip fastZip = new FastZip();
                 fastZip.ExtractZip(pathToZip, Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString()), null);
                 File.Delete(pathToZip);
 
+                // Update the game database with the new FolderName property
                 JObject gameDatabase = JObject.Parse(File.ReadAllText(localGameDatabasePath));
                 gameDatabase["Games"][currentUpdateIndexOfGame]["FolderName"] = onlineJson["FolderName"].ToString();
-                File.WriteAllText(localGameDatabasePath, gameDatabase.ToString());
-
-                gameDatabaseFile = gameDatabase;
-
-                localGameInfoPath = Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString(), "GameInfo.json");
-
-                File.WriteAllText(localGameInfoPath, onlineJson.ToString());
-
-                gameInfoFile = onlineJson;
-                gameInfoFilesList[currentUpdateIndexOfGame] = onlineJson;
-                if (currentUpdateIndexOfGame < 10)
+                
+                // Write the updated game database to the local game database file (lock to prevent multiple threads writing to the file at the same time)
+                lock (gameDatabaseFile)
                 {
-                    gameTitlesList[currentUpdateIndexOfGame].Text = onlineJson["GameName"].ToString();
-                    gameTitlesList[currentUpdateIndexOfGame].Visibility = Visibility.Visible;
+                    File.WriteAllText(localGameDatabasePath, gameDatabase.ToString());
                 }
 
-                State = LauncherState.ready;
+                if (Application.Current != null && Application.Current.Dispatcher != null)
+                {
+                    try {
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            // Set the game database variable to the updated game database
+                            gameDatabaseFile = gameDatabase;
+
+                            // Write the GameInfo.json file to the game directory
+                            File.WriteAllText(Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString(), "GameInfo.json"), onlineJson.ToString());
+
+                            // Update the gameInfoFilesList with the online JSON object
+                            gameInfoFilesList[currentUpdateIndexOfGame] = onlineJson;
+
+                            // Update the game title text block if it's on the first page of the Selection Menu
+                            if (currentUpdateIndexOfGame < 10)
+                            {
+                                gameTitlesList[currentUpdateIndexOfGame].Text = onlineJson["GameName"].ToString();
+                                gameTitlesList[currentUpdateIndexOfGame].Visibility = Visibility.Visible;
+                            }
+                        });
+                    }
+                    catch (TaskCanceledException) { }
+                }
             }
             catch (Exception ex)
             {
-                State = LauncherState.failed;
+                // If the download fails due to (403 Forbidden) retry the download
+                if (ex.Message.Contains("403"))
+                {
+                    DownloadGameCompletedCallback(sender, e);
+                    return;
+                }
+
+                // If the download fails, set the state to failed and show an error message
+                if (Application.Current != null && Application.Current.Dispatcher != null)
+                    try { Application.Current.Dispatcher.Invoke(() => { State = LauncherState.failed; }); }
+                    catch (TaskCanceledException) { }
                 MessageBox.Show($"Failed to complete download: {ex.Message}");
             }
         }
 
+        // Custom TextBlock Buttons
+
+        private void GameLibraryButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Show the Selection Menu
+            if (Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        StartMenu.Visibility = Visibility.Collapsed;
+                        HomeMenu.Visibility = Visibility.Collapsed;
+                        SelectionMenu.Visibility = Visibility.Visible;
+                    });
+                }
+                catch (TaskCanceledException) { }
+            }
+
+            // Set the focus to the game launcher
+            SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+
+            // Set the currently selected game index to 0
+            currentlySelectedGameIndex = 0;
+            UpdateGameInfoDisplay();
+        }
+
+        private void AboutButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Show the About Menu
+            if (Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        StartMenu.Visibility = Visibility.Collapsed;
+                        HomeMenu.Visibility = Visibility.Visible;
+                        SelectionMenu.Visibility = Visibility.Collapsed;
+
+                        HomeImage.Visibility = Visibility.Collapsed;
+                        CreditsPanel.Visibility = Visibility.Visible;
+
+                        // Show the CreditsPanel Logos
+                        UoL_Logo.Visibility = Visibility.Visible;
+                        intlab_Logo.Visibility = Visibility.Visible;
+
+                        // Set Canvas.Top of the CreditsPanel to the screen height
+                        Canvas.SetTop(CreditsPanel, (int)SystemParameters.PrimaryScreenHeight);
+                    });
+                }
+                catch (TaskCanceledException) { }
+            }
+
+
+        }
+
+        private void ExitButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Show the Start Menu
+            if (Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        StartMenu.Visibility = Visibility.Visible;
+                        HomeMenu.Visibility = Visibility.Collapsed;
+                        SelectionMenu.Visibility = Visibility.Collapsed;
+
+                        HomeImage.Visibility = Visibility.Visible;
+                        CreditsPanel.Visibility = Visibility.Collapsed;
+
+                        // Hide the CreditsPanel Logos
+                        UoL_Logo.Visibility = Visibility.Collapsed;
+                        intlab_Logo.Visibility = Visibility.Collapsed;
+                    });
+                }
+                catch (TaskCanceledException) { }
+            }
+
+            // Set the focus to the game launcher
+            SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+
+            // Reset AFK Timer after Half a Second
+            Task.Delay(500).ContinueWith(t =>
+            {
+                afkTimerActive = false;
+                afkTimer = 0;
+            });
+        }
+
+        // ToggleButton Methods
+
+        private void BackFromGameLibraryButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Show the Home Menu
+            if (Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        StartMenu.Visibility = Visibility.Collapsed;
+                        HomeMenu.Visibility = Visibility.Visible;
+                        SelectionMenu.Visibility = Visibility.Collapsed;
+                    });
+                }
+                catch (TaskCanceledException) { }
+            }
+
+            // Set the focus to the game launcher
+            SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+
+            // Set the currently selected Home Index to 0 and highlight the current Home Menu Option
+            currentlySelectedHomeIndex = 0;
+            HighlightCurrentHomeMenuOption();
+        }
+
+        private void StartButton_Click(object sender, RoutedEventArgs e)
+        {
+            // If the game info display is not showing the currently selected game, return
+            if (!showingDebouncedGame) return;
+
+            // Get the current game folder, game info, and game executable
+            string currentGameFolder = gameDatabaseFile["Games"][currentlySelectedGameIndex]["FolderName"].ToString();
+            string currentGameExe = Path.Combine
+                (
+                    gameDirectoryPath,
+                    currentGameFolder,
+                    gameInfoFilesList[currentlySelectedGameIndex]["NameOfExecutable"].ToString()
+                );
+
+            // Start the game if the game executable exists and the launcher is ready
+            if (File.Exists(currentGameExe) && State == LauncherState.ready)
+            {
+                // Create a new ProcessStartInfo object and set the Working Directory to the game directory
+                ProcessStartInfo startInfo = new ProcessStartInfo(currentGameExe);
+                startInfo.WorkingDirectory = currentGameFolder;
+
+                // Start the game if no process is currently running
+                if (currentlyRunningProcess == null || currentlyRunningProcess.HasExited)
+                    currentlyRunningProcess = Process.Start(startInfo);
+
+                // Set focus to the currently running process
+                else
+                    SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
+            }
+            else if (State == LauncherState.failed)
+            {
+                // Run CheckForUpdatesInit again
+                Task.Run(() => CheckForUpdatesInit(((JArray)gameDatabaseFile["Games"]).Count));
+            }
+        }
+
+        // Event Handlers
+
         private void Window_ContentRendered(object sender, EventArgs e)
         {
+            // Set the Copyright text
             Copyright.Text = "Copyright ©️ 2018 - " + DateTime.Now.Year + " University of Lincoln, All rights reserved.";
+
+            // Initialize the TextBlock arrays
             homeOptionsList = new TextBlock[3] { GameLibraryText, AboutText, ExitText };
             gameTitlesList = new TextBlock[10] { GameTitleText0, GameTitleText1, GameTitleText2, GameTitleText3, GameTitleText4, GameTitleText5, GameTitleText6, GameTitleText7, GameTitleText8, GameTitleText9 };
 
+            // Generate the Credits from the Credits.json file
             GenerateCredits();
 
+            // Load the GameDatabaseURL from the Config.json file
             bool foundGameDatabase = false;
-
             if (File.Exists(configPath))
             {
                 gameDatabaseURL = JObject.Parse(File.ReadAllText(configPath))["GameDatabaseURL"].ToString();
 
                 try
                 {
+                    // Get the game database file from the online URL
                     WebClient webClient = new WebClient();
                     gameDatabaseFile = JObject.Parse(webClient.DownloadString(gameDatabaseURL));
 
                     foundGameDatabase = true;
 
+                    // If the local game database file does not exist, create it and write the game database to it
                     if (!File.Exists(localGameDatabasePath))
                     {
                         File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
@@ -439,6 +698,7 @@ namespace ArcademiaGameLauncher
 
                     gameInfoFilesList = new JObject[localGames.Count];
 
+                    // Update the FolderName property of each game in the local game database
                     for (int i = 0; i < localGames.Count; i++)
                     {
                         // Check if the game is missing the FolderName property
@@ -458,24 +718,21 @@ namespace ArcademiaGameLauncher
 
                     if (games.Count > 0)
                     {
-                        for (int i = 0; i < games.Count; i++)
-                        {
-                            updateIndexOfGame = i;
-                            CheckForUpdates();
-                        }
+                        // In a new thread, check for updates for each game (CheckForUpdatesInit)
+                        Task.Run(() => CheckForUpdatesInit(games.Count));
                     }
-                    else
-                    {
-                        MessageBox.Show("Failed to get game database: No games found.");
-                    }
+                    // If no games are found, show an error message
+                    else MessageBox.Show("Failed to get game database: No games found.");
                 }
                 catch (Exception ex)
                 {
+                    // If the game database cannot be retrieved, show an error message
                     MessageBox.Show($"Failed to get game database: {ex.Message}");
                 }
             }
-            else MessageBox.Show("Failed to get game database URL: GameDatabaseURL.json does not exist.");
-            
+            // If the Config.json file does not exist, show an error message
+            else MessageBox.Show("Failed to get game database URL: Config.json does not exist.");
+
             if (!foundGameDatabase)
             {
                 // Quit the application
@@ -534,8 +791,8 @@ namespace ArcademiaGameLauncher
             ControllerState controllerState = new ControllerState(joystick, controllerStates.Count);
             controllerStates.Add(controllerState);
 
+            // Perform an initial update of the game info display
             currentlySelectedGameIndex = 0;
-
             UpdateGameInfoDisplay();
 
             // Timer Setup
@@ -552,6 +809,175 @@ namespace ArcademiaGameLauncher
             aTimer.Enabled = true;
         }
 
+        private void OnTimedEvent(Object source, System.Timers.ElapsedEventArgs e)
+        {
+            controllerStates[0].UpdateButtonStates();
+
+            // Keylogger for AFK Timer
+            if (afkTimerActive)
+            {
+                // Check for any key press and reset the timer if any key is pressed
+                for (int i = 8; i < 91; i++)
+                    if (GetAsyncKeyState(i) != 0)
+                    {
+                        afkTimer = 0;
+                        break;
+                    }
+            }
+            else
+            {
+                // Check for any key press and start the timer if any key is pressed
+                for (int i = 8; i < 91; i++)
+                    if (GetAsyncKeyState(i) != 0)
+                    {
+                        afkTimerActive = true;
+                        afkTimer = 0;
+                        timeSinceLastButton = 0;
+
+                        // Show the Home Menu
+                        if (Application.Current != null && Application.Current.Dispatcher != null)
+                        {
+                            try
+                            {
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    StartMenu.Visibility = Visibility.Collapsed;
+                                    HomeMenu.Visibility = Visibility.Visible;
+                                    SelectionMenu.Visibility = Visibility.Collapsed;
+
+                                    currentlySelectedHomeIndex = 0;
+                                    HighlightCurrentHomeMenuOption();
+                                });
+                            }
+                            catch (TaskCanceledException) { }
+                        }
+
+                        // Set the focus to the game launcher
+                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+
+                        break;
+                    }
+            }
+
+            // If the user is AFK for 3 minutes, Warn them and then close the currently running application
+            if (afkTimer >= 180000)
+            {
+                if (afkTimer >= 185000)
+                {
+                    // Reset the timer
+                    afkTimerActive = false;
+                    afkTimer = 0;
+
+                    // Close the currently running application
+                    if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
+                    {
+                        currentlyRunningProcess.Kill();
+                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+                        currentlyRunningProcess = null;
+                    }
+
+                    // Show the Start Menu
+                    if (Application.Current != null && Application.Current.Dispatcher != null)
+                    {
+                        try
+                        {
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                StartMenu.Visibility = Visibility.Visible;
+                                HomeMenu.Visibility = Visibility.Collapsed;
+                                SelectionMenu.Visibility = Visibility.Collapsed;
+                            });
+                        }
+                        catch (TaskCanceledException) { }
+                    }
+
+                }
+                else
+                {
+                    // Warn the user (Optional: To Be Implemented)
+
+                }
+            }
+            else
+            {
+                // Hide the warning (Optional: To Be Implemented)
+
+            }
+
+            // Increment the selection animation frame
+            if ((HomeMenu.Visibility == Visibility.Visible || SelectionMenu.Visibility == Visibility.Visible) && globalCounter % selectionAnimationFrameRate == 0)
+            {
+                if (selectionAnimationFrame < selectionAnimationFrames.Length - 1)
+                    selectionAnimationFrame++;
+                else
+                    selectionAnimationFrame = 0;
+
+                // Highlight the current menu option
+                if (HomeMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
+                {
+                    try { Application.Current.Dispatcher.Invoke(() => { HighlightCurrentHomeMenuOption(); }); }
+                    catch (TaskCanceledException) { }
+                }
+                // Highlight the current game option
+                else if (SelectionMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
+                {
+                    try { Application.Current.Dispatcher.Invoke(() => { HighlightCurrentGameMenuOption(); }); }
+                    catch (TaskCanceledException) { }
+                }
+            }
+
+            // Update the Home/Selection Menu's current selection
+            if ((HomeMenu.Visibility == Visibility.Visible || SelectionMenu.Visibility == Visibility.Visible) &&
+                Application.Current != null &&
+                Application.Current.Dispatcher != null)
+            {
+                try { Application.Current.Dispatcher.Invoke(() => { UpdateCurrentSelection(); }); }
+                catch (TaskCanceledException) { }
+            }
+
+            // Auto Scroll the Credits Panel
+            if (CreditsPanel.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try { Application.Current.Dispatcher.Invoke(() => { AutoScrollCredits(); }); }
+                catch (TaskCanceledException) { }
+            }
+
+            // Check if the currently running process has exited, and set the focus back to the launcher
+            if (currentlyRunningProcess != null && currentlyRunningProcess.HasExited)
+            {
+                SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+                currentlyRunningProcess = null;
+            }
+
+            // Flash the Start Button if the Start Menu is visible
+            if (StartMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
+            {
+                try {
+                    Application.Current.Dispatcher.Invoke(() => {
+                        if (timeSinceLastButton % 300 == 0)
+                            PressStartText.Visibility = PressStartText.Visibility == Visibility.Visible ? Visibility.Hidden : Visibility.Visible;
+                    });
+                }
+                catch (TaskCanceledException) { }
+            }
+
+            // Increment the afkTimer
+            if (afkTimerActive)
+                afkTimer += 10;
+
+            // Reset the selectionUpdateIntervalCounter if enough time has passed from releasing the analog stick
+            if (selectionUpdateCounter > selectionUpdateInterval)
+                selectionUpdateIntervalCounter = 0;
+            // Increment selectionUpdateCounter and timeSinceLastButton
+            selectionUpdateCounter += 10;
+            timeSinceLastButton += 10;
+
+            // Increment the global counter
+            globalCounter += 10;
+        }
+
+        // Credits
+
         private void GenerateCredits()
         {
             // Read the Credits.json file
@@ -559,17 +985,18 @@ namespace ArcademiaGameLauncher
 
             if (File.Exists(creditsPath))
             {
+                // Parse the Credits.json file and get the Credits array
                 JObject creditsFile = JObject.Parse(File.ReadAllText(creditsPath));
-
                 JArray creditsArray = (JArray)creditsFile["Credits"];
 
+                // Clear the CreditsPanel
                 CreditsPanel.RowDefinitions.Clear();
                 CreditsPanel.Children.Clear();
 
                 // Create a new TextBlock for each credit
                 for (int i = 0; i < creditsArray.Count; i++)
                 {
-                    switch(creditsArray[i]["Type"].ToString())
+                    switch (creditsArray[i]["Type"].ToString())
                     {
                         case "Title":
                             // Create a new RowDefinition
@@ -842,11 +1269,17 @@ namespace ArcademiaGameLauncher
                     // Create a space between each credit
                     if (i < creditsArray.Count - 1)
                     {
+                        // Create a new RowDefinition
                         RowDefinition spaceRow = new RowDefinition();
                         spaceRow.Height = new GridLength(50, GridUnitType.Pixel);
                         CreditsPanel.RowDefinitions.Add(spaceRow);
                     }
                 }
+            }
+            else
+            {
+                // If the Credits.json file does not exist, show an error message
+                MessageBox.Show("Failed to generate credits: Credits.json does not exist.");
             }
         }
 
@@ -862,371 +1295,86 @@ namespace ArcademiaGameLauncher
                 Canvas.SetTop(CreditsPanel, (int)SystemParameters.PrimaryScreenHeight);
         }
 
-        private void GameLibraryButton_Click(object sender, RoutedEventArgs e)
-        {
-            // Show the Selection Menu
-            if (Application.Current != null && Application.Current.Dispatcher != null)
-            {
-                try
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        StartMenu.Visibility = Visibility.Collapsed;
-                        HomeMenu.Visibility = Visibility.Collapsed;
-                        SelectionMenu.Visibility = Visibility.Visible;
-                    });
-                }
-                catch (TaskCanceledException) { }
-            }
-
-            // Set the focus to the game launcher
-            SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-
-            // Set the currently selected game index to 0
-            currentlySelectedGameIndex = 0;
-            UpdateGameInfoDisplay();
-        }
-
-        private void AboutButton_Click(object sender, RoutedEventArgs e)
-        {
-            // Show the About Menu
-            if (Application.Current != null && Application.Current.Dispatcher != null)
-            {
-                try
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        StartMenu.Visibility = Visibility.Collapsed;
-                        HomeMenu.Visibility = Visibility.Visible;
-                        SelectionMenu.Visibility = Visibility.Collapsed;
-
-                        HomeImage.Visibility = Visibility.Collapsed;
-                        CreditsPanel.Visibility = Visibility.Visible;
-
-                        // Show the CreditsPanel Logos
-                        UoL_Logo.Visibility = Visibility.Visible;
-                        intlab_Logo.Visibility = Visibility.Visible;
-
-                        // Set Canvas.Top of the CreditsPanel to the screen height
-                        Canvas.SetTop(CreditsPanel, (int)SystemParameters.PrimaryScreenHeight);
-                    });
-                }
-                catch (TaskCanceledException) { }
-            }
-
-
-        }
-
-        private void ExitButton_Click(object sender, RoutedEventArgs e)
-        {
-            // Show the Start Menu
-            if (Application.Current != null && Application.Current.Dispatcher != null)
-            {
-                try
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        StartMenu.Visibility = Visibility.Visible;
-                        HomeMenu.Visibility = Visibility.Collapsed;
-                        SelectionMenu.Visibility = Visibility.Collapsed;
-
-                        HomeImage.Visibility = Visibility.Visible;
-                        CreditsPanel.Visibility = Visibility.Collapsed;
-
-                        // Hide the CreditsPanel Logos
-                        UoL_Logo.Visibility = Visibility.Collapsed;
-                        intlab_Logo.Visibility = Visibility.Collapsed;
-                    });
-                }
-                catch (TaskCanceledException) { }
-            }
-
-            // Set the focus to the game launcher
-            SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-
-            // Reset AFK Timer after Half a Second
-            Task.Delay(500).ContinueWith(t =>
-            {
-                afkTimerActive = false;
-                afkTimer = 0;
-            });
-        }
-
-        private void BackFromGameLibraryButton_Click(object sender, RoutedEventArgs e)
-        {
-            // Show the Home Menu
-            if (Application.Current != null && Application.Current.Dispatcher != null)
-            {
-                try
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        StartMenu.Visibility = Visibility.Collapsed;
-                        HomeMenu.Visibility = Visibility.Visible;
-                        SelectionMenu.Visibility = Visibility.Collapsed;
-                    });
-                }
-                catch (TaskCanceledException) { }
-            }
-
-            // Set the focus to the game launcher
-            SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-
-            // Set the currently selected Home Index to 0
-            currentlySelectedHomeIndex = 0;
-            HighlightCurrentHomeMenuOption();
-        }
-
-        private void StartButton_Click(object sender, RoutedEventArgs e)
-        {
-            string currentGameFolder = gameDatabaseFile["Games"][currentlySelectedGameIndex]["FolderName"].ToString();
-
-            JObject currentGameInfo = JObject.Parse(File.ReadAllText(Path.Combine(gameDirectoryPath, currentGameFolder, "GameInfo.json")));
-            string currentGameExe = Path.Combine(gameDirectoryPath, currentGameFolder, currentGameInfo["NameOfExecutable"].ToString());
-
-            if (File.Exists(currentGameExe) && State == LauncherState.ready)
-            {
-                ProcessStartInfo startInfo = new ProcessStartInfo(currentGameExe);
-                startInfo.WorkingDirectory = currentGameFolder;
-                if (currentlyRunningProcess == null || currentlyRunningProcess.HasExited)
-                    currentlyRunningProcess = Process.Start(startInfo);
-                else // Set focus to the currently running process
-                    SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
-            }
-            else if (State == LauncherState.failed)
-            {
-                CheckForUpdates();
-            }
-        }
-
-        private void Window_Closing(object sender, CancelEventArgs e)
-        {
-            aTimer.Stop();
-            aTimer.Dispose();
-        }
-
-        private void OnTimedEvent(Object source, System.Timers.ElapsedEventArgs e)
-        {
-            controllerStates[0].UpdateButtonStates();
-
-            // Keylogger for AFK Timer
-            if (afkTimerActive)
-            {
-                // Check for any key press and reset the timer if any key is pressed
-                for (int i = 8; i < 91; i++)
-                    if (GetAsyncKeyState(i) != 0)
-                    {
-                        afkTimer = 0;
-                        break;
-                    }
-            }
-            else
-            {
-                // Check for any key press and start the timer if any key is pressed
-                for (int i = 8; i < 91; i++)
-                    if (GetAsyncKeyState(i) != 0)
-                    {
-                        afkTimerActive = true;
-                        afkTimer = 0;
-                        timeSinceLastButton = 0;
-
-                        // Show the Home Menu
-                        if (Application.Current != null && Application.Current.Dispatcher != null)
-                        {
-                            try
-                            {
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    StartMenu.Visibility = Visibility.Collapsed;
-                                    HomeMenu.Visibility = Visibility.Visible;
-                                    SelectionMenu.Visibility = Visibility.Collapsed;
-
-                                    currentlySelectedHomeIndex = 0;
-                                    HighlightCurrentHomeMenuOption();
-                                });
-                            }
-                            catch (TaskCanceledException) { }
-                        }
-
-                        // Set the focus to the game launcher
-                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-
-                        break;
-                    }
-            }
-
-            // If the user is AFK for 3 minutes, Warn them and then close the currently running application
-            if (afkTimer >= 180000)
-            {
-                if (afkTimer >= 185000)
-                {
-                    // Reset the timer
-                    afkTimerActive = false;
-                    afkTimer = 0;
-
-                    // Close the currently running application
-                    if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
-                    {
-                        currentlyRunningProcess.Kill();
-                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-                        currentlyRunningProcess = null;
-                    }
-
-                    // Show the Start Menu
-                    if (Application.Current != null && Application.Current.Dispatcher != null)
-                    {
-                        try
-                        {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                StartMenu.Visibility = Visibility.Visible;
-                                HomeMenu.Visibility = Visibility.Collapsed;
-                                SelectionMenu.Visibility = Visibility.Collapsed;
-                            });
-                        }
-                        catch (TaskCanceledException) { }
-                    }
-
-                }
-                else
-                {
-                    // Warn the user
-
-                }
-            }
-            else
-            {
-                // Hide the warning
-
-            }
-
-            // Increment the selection animation frame
-            if ((HomeMenu.Visibility == Visibility.Visible || SelectionMenu.Visibility == Visibility.Visible) && selectionUpdateCounter % selectionAnimationFrameRate == 0)
-            {
-                if (selectionAnimationFrame < selectionAnimationFrames.Length - 1)
-                    selectionAnimationFrame++;
-                else
-                    selectionAnimationFrame = 0;
-
-                if (HomeMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
-                {
-                    try { Application.Current.Dispatcher.Invoke(() => { HighlightCurrentHomeMenuOption(); }); }
-                    catch (TaskCanceledException) { }
-                }
-                else if (SelectionMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
-                {
-                    try { Application.Current.Dispatcher.Invoke(() => { HighlightCurrentGameMenuOption(); }); }
-                    catch (TaskCanceledException) { }
-                }
-            }
-
-            // Update the Selection Menu
-            if ((HomeMenu.Visibility == Visibility.Visible || SelectionMenu.Visibility == Visibility.Visible) &&
-                Application.Current != null &&
-                Application.Current.Dispatcher != null)
-            {
-                try { Application.Current.Dispatcher.Invoke(() => { UpdateCurrentSelection(); }); }
-                catch (TaskCanceledException) { }
-            }
-
-            // Auto Scroll the Credits Panel
-            if (CreditsPanel.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
-            {
-                try { Application.Current.Dispatcher.Invoke(() => { AutoScrollCredits(); }); }
-                catch (TaskCanceledException) { }
-            }
-
-            // Check if the currently running process has exited, and set the focus back to the launcher
-            if (currentlyRunningProcess != null && currentlyRunningProcess.HasExited)
-            {
-                SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-                currentlyRunningProcess = null;
-            }
-
-            // Flash the Start Button if the Start Menu is visible
-            if (StartMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
-            {
-                try {
-                    Application.Current.Dispatcher.Invoke(() => {
-                        if (timeSinceLastButton % 300 == 0)
-                            PressStartText.Visibility = PressStartText.Visibility == Visibility.Visible ? Visibility.Hidden : Visibility.Visible;
-                    });
-                }
-                catch (TaskCanceledException) { }
-            }
-
-            if (afkTimerActive)
-                afkTimer += 10;
-
-            if (selectionUpdateCounter > selectionUpdateInterval)
-                selectionUpdateIntervalCounter = 0;
-            selectionUpdateCounter += 10;
-            timeSinceLastButton += 10;
-        }
-
+        // Getters & Setters
         private SolidColorBrush GetCurrentSelectionAnimationBrush()
         {
+            // Return the current selection animation frame
             return selectionAnimationFrames[selectionAnimationFrame];
         }
 
+        // Update Methods
+
         private void UpdateCurrentSelection()
         {
+            // Use a multiplier to speed up the selection update when the stick is held in either direction
             double multiplier = 1.00;
-
             if (selectionUpdateIntervalCounter > 0)
                 multiplier = (double)1.00 - ((double)selectionUpdateIntervalCounter / ((double)selectionUpdateIntervalCounterMax * 1.6));
 
+            // If the selection update counter is greater than the selection update interval, update the selection
             if (selectionUpdateCounter >= selectionUpdateInterval * multiplier)
             {
                 int[] leftStickDirection = controllerStates[0].GetLeftStickDirection();
                 int[] rightStickDirection = controllerStates[0].GetRightStickDirection();
 
+                // If the left of right stick's direction is up
                 if (leftStickDirection[1] == -1 || rightStickDirection[1] == -1)
                 {
+                    // Reset the selection update counter and increment the selection update interval counter
                     selectionUpdateCounter = 0;
                     if (selectionUpdateIntervalCounter < selectionUpdateIntervalCounterMax)
                         selectionUpdateIntervalCounter++;
 
+                    // If the Home Menu is visible, decrement the currently selected Home Index
                     if (HomeMenu.Visibility == Visibility.Visible)
                     {
                         currentlySelectedHomeIndex -= 1;
                         if (currentlySelectedHomeIndex < 0)
                             currentlySelectedHomeIndex = 0;
 
+                        // Highlight the current Home Menu Option
                         HighlightCurrentHomeMenuOption();
                     }
+                    // If the Selection Menu is visible, decrement the currently selected Game Index
                     else if (SelectionMenu.Visibility == Visibility.Visible)
                     {
                         currentlySelectedGameIndex -= 1;
                         if (currentlySelectedGameIndex < -1)
                             currentlySelectedGameIndex = -1;
 
+                        // Highlight the current Game Menu Option and debounce the game info display update
                         HighlightCurrentGameMenuOption();
-                        UpdateGameInfoDisplay();
+                        DebounceUpdateGameInfoDisplay();
                     }
                 }
+                // If the left of right stick's direction is down
                 else if (leftStickDirection[1] == 1 || rightStickDirection[1] == 1)
                 {
+                    // Reset the selection update counter and increment the selection update interval counter
                     selectionUpdateCounter = 0;
                     if (selectionUpdateIntervalCounter < selectionUpdateIntervalCounterMax)
                         selectionUpdateIntervalCounter++;
 
+                    // If the Home Menu is visible, increment the currently selected Home Index
                     if (HomeMenu.Visibility == Visibility.Visible)
                     {
                         currentlySelectedHomeIndex += 1;
                         if (currentlySelectedHomeIndex > 2)
                             currentlySelectedHomeIndex = 2;
 
+                        // Highlight the current Home Menu Option
                         HighlightCurrentHomeMenuOption();
                     }
+                    // If the Selection Menu is visible, increment the currently selected Game Index
                     else if (SelectionMenu.Visibility == Visibility.Visible)
                     {
                         currentlySelectedGameIndex += 1;
                         if (currentlySelectedGameIndex > gameInfoFilesList.Length - 1)
                             currentlySelectedGameIndex = gameInfoFilesList.Length - 1;
 
+                        // Highlight the current Game Menu Option and debounce the game info display update
                         HighlightCurrentGameMenuOption();
-                        UpdateGameInfoDisplay();
+                        DebounceUpdateGameInfoDisplay();
                     }
                 }
             }
@@ -1234,29 +1382,37 @@ namespace ArcademiaGameLauncher
             // Check if the A button is pressed
             if (timeSinceLastButton > 250 && controllerStates[0].GetButtonState(0))
             {
+                // Reset the time since the last button press
                 timeSinceLastButton = 0;
 
+                // Check if the Home Menu is visible
                 if (HomeMenu.Visibility == Visibility.Visible)
                 {
+                    // If the Game Library option is selected
                     if (currentlySelectedHomeIndex == 0)
                     {
-                        // Run the GameLibraryButton_Click method
+                        // Show the Selection Menu
                         GameLibraryButton_Click(null, null);
                     }
+                    // If the About option is selected
                     else if (currentlySelectedHomeIndex == 1)
                     {
-                        // Run the AboutButton_Click method
+                        // Show the Credits
                         AboutButton_Click(null, null);
                     }
+                    // If the Exit option is selected
                     else if (currentlySelectedHomeIndex == 2)
                     {
-                        // Run the ExitButton_Click method
+                        // Go back to the Start Menu
                         ExitButton_Click(null, null);
                     }
                 }
+                // Else check if the Selection Menu is visible
                 else if (SelectionMenu.Visibility == Visibility.Visible)
                 {
+                    // If a game is selected, attempt to start the game
                     if (currentlySelectedGameIndex >= 0) StartButton_Click(null, null);
+                    // If the back button is selected, return to the Home Menu
                     else BackFromGameLibraryButton_Click(null, null);
                 }
             }
@@ -1264,14 +1420,19 @@ namespace ArcademiaGameLauncher
             // Check if the B button is pressed
             if (timeSinceLastButton > 250 && controllerStates[0].GetButtonState(1))
             {
+                // Reset the time since the last button press
                 timeSinceLastButton = 0;
 
+                // If the Home Menu is visible
                 if (HomeMenu.Visibility == Visibility.Visible)
                 {
+                    // Go back to the Start Menu
                     ExitButton_Click(null, null);
                 }
+                // Else if the Selection Menu is visible
                 else if (SelectionMenu.Visibility == Visibility.Visible)
                 {
+                    // Go back to the Home Menu
                     BackFromGameLibraryButton_Click(null, null);
                 }
             }
@@ -1279,6 +1440,7 @@ namespace ArcademiaGameLauncher
 
         private void HighlightCurrentHomeMenuOption()
         {
+            // Reset the colour of all Home Menu Options and remove the "<" character if present
             foreach (TextBlock option in homeOptionsList)
             {
                 option.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
@@ -1286,6 +1448,7 @@ namespace ArcademiaGameLauncher
                     option.Text = option.Text.Substring(0, option.Text.Length - 2);
             }
 
+            // Highlight the currently selected Home Menu Option and add the "<" character
             homeOptionsList[currentlySelectedHomeIndex].Foreground = GetCurrentSelectionAnimationBrush();
             if (!homeOptionsList[currentlySelectedHomeIndex].Text.EndsWith(" <"))
                 homeOptionsList[currentlySelectedHomeIndex].Text += " <";
@@ -1293,6 +1456,7 @@ namespace ArcademiaGameLauncher
 
         private void HighlightCurrentGameMenuOption()
         {
+            // Reset the colour of all Game Menu Options and remove the "<" character if present
             foreach (TextBlock title in gameTitlesList)
             {
                 title.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
@@ -1300,65 +1464,136 @@ namespace ArcademiaGameLauncher
                     title.Text = title.Text.Substring(0, title.Text.Length - 2);
             }
 
+            //If a game is selected
             if (currentlySelectedGameIndex >= 0)
             {
+                // Highlight the currently selected Game Menu Option and add the "<" character
                 gameTitlesList[currentlySelectedGameIndex % 10].Foreground = GetCurrentSelectionAnimationBrush();
                 if (!gameTitlesList[currentlySelectedGameIndex % 10].Text.EndsWith(" <"))
                     gameTitlesList[currentlySelectedGameIndex % 10].Text += " <";
             }
+
+            // Check if the page needs to be changed
+            if (currentlySelectedGameIndex < 0)
+            {
+                // Reset the game info display
+                ResetGameInfoDisplay();
+
+                // Highlight the Back Button and disable the Start Button
+                BackFromGameLibraryButton.IsChecked = true;
+                StartButton.IsChecked = false;
+                StartButton.Content = "Select a Game";
+                StartButton.IsEnabled = false;
+
+                return;
+            }
+            // Enable the Start Button
+            BackFromGameLibraryButton.IsChecked = false;
+            StartButton.Content = "Start";
+
+            // Check if the current page needs to be changed
+            int pageIndex = currentlySelectedGameIndex / 10;
+            if (pageIndex != previousPageIndex)
+                ChangePage(pageIndex);
         }
 
         private void ChangePage(int _pageIndex)
         {
+            // Check if the page index is within the bounds of the game info files list
             if (_pageIndex < 0)
                 _pageIndex = 0;
             else if (_pageIndex > gameInfoFilesList.Length / 10)
                 _pageIndex = gameInfoFilesList.Length / 10;
 
+            // Set the previous page index to the current page index
             previousPageIndex = _pageIndex;
 
-            for (int i = 0; i < 10; i++)
-            {
-                gameTitlesList[i].Visibility = Visibility.Hidden;
-            }
+            ResetTitles();
 
+            // For each title on the current page
             for (int i = 0; i < 10; i++)
             {
-                if (i + _pageIndex * 10 >= gameInfoFilesList.Length)
+                // Break if the current index is out of bounds
+                if (i + _pageIndex * 10 >= gameInfoFilesList.Length || gameInfoFilesList[i + _pageIndex * 10] == null)
                     break;
 
+                // Set the text of the title and make it visible
                 gameTitlesList[i].Text = gameInfoFilesList[i + _pageIndex * 10]["GameName"].ToString();
                 gameTitlesList[i].Visibility = Visibility.Visible;
             }
         }
 
+        private void UpdateGameInfoDisplay()
+        {
+            // Update the game info
+            if (gameInfoFilesList[currentlySelectedGameIndex] != null)
+            {
+                ResetGameInfoDisplay();
+
+                StartButton.IsChecked = true;
+
+                // Set the Game Thumbnail
+                NonGif_GameThumbnail.Source = new BitmapImage(new Uri(Path.Combine(gameDirectoryPath, gameInfoFilesList[currentlySelectedGameIndex]["FolderName"].ToString(), gameInfoFilesList[currentlySelectedGameIndex]["GameThumbnail"].ToString()), UriKind.Absolute));
+                AnimationBehavior.SetSourceUri(Gif_GameThumbnail, new Uri(Path.Combine(gameDirectoryPath, gameInfoFilesList[currentlySelectedGameIndex]["FolderName"].ToString(), gameInfoFilesList[currentlySelectedGameIndex]["GameThumbnail"].ToString()), UriKind.Absolute));
+
+                // Set the Game Info and Authors
+                GameTitle.Text = gameInfoFilesList[currentlySelectedGameIndex]["GameName"].ToString();
+                GameAuthors.Text = string.Join(", ", gameInfoFilesList[currentlySelectedGameIndex]["GameAuthors"].ToObject<string[]>());
+
+                // Fetch the Game Tag Elements (Borders and TextBlocks)
+                Border[] GameTagBorder = new Border[9] { GameTagBorder0, GameTagBorder1, GameTagBorder2, GameTagBorder3, GameTagBorder4, GameTagBorder5, GameTagBorder6, GameTagBorder7, GameTagBorder8 };
+                TextBlock[] GameTag = new TextBlock[9] { GameTag0, GameTag1, GameTag2, GameTag3, GameTag4, GameTag5, GameTag6, GameTag7, GameTag8 };
+                JArray tags = (JArray)gameInfoFilesList[currentlySelectedGameIndex]["GameTags"];
+
+                // For each Stated Game Tag
+                for (int j = 0; j < tags.Count; j++)
+                {
+                    // Change Visibility
+                    GameTagBorder[j].Visibility = Visibility.Visible;
+
+                    // Change Text Content
+                    GameTag[j].Text = tags[j]["Name"].ToString();
+
+                    // Change Border and Text Colour
+                    string colour = "#FF777777";
+
+                    // If the Colour is not null or empty, set the colour
+                    if (tags[j]["Colour"] != null && tags[j]["Colour"].ToString() != "")
+                        colour = tags[j]["Colour"].ToString();
+
+                    // Set the Border and Text Colour
+                    GameTag[j].Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colour));
+                    GameTagBorder[j].BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colour));
+                }
+
+                // Set the Game Description and Version
+                GameDescription.Text = gameInfoFilesList[currentlySelectedGameIndex]["GameDescription"].ToString();
+                VersionText.Text = "v" + gameInfoFilesList[currentlySelectedGameIndex]["GameVersion"].ToString();
+            }
+
+            showingDebouncedGame = true;
+        }
+
+        // Reset Methods
+
         private void ResetTitles()
         {
+            // Reset the visibility of all titles
             for (int i = 0; i < 10; i++)
-            {
                 gameTitlesList[i].Visibility = Visibility.Hidden;
-            }
         }
 
         private void ResetGameInfoDisplay()
         {
+            // Reset the Thumbnail
             NonGif_GameThumbnail.Source = new BitmapImage(new Uri("Images/ThumbnailPlaceholder.png", UriKind.Relative));
             AnimationBehavior.SetSourceUri(Gif_GameThumbnail, new Uri("Images/ThumbnailPlaceholder.png", UriKind.Relative));
 
+            // Reset the Text Content of each element
             GameTitle.Text = "Select A Game";
             GameAuthors.Text = "";
             GameDescription.Text = "Select a game using the joystick and by pressing A.";
             VersionText.Text = "";
-
-            GameTagBorder0.Visibility = Visibility.Hidden;
-            GameTagBorder1.Visibility = Visibility.Hidden;
-            GameTagBorder2.Visibility = Visibility.Hidden;
-            GameTagBorder3.Visibility = Visibility.Hidden;
-            GameTagBorder4.Visibility = Visibility.Hidden;
-            GameTagBorder5.Visibility = Visibility.Hidden;
-            GameTagBorder6.Visibility = Visibility.Hidden;
-            GameTagBorder7.Visibility = Visibility.Hidden;
-            GameTagBorder8.Visibility = Visibility.Hidden;
 
             GameTag0.Text = "";
             GameTag1.Text = "";
@@ -1369,7 +1604,19 @@ namespace ArcademiaGameLauncher
             GameTag6.Text = "";
             GameTag7.Text = "";
             GameTag8.Text = "";
+
+            // Reset the Visibility of each Game Tag
+            GameTagBorder0.Visibility = Visibility.Hidden;
+            GameTagBorder1.Visibility = Visibility.Hidden;
+            GameTagBorder2.Visibility = Visibility.Hidden;
+            GameTagBorder3.Visibility = Visibility.Hidden;
+            GameTagBorder4.Visibility = Visibility.Hidden;
+            GameTagBorder5.Visibility = Visibility.Hidden;
+            GameTagBorder6.Visibility = Visibility.Hidden;
+            GameTagBorder7.Visibility = Visibility.Hidden;
+            GameTagBorder8.Visibility = Visibility.Hidden;
             
+            // Reset the Border and Text Colour of each Game Tag
             GameTag0.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
             GameTag1.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
             GameTag2.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
@@ -1391,85 +1638,37 @@ namespace ArcademiaGameLauncher
             GameTagBorder8.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
         }
 
-        private void UpdateGameInfoDisplay()
+        // Custom Methods (Debounce, CloneXamlElement)
+
+        private void DebounceUpdateGameInfoDisplay()
         {
-            if (currentlySelectedGameIndex < 0)
+            showingDebouncedGame = false;
+
+            if (updateGameInfoDisplayDebounceTimer != null)
             {
-                ResetGameInfoDisplay();
-
-                BackFromGameLibraryButton.IsChecked = true;
-                StartButton.IsChecked = false;
-                StartButton.Content = "Select a Game";
-                StartButton.IsEnabled = false;
-
-                return;
-            }
-            BackFromGameLibraryButton.IsChecked = false;
-            StartButton.Content = "Start";
-
-            int pageIndex = currentlySelectedGameIndex / 10;
-            if (pageIndex != previousPageIndex)
-            {
-                ChangePage(pageIndex);
+                updateGameInfoDisplayDebounceTimer.Stop();
+                updateGameInfoDisplayDebounceTimer.Dispose();
             }
 
-            for (int i = pageIndex * 10; i < (pageIndex + 1) * 10; i++)
+            // Create a new Timer for Debouncing the UpdateGameInfoDisplay method to prevent it from being called more than once every 500ms
+            updateGameInfoDisplayDebounceTimer = new System.Timers.Timer(500);
+            updateGameInfoDisplayDebounceTimer.Elapsed += (sender, e) =>
             {
-
-                if (i == currentlySelectedGameIndex)
+                if (Application.Current != null && Application.Current.Dispatcher != null)
                 {
-                    // Update the game info
-                    if (gameInfoFilesList[i] != null)
-                    {
-                        ResetGameInfoDisplay();
-
-                        StartButton.IsChecked = true;
-
-                        NonGif_GameThumbnail.Source = new BitmapImage(new Uri(Path.Combine(gameDirectoryPath, gameInfoFilesList[i]["FolderName"].ToString(), gameInfoFilesList[i]["GameThumbnail"].ToString()), UriKind.Absolute));
-                        AnimationBehavior.SetSourceUri(Gif_GameThumbnail, new Uri(Path.Combine(gameDirectoryPath, gameInfoFilesList[i]["FolderName"].ToString(), gameInfoFilesList[i]["GameThumbnail"].ToString()), UriKind.Absolute));
-
-                        GameTitle.Text = gameInfoFilesList[i]["GameName"].ToString();
-                        GameAuthors.Text = string.Join(", ", gameInfoFilesList[i]["GameAuthors"].ToObject<string[]>());
-
-                        Border[] GameTagBorder = new Border[9] { GameTagBorder0, GameTagBorder1, GameTagBorder2, GameTagBorder3, GameTagBorder4, GameTagBorder5, GameTagBorder6, GameTagBorder7, GameTagBorder8 };
-                        TextBlock[] GameTag = new TextBlock[9] { GameTag0, GameTag1, GameTag2, GameTag3, GameTag4, GameTag5, GameTag6, GameTag7, GameTag8 };
-
-                        JArray tags = (JArray)gameInfoFilesList[i]["GameTags"];
-
-                        for (int j = 0; j < tags.Count; j++)
-                        {
-                            // Change Visibility
-                            GameTagBorder[j].Visibility = Visibility.Visible;
-
-                            // Change Text Content
-                            GameTag[j].Text = tags[j]["Name"].ToString();
-
-                            // Change Border and Text Colour
-                            string colour = "#FF777777";
-
-                            if (tags[j]["Colour"] != null && tags[j]["Colour"].ToString() != "")
-                            {
-                                colour = tags[j]["Colour"].ToString();
-                            }
-
-                            GameTag[j].Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colour));
-                            GameTagBorder[j].BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colour));
-                        }
-
-                        GameDescription.Text = gameInfoFilesList[i]["GameDescription"].ToString();
-
-                        VersionText.Text = "v" + gameInfoFilesList[i]["GameVersion"].ToString();
-                    }
+                    try { Application.Current.Dispatcher.Invoke(() => { UpdateGameInfoDisplay(); }); }
+                    catch (TaskCanceledException) { }
                 }
-                else
-                {
-                    gameTitlesList[i % 10].Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-                }
-            }
+            };
+
+            // Set the Timer to AutoReset and Enabled
+            updateGameInfoDisplayDebounceTimer.AutoReset = false;
+            updateGameInfoDisplayDebounceTimer.Enabled = true;
         }
     
         private T CloneXamlElement<T>(T element) where T : UIElement
         {
+            // Clone the XAML element and return it
             string xaml = XamlWriter.Save(element);
             StringReader stringReader = new StringReader(xaml);
             XmlReader xmlReader = XmlReader.Create(stringReader);
@@ -1479,6 +1678,7 @@ namespace ArcademiaGameLauncher
 
     struct Version
     {
+        // Zero value for the Version struct
         internal static Version zero = new Version(0, 0, 0);
 
         public int major;
@@ -1487,6 +1687,7 @@ namespace ArcademiaGameLauncher
 
         internal Version(short _major, short _minor, short _subMinor)
         {
+            // Initialize the version number
             major = _major;
             minor = _minor;
             subMinor = _subMinor;
@@ -1496,6 +1697,7 @@ namespace ArcademiaGameLauncher
         {
             string[] parts = version.Split('.');
             
+            // Reset the version number if it is not in the correct format
             if (parts.Length != 3)
             {
                 major = 0;
@@ -1504,6 +1706,7 @@ namespace ArcademiaGameLauncher
                 return;
             }
 
+            // Parse the version number
             major = int.Parse(parts[0]);
             minor = int.Parse(parts[1]);
             subMinor = int.Parse(parts[2]);
@@ -1511,6 +1714,7 @@ namespace ArcademiaGameLauncher
 
         internal bool IsDifferentVersion(Version _otherVersion)
         {
+            // Compare each part of the version number
             if (major != _otherVersion.major)
                 return true;
             else if (minor != _otherVersion.minor)
@@ -1522,6 +1726,7 @@ namespace ArcademiaGameLauncher
 
         public override string ToString()
         {
+            // Return the version number as a string
             return $"{major}.{minor}.{subMinor}";
         }
     }
