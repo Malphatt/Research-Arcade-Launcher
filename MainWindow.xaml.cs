@@ -1526,7 +1526,7 @@ namespace ArcademiaGameLauncher
         private void UpdateGameInfoDisplay()
         {
             // Update the game info
-            if (gameInfoFilesList[currentlySelectedGameIndex] != null)
+            if (currentlySelectedGameIndex != -1 && gameInfoFilesList[currentlySelectedGameIndex] != null)
             {
                 ResetGameInfoDisplay();
 
