@@ -9,8 +9,8 @@
     },
     {
       "Type": "Title",
-      "Value": "Arcademia",
-      "Subtitle": "2024-"
+      "Value": "Arcademia: Game Launcher",
+      "Subtitle": "(2024-)"
     },
     {
       "Type": "Note",
@@ -257,9 +257,9 @@
       "Subtitle": "(2018-2022)"
     },
     {
-        "Type": "Gif",
+        "Type": "Image",
         "Stretch": "Uniform",
-        "Path": "/Images/creditEnemy.gif"
+        "Path": "Images/creditEnemy.gif"
     },
     {
       "Type": "Note",
