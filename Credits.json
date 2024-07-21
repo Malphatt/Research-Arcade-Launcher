@@ -28,6 +28,16 @@
     },
     {
       "Type": "Heading",
+      "Value": "Artists",
+      "Subheadings": [
+        {
+          "Value": "Amelia Wilson",
+          "Colour": "Magenta"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
       "Value": "Tech Support",
       "Subheadings": [
         {
