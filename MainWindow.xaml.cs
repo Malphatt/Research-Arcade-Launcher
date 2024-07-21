@@ -192,7 +192,7 @@ namespace ArcademiaGameLauncher
         private JObject gameDatabaseFile;
 
         private int updateIndexOfGame;
-        private System.Timers.Timer aTimer;
+        private System.Timers.Timer updateTimer;
 
         private int selectionAnimationFrame = 0;
         private int selectionAnimationFrameRate = 100;
@@ -289,7 +289,138 @@ namespace ArcademiaGameLauncher
                 Directory.CreateDirectory(gameDirectoryPath);
         }
 
+        // Initialization
+
+        private void JoyStickInit()
+        {
+            // Initialize Direct Input
+            directInput = new DirectInput();
+
+            // Find a JoyStick Guid
+            var joystickGuid = Guid.Empty;
+
+            // Find a Gamepad Guid
+            foreach (var deviceInstance in directInput.GetDevices(DeviceType.Gamepad, DeviceEnumerationFlags.AllDevices))
+            {
+                joystickGuid = deviceInstance.InstanceGuid;
+                break;
+            }
+
+            // If no Gamepad is found, find a Joystick
+            if (joystickGuid == Guid.Empty)
+            {
+                foreach (var deviceInstance in directInput.GetDevices(DeviceType.Joystick, DeviceEnumerationFlags.AllDevices))
+                {
+                    joystickGuid = deviceInstance.InstanceGuid;
+                    break;
+                }
+            }
+
+            // If no Joystick is found, throw an error
+            if (joystickGuid == Guid.Empty)
+            {
+                MessageBox.Show("No joystick or gamepad found.");
+                Application.Current.Shutdown();
+                return;
+            }
+
+            // Instantiate the joystick
+            Joystick joystick = new Joystick(directInput, joystickGuid);
+
+            // Query all suported ForceFeedback effects
+            var allEffects = joystick.GetEffects();
+            foreach (var effectInfo in allEffects)
+            {
+                Console.WriteLine(effectInfo.Name);
+            }
+
+            // Set BufferSize in order to use buffered data.
+            joystick.Properties.BufferSize = 128;
+
+            // Acquire the joystick
+            joystick.Acquire();
+
+            // Create a new ControllerState object for the joystick
+            ControllerState controllerState = new ControllerState(joystick, controllerStates.Count);
+            controllerStates.Add(controllerState);
+        }
+
+        private void InitializeUpdateTimer()
+        {
+            // Timer Setup
+            updateTimer = new System.Timers.Timer { Interval = 10 };
+
+            // Hook up the Elapsed event for the timer. 
+            updateTimer.Elapsed += OnTimedEvent;
+
+            // Have the timer fire repeated events (true is the default)
+            updateTimer.AutoReset = true;
+
+            // Start the timer
+            updateTimer.Enabled = true;
+        }
+
         // Downloading and Installing Game Methods
+
+        private bool CheckForGameDatabaseChanges()
+        {
+            try
+            {
+                // Get the game database file from the online URL
+                WebClient webClient = new WebClient();
+                gameDatabaseFile = JObject.Parse(webClient.DownloadString(gameDatabaseURL));
+
+                // If the local game database file does not exist, create it and write the game database to it
+                if (!File.Exists(localGameDatabasePath))
+                    File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
+
+                // Save the FolderName property of each local game and write it to the new game database file
+                JObject localGameDatabaseFile = JObject.Parse(File.ReadAllText(localGameDatabasePath));
+                JArray localGames = (JArray)localGameDatabaseFile["Games"];
+
+                JArray onlineGames = (JArray)gameDatabaseFile["Games"];
+                gameInfoFilesList = new JObject[onlineGames.Count];
+
+                // Update the FolderName property of each game in the local game database
+                for (int i = 0; i < onlineGames.Count; i++)
+                {
+                    for (int j = 0; j < localGames.Count; j++)
+                    {
+                        // If the game is found in the local game database using the LinkToGameInfo property as the Primary Key
+                        if (onlineGames[i]["LinkToGameInfo"].ToString() == localGames[j]["LinkToGameInfo"].ToString())
+                        {
+                            // Update the FolderName property of the game in the updated game database file
+                            if (localGames[j]["FolderName"] != null)
+                                gameDatabaseFile["Games"][i]["FolderName"] = localGames[j]["FolderName"].ToString();
+                            else
+                                gameDatabaseFile["Games"][i]["FolderName"] = "";
+                            break;
+                        }
+                    }
+                }
+
+                File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
+
+                JArray games = (JArray)gameDatabaseFile["Games"];
+
+                if (games.Count > 0)
+                {
+                    // In a new thread, check for updates for each game (CheckForUpdatesInit)
+                    Task.Run(() => CheckForUpdatesInit(games.Count));
+                }
+                // If no games are found, show an error message
+                else MessageBox.Show("Failed to get game database: No games found.");
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // If the game database cannot be retrieved, show an error message
+                MessageBox.Show($"Failed to get game database: {ex.Message}");
+
+                return false;
+            }
+        }
 
         private void CheckForUpdatesInit(int totalGames)
         {
@@ -663,7 +794,7 @@ namespace ArcademiaGameLauncher
         private void Window_ContentRendered(object sender, EventArgs e)
         {
             // Set the Copyright text
-            Copyright.Text = "Copyright ©️ 2018 - " + DateTime.Now.Year + " University of Lincoln, All rights reserved.";
+            Copyright.Text = "Copyright ©️ 2018 - " + DateTime.Now.Year + "\nUniversity of Lincoln,\nAll rights reserved.";
 
             // Initialize the TextBlock arrays
             homeOptionsList = new TextBlock[3] { GameLibraryText, AboutText, ExitText };
@@ -677,141 +808,29 @@ namespace ArcademiaGameLauncher
             if (File.Exists(configPath))
             {
                 gameDatabaseURL = JObject.Parse(File.ReadAllText(configPath))["GameDatabaseURL"].ToString();
-
-                try
-                {
-                    // Get the game database file from the online URL
-                    WebClient webClient = new WebClient();
-                    gameDatabaseFile = JObject.Parse(webClient.DownloadString(gameDatabaseURL));
-
-                    foundGameDatabase = true;
-
-                    // If the local game database file does not exist, create it and write the game database to it
-                    if (!File.Exists(localGameDatabasePath))
-                    {
-                        File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
-                    }
-
-                    // Save the FolderName property of each local game and write it to the new game database file
-                    JObject localGameDatabaseFile = JObject.Parse(File.ReadAllText(localGameDatabasePath));
-                    JArray localGames = (JArray)localGameDatabaseFile["Games"];
-
-                    gameInfoFilesList = new JObject[localGames.Count];
-
-                    // Update the FolderName property of each game in the local game database
-                    for (int i = 0; i < localGames.Count; i++)
-                    {
-                        // Check if the game is missing the FolderName property
-                        if (localGames[i]["FolderName"] == null)
-                        {
-                            gameDatabaseFile["Games"][i]["FolderName"] = "";
-                        }
-                        else
-                        {
-                            gameDatabaseFile["Games"][i]["FolderName"] = localGames[i]["FolderName"];
-                        }
-                    }
-
-                    File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
-
-                    JArray games = (JArray)gameDatabaseFile["Games"];
-
-                    if (games.Count > 0)
-                    {
-                        // In a new thread, check for updates for each game (CheckForUpdatesInit)
-                        Task.Run(() => CheckForUpdatesInit(games.Count));
-                    }
-                    // If no games are found, show an error message
-                    else MessageBox.Show("Failed to get game database: No games found.");
-                }
-                catch (Exception ex)
-                {
-                    // If the game database cannot be retrieved, show an error message
-                    MessageBox.Show($"Failed to get game database: {ex.Message}");
-                }
+                foundGameDatabase = CheckForGameDatabaseChanges();
             }
             // If the Config.json file does not exist, show an error message
             else MessageBox.Show("Failed to get game database URL: Config.json does not exist.");
 
-            if (!foundGameDatabase)
-            {
-                // Quit the application
-                Application.Current.Shutdown();
-            }
+            // Quit the application
+            if (!foundGameDatabase) Application.Current.Shutdown();
 
-
-            // Initialize Direct Input
-            directInput = new DirectInput();
-
-            // Find a JoyStick Guid
-            var joystickGuid = Guid.Empty;
-
-            // Find a Gamepad Guid
-            foreach (var deviceInstance in directInput.GetDevices(DeviceType.Gamepad, DeviceEnumerationFlags.AllDevices))
-            {
-                joystickGuid = deviceInstance.InstanceGuid;
-                break;
-            }
-
-            // If no Gamepad is found, find a Joystick
-            if (joystickGuid == Guid.Empty)
-            {
-                foreach (var deviceInstance in directInput.GetDevices(DeviceType.Joystick, DeviceEnumerationFlags.AllDevices))
-                {
-                    joystickGuid = deviceInstance.InstanceGuid;
-                    break;
-                }
-            }
-
-            // If no Joystick is found, throw an error
-            if (joystickGuid == Guid.Empty)
-            {
-                MessageBox.Show("No joystick or gamepad found.");
-                Application.Current.Shutdown();
-                return;
-            }
-
-            // Instantiate the joystick
-            Joystick joystick = new Joystick(directInput, joystickGuid);
-
-            // Query all suported ForceFeedback effects
-            var allEffects = joystick.GetEffects();
-            foreach (var effectInfo in allEffects)
-            {
-                Console.WriteLine(effectInfo.Name);
-            }
-
-            // Set BufferSize in order to use buffered data.
-            joystick.Properties.BufferSize = 128;
-
-            // Acquire the joystick
-            joystick.Acquire();
-
-            // Create a new ControllerState object for the joystick
-            ControllerState controllerState = new ControllerState(joystick, controllerStates.Count);
-            controllerStates.Add(controllerState);
+            // Initialize the controller states
+            JoyStickInit();
 
             // Perform an initial update of the game info display
             currentlySelectedGameIndex = 0;
             UpdateGameInfoDisplay();
 
-            // Timer Setup
-            aTimer = new System.Timers.Timer();
-            aTimer.Interval = 10;
-
-            // Hook up the Elapsed event for the timer. 
-            aTimer.Elapsed += OnTimedEvent;
-
-            // Have the timer fire repeated events (true is the default)
-            aTimer.AutoReset = true;
-
-            // Start the timer
-            aTimer.Enabled = true;
+            // Initialize the updateTimer
+            InitializeUpdateTimer();
         }
 
         private void OnTimedEvent(Object source, System.Timers.ElapsedEventArgs e)
         {
-            controllerStates[0].UpdateButtonStates();
+            if (controllerStates.Count > 0)
+                controllerStates[0].UpdateButtonStates();
 
             // Keylogger for AFK Timer
             if (afkTimerActive)
@@ -1296,6 +1315,7 @@ namespace ArcademiaGameLauncher
         }
 
         // Getters & Setters
+
         private SolidColorBrush GetCurrentSelectionAnimationBrush()
         {
             // Return the current selection animation frame

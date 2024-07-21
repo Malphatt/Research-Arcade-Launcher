@@ -115,8 +115,8 @@
                 <SolidColorBrush Color="Black"/>
             </Grid.Background>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="5*"/>
+                <ColumnDefinition Width="11*"/>
             </Grid.ColumnDefinitions>
             <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
