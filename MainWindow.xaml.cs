@@ -37,12 +37,10 @@ namespace ArcademiaGameLauncher
         private bool[] buttonStates;
         private int leftStickX;
         private int leftStickY;
-        private int rightStickX;
-        private int rightStickY;
 
         // Deadzone and Midpoint values for the joystick
-        readonly int joystickDeadzone = 7700;
-        readonly int joystickMidpoint = 32767;
+        readonly int joystickDeadzone = 1000;
+        readonly int joystickMidpoint = 32511;
 
         public Joystick joystick;
         public JoystickState state;
@@ -66,12 +64,10 @@ namespace ArcademiaGameLauncher
             joystick.Poll();
             state = joystick.GetCurrentState();
 
+
             // Update the joystick states
             leftStickX = state.X;
             leftStickY = state.Y;
-
-            rightStickX = state.RotationX;
-            rightStickY = state.RotationY;
 
             // Update the button states
             for (int i = 0; i < buttonStates.Length; i++)
@@ -87,14 +83,6 @@ namespace ArcademiaGameLauncher
         }
         public int GetLeftStickY() {
             return leftStickY;
-        }
-        public int GetRightStickX()
-        {
-            return rightStickX;
-        }
-        public int GetRightStickY()
-        {
-            return rightStickY;
         }
 
         // Getters for the joystick directions
@@ -130,38 +118,6 @@ namespace ArcademiaGameLauncher
 
             return direction;
         }
-        public int[] GetRightStickDirection()
-        {
-            int[] direction = new int[2];
-
-            if (rightStickX > joystickMidpoint + joystickDeadzone)
-            {
-                direction[0] = 1;
-            }
-            else if (rightStickX < joystickMidpoint - joystickDeadzone)
-            {
-                direction[0] = -1;
-            }
-            else
-            {
-                direction[0] = 0;
-            }
-
-            if (rightStickY > joystickMidpoint + joystickDeadzone)
-            {
-                direction[1] = 1;
-            }
-            else if (rightStickY < joystickMidpoint - joystickDeadzone)
-            {
-                direction[1] = -1;
-            }
-            else
-            {
-                direction[1] = 0;
-            }
-
-            return direction;
-        }
 
         // Getter and Setter for the button states
         public bool GetButtonState(int _button)
@@ -171,6 +127,10 @@ namespace ArcademiaGameLauncher
         public void SetButtonState(int _button, bool _state)
         {
             buttonStates[_button] = _state;
+            if (_state)
+            {
+                Console.WriteLine(_button);
+            }
         }
     }
 
@@ -237,7 +197,7 @@ namespace ArcademiaGameLauncher
         private DirectInput directInput;
         private List<ControllerState> controllerStates = new List<ControllerState>();
 
-        private Process currentlyRunningProcess;
+        private Process currentlyRunningProcess = null;
 
         private LauncherState _state;
         internal LauncherState State
@@ -1172,7 +1132,7 @@ namespace ArcademiaGameLauncher
 
                             break;
                         case "Note":
-                            int noteHeight = 15 + (creditsArray[i]["Value"].ToString().Length / 150 * 15);
+                            int noteHeight = 25 + (creditsArray[i]["Value"].ToString().Length / 150 * 25);
 
                             // Create a new RowDefinition
                             RowDefinition noteRow = new RowDefinition();
@@ -1306,7 +1266,7 @@ namespace ArcademiaGameLauncher
         {
             // Change Canvas.Top of the CreditsPanel
             double currentTop = Canvas.GetTop(CreditsPanel);
-            double newTop = currentTop - 0.5;
+            double newTop = currentTop - (double)0.5;
             Canvas.SetTop(CreditsPanel, newTop);
 
             // If the CreditsPanel is off the screen, reset it to the bottom
@@ -1326,6 +1286,18 @@ namespace ArcademiaGameLauncher
 
         private void UpdateCurrentSelection()
         {
+            // If theres a game running, don't listen for inputs
+            if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
+            {
+                // If the user hits the exit button (Button 0) close the application
+                if (controllerStates[0].GetButtonState(0))
+                {
+                    currentlyRunningProcess.Kill();
+                    SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+                }
+                else return;
+            }
+
             // Use a multiplier to speed up the selection update when the stick is held in either direction
             double multiplier = 1.00;
             if (selectionUpdateIntervalCounter > 0)
@@ -1335,10 +1307,9 @@ namespace ArcademiaGameLauncher
             if (selectionUpdateCounter >= selectionUpdateInterval * multiplier)
             {
                 int[] leftStickDirection = controllerStates[0].GetLeftStickDirection();
-                int[] rightStickDirection = controllerStates[0].GetRightStickDirection();
 
                 // If the left of right stick's direction is up
-                if (leftStickDirection[1] == -1 || rightStickDirection[1] == -1)
+                if (leftStickDirection[1] == -1)
                 {
                     // Reset the selection update counter and increment the selection update interval counter
                     selectionUpdateCounter = 0;
@@ -1368,7 +1339,7 @@ namespace ArcademiaGameLauncher
                     }
                 }
                 // If the left of right stick's direction is down
-                else if (leftStickDirection[1] == 1 || rightStickDirection[1] == 1)
+                else if (leftStickDirection[1] == 1)
                 {
                     // Reset the selection update counter and increment the selection update interval counter
                     selectionUpdateCounter = 0;
@@ -1399,8 +1370,8 @@ namespace ArcademiaGameLauncher
                 }
             }
 
-            // Check if the A button is pressed
-            if (timeSinceLastButton > 250 && controllerStates[0].GetButtonState(0))
+            // Check if the Start/A button is pressed
+            if (timeSinceLastButton > 250 && (controllerStates[0].GetButtonState(1) || controllerStates[0].GetButtonState(2)))
             {
                 // Reset the time since the last button press
                 timeSinceLastButton = 0;
@@ -1437,8 +1408,8 @@ namespace ArcademiaGameLauncher
                 }
             }
 
-            // Check if the B button is pressed
-            if (timeSinceLastButton > 250 && controllerStates[0].GetButtonState(1))
+            // Check if the Exit/B button is pressed
+            if (timeSinceLastButton > 250 && (controllerStates[0].GetButtonState(0) || controllerStates[0].GetButtonState(3)))
             {
                 // Reset the time since the last button press
                 timeSinceLastButton = 0;
