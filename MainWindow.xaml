@@ -139,8 +139,10 @@
                     <RowDefinition Height="1*"/>
                     <RowDefinition Height="4*"/>
                     <RowDefinition Height="3*"/>
+                    <RowDefinition Height="2*"/>
                     <RowDefinition Height="3*"/>
-                    <RowDefinition Height="3*"/>
+                    <RowDefinition Height="2*"/>
+                    <RowDefinition Height="1*"/>
                 </Grid.RowDefinitions>
                 <Grid Grid.Row="1" Margin="100">
                     <Image Source="/Images/Arcademia_Logo.png"/>
@@ -161,7 +163,7 @@
                         <TextBlock x:Name="ExitText" Text="Exit" Style="{StaticResource Early GameBoy}" FontSize="26" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                     </Grid>
                 </Grid>
-                <Grid Grid.Row="3" Margin="100,25">
+                <Grid Grid.Row="4" Margin="100,25">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="1*"/>
                         <RowDefinition Height="3*"/>
@@ -317,7 +319,7 @@
                         </Grid>
                     </Grid>
                 </Grid>
-                <Grid Grid.Row="4" Margin="100,50">
+                <Grid Grid.Row="5" Margin="100,50">
                     <TextBlock x:Name="Copyright" Text="Copyright ©️ 2018 - Now University of Lincoln, All rights reserved." Foreground="#777" FontSize="16" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left" TextWrapping="Wrap" LineHeight="30"/>
                 </Grid>
             </Grid>
@@ -329,9 +331,9 @@
                     </Grid>
                     <!-- Lock width of Credits Panel to the Width of HomeMenuImageArea -->
                     <Grid x:Name="CreditsPanel" Visibility="Collapsed" Background="#000" Canvas.Top="{StaticResource {x:Static SystemParameters.PrimaryScreenHeightKey}}" Width="{Binding ElementName=HomeMenuImageArea, Path=ActualWidth}"/>
-                    <Image x:Name="UoL_Logo" Source="/Images/uolwhite.png" Visibility="Collapsed" Opacity="0.8" Width="200" Canvas.Bottom="10" Canvas.Right="10" Stretch="Uniform"/>
-                    <Image x:Name="intlab_Logo" Source="/Images/intlab.png" Visibility="Collapsed" Opacity="0.8" Width="200" Canvas.Bottom="10" Canvas.Right="220" Stretch="Uniform"/>
-                    <Image x:Name="CSS_Logo" Source="/Images/css.png" Visibility="Collapsed" Opacity="0.8" Width="200" Canvas.Bottom="10" Canvas.Right="430" Stretch="Uniform"/>
+                    <Image x:Name="UoL_Logo" Source="/Images/uolwhite.png" Visibility="Collapsed" Opacity="0.8" Width="100" Canvas.Bottom="10" Canvas.Right="10" Stretch="Uniform"/>
+                    <Image x:Name="intlab_Logo" Source="/Images/intlab.png" Visibility="Collapsed" Opacity="0.8" Width="100" Canvas.Bottom="10" Canvas.Right="120" Stretch="Uniform"/>
+                    <Image x:Name="CSS_Logo" Source="/Images/css.png" Visibility="Collapsed" Opacity="0.8" Width="100" Canvas.Bottom="10" Canvas.Right="230" Stretch="Uniform"/>
                 </Canvas>
             </Grid>
         </Grid>
@@ -417,25 +419,25 @@
                     <Grid Grid.Row="2" Margin="100,50">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="3*"/>
-                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="2*"/>
                         </Grid.ColumnDefinitions>
-                        <Grid Grid.Column="0">
+                        <Grid Grid.Row="0" Margin="100,25">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="1*"/>
                                 <RowDefinition Height="3*"/>
                             </Grid.RowDefinitions>
-                            <Grid Grid.Row="0" Margin="0">
-                                <TextBlock Text="Controls" Foreground="White" FontSize="36" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            <Grid Grid.Row="0">
+                                <TextBlock Text="Controls" Foreground="White" FontSize="22" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center"/>
                             </Grid>
-                            <Grid Grid.Row="1" Margin="0,20">
+                            <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="1*"/>
-                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="1*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid Grid.Column="0">
                                     <Border BorderThickness="0,0,1,0">
                                         <Border.BorderBrush>
-                                            <DrawingBrush Viewport="0,0,4,8" ViewportUnits="Absolute" TileMode="Tile">
+                                            <DrawingBrush Viewport="0,0,16,8" ViewportUnits="Absolute" TileMode="Tile">
                                                 <DrawingBrush.Drawing>
                                                     <DrawingGroup>
                                                         <GeometryDrawing Brush="#777">
@@ -458,24 +460,24 @@
                                             <!-- Up Control -->
                                             <Grid Grid.Row="0" Margin="0,5">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="125"/>
+                                                    <ColumnDefinition Width="3*"/>
                                                     <ColumnDefinition Width="5*"/>
                                                 </Grid.ColumnDefinitions>
                                                 <!-- Up Key -->
                                                 <Grid Grid.Column="0" Margin="5,0">
                                                     <Ellipse Fill="#777"
-                                                            Height="70"
-                                                            Width="70"
-                                                            StrokeThickness="2"
-                                                            Stroke="#777"
-                                                            Margin="4,6,0,0"/>
+                                                             Height="50"
+                                                             Width="50"
+                                                             StrokeThickness="2"
+                                                             Stroke="#777"
+                                                             Margin="4,6,0,0"/>
                                                     <Ellipse Fill="#000"
-                                                            Height="68"
-                                                            Width="68"
-                                                            StrokeThickness="4"
-                                                            Stroke="#777"
-                                                            Margin="0,0,4,6"/>
-                                                    <TextBlock Text="&#10132;" Foreground="White" FontSize="44" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,18,6">
+                                                             Height="48"
+                                                             Width="48"
+                                                             StrokeThickness="4"
+                                                             Stroke="#777"
+                                                             Margin="0,0,4,6"/>
+                                                    <TextBlock Text="&#10132;" Foreground="White" FontSize="30" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,14,6">
                                                         <TextBlock.LayoutTransform>
                                                             <RotateTransform Angle="270"/>
                                                         </TextBlock.LayoutTransform>
@@ -489,24 +491,24 @@
                                             <!-- Down Control -->
                                             <Grid Grid.Row="1" Margin="0,5">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="125"/>
+                                                    <ColumnDefinition Width="3*"/>
                                                     <ColumnDefinition Width="5*"/>
                                                 </Grid.ColumnDefinitions>
                                                 <!-- Down Key -->
                                                 <Grid Grid.Column="0">
                                                     <Ellipse Fill="#777"
-                                                            Height="70"
-                                                            Width="70"
-                                                            StrokeThickness="2"
-                                                            Stroke="#777"
-                                                            Margin="4,6,0,0"/>
+                                                             Height="50"
+                                                             Width="50"
+                                                             StrokeThickness="2"
+                                                             Stroke="#777"
+                                                             Margin="4,6,0,0"/>
                                                     <Ellipse Fill="#000"
-                                                            Height="68"
-                                                            Width="68"
-                                                            StrokeThickness="4"
-                                                            Stroke="#777"
-                                                            Margin="0,0,4,6"/>
-                                                    <TextBlock Text="&#10132;" Foreground="White" FontSize="44" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,-10,6">
+                                                             Height="48"
+                                                             Width="48"
+                                                             StrokeThickness="4"
+                                                             Stroke="#777"
+                                                             Margin="0,0,4,6"/>
+                                                    <TextBlock Text="&#10132;" Foreground="White" FontSize="30" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,-6,6">
                                                         <TextBlock.LayoutTransform>
                                                             <RotateTransform Angle="90"/>
                                                         </TextBlock.LayoutTransform>
@@ -520,7 +522,7 @@
                                         </Grid>
                                     </Border>
                                 </Grid>
-                                <Grid Grid.Column="1">
+                                <Grid Grid.Column="2">
                                     <Border BorderThickness="1,0,0,0">
                                         <Border.BorderBrush>
                                             <DrawingBrush Viewport="0,0,8,8" ViewportUnits="Absolute" TileMode="Tile">
@@ -547,50 +549,50 @@
                                             <Grid Grid.Row="0" Margin="20,5,0,5">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="125"/>
-                                                    <ColumnDefinition Width="4*"/>
+                                                    <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
-                                                <!-- Launch Game Key -->
+                                                <!-- Start Key -->
                                                 <Grid Grid.Column="0">
                                                     <Ellipse Fill="#FF217300"
-                                                            Height="70"
-                                                            Width="70"
-                                                            StrokeThickness="5"
-                                                            Stroke="#FF217300"
-                                                            Margin="4,6,0,0"/>
+                                                             Height="50"
+                                                             Width="50"
+                                                             StrokeThickness="5"
+                                                             Stroke="#FF217300"
+                                                             Margin="4,6,0,0"/>
                                                     <Ellipse Fill="#FF42E600"
-                                                            Height="68"
-                                                            Width="68"
-                                                            StrokeThickness="3"
-                                                            Stroke="#FF42E600"
-                                                            Margin="0,0,4,6"/>
-                                                    <TextBlock Text="A" Foreground="White" FontSize="24" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                                             Height="48"
+                                                             Width="48"
+                                                             StrokeThickness="3"
+                                                             Stroke="#FF42E600"
+                                                             Margin="0,0,4,6"/>
+                                                    <TextBlock Text="A" Foreground="White" FontSize="20" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,4"/>
                                                 </Grid>
                                                 <!-- Start Text -->
                                                 <Grid Grid.Column="1" Margin="10,0">
-                                                    <TextBlock Text="Launch Game" Foreground="White" FontSize="18" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Select" Foreground="White" FontSize="18" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center"/>
                                                 </Grid>
                                             </Grid>
                                             <!-- Go Back Control -->
                                             <Grid Grid.Row="1" Margin="20,5,0,5">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="125"/>
-                                                    <ColumnDefinition Width="4*"/>
+                                                    <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
                                                 <!-- Start Key -->
                                                 <Grid Grid.Column="0">
                                                     <Ellipse Fill="#FF732121"
-                                                            Height="70"
-                                                            Width="70"
-                                                            StrokeThickness="5"
-                                                            Stroke="#FF732121"
-                                                            Margin="4,6,0,0"/>
+                                                             Height="50"
+                                                             Width="50"
+                                                             StrokeThickness="5"
+                                                             Stroke="#FF732121"
+                                                             Margin="4,6,0,0"/>
                                                     <Ellipse Fill="#FFE64342"
-                                                            Height="68"
-                                                            Width="68"
-                                                            StrokeThickness="3"
-                                                            Stroke="#FFE64342"
-                                                            Margin="0,0,4,6"/>
-                                                    <TextBlock Text="B" Foreground="White" FontSize="24" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                                             Height="48"
+                                                             Width="48"
+                                                             StrokeThickness="3"
+                                                             Stroke="#FFE64342"
+                                                             Margin="0,0,4,6"/>
+                                                    <TextBlock Text="B" Foreground="White" FontSize="20" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,4"/>
                                                 </Grid>
                                                 <!-- Start Text -->
                                                 <Grid Grid.Column="1" Margin="10,0">
@@ -628,7 +630,7 @@
                         <Image x:Name="Gif_GameThumbnail"
                            gif:AnimationBehavior.CacheFramesInMemory="True"
                            gif:AnimationBehavior.SourceUri="/Images/ThumbnailPlaceholder.png"
-                           Stretch="Uniform" />
+                           Stretch="UniformToFill" />
                     </Border>
                 </Grid>
                 <Grid Grid.Row="1" Background="Black">
