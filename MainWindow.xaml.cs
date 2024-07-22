@@ -488,7 +488,6 @@ namespace ArcademiaGameLauncher
 
                 // Asynchronously download the game zip file
                 webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(DownloadGameCompletedCallback);
-                webClient.DownloadFileAsync(new Uri(_onlineJson["LinkToGameZip"].ToString()), Path.Combine(rootPath, _onlineJson["GameName"].ToString() + ".zip"), _onlineJson);
                 webClient.DownloadFileAsync(new Uri(_onlineJson["LinkToGameZip"].ToString()), Path.Combine(rootPath, _onlineJson["FolderName"].ToString() + ".zip"), _onlineJson);
             }
             catch (Exception ex)
