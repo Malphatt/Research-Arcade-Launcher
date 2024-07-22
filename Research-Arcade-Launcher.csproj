@@ -154,8 +154,12 @@
     </Resource>
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Images\StartMenu_Background.gif" />
-    <Content Include="Videos\StartMenu_Background.mp4" />
+    <Resource Include="Images\StartMenu_Background.gif">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Images\css.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

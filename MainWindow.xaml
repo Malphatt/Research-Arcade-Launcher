@@ -87,26 +87,42 @@
                 <SolidColorBrush Color="Black"/>
             </Grid.Background>
             <Canvas Background="#333">
-                <Image Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}"
+                <Image x:Name="StartMenu_Image"
+                       Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}"
                        Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}"
                        gif:AnimationBehavior.CacheFramesInMemory="True"
                        gif:AnimationBehavior.SourceUri="/Images/StartMenu_Background.gif"
                        Stretch="UniformToFill"/>
-                <Rectangle Fill="#000" Width="794" Height="1263" Canvas.Left="601" Canvas.Top="-109" HorizontalAlignment="Left" VerticalAlignment="Top">
+
+                <Rectangle x:Name="StartMenu_Rect"
+                           Fill="#000"
+                           Width="800"
+                           Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Top">
                     <Rectangle.RenderTransform>
                         <TransformGroup>
                             <ScaleTransform/>
                             <SkewTransform/>
-                            <RotateTransform Angle="5.326"/>
+                            <RotateTransform Angle="5"/>
                             <TranslateTransform/>
                         </TransformGroup>
                     </Rectangle.RenderTransform>
                 </Rectangle>
-                <Image Source="/Images/Arcademia_Logo.png"
+
+                <Image x:Name="StartMenu_ArcademiaLogo"
+                       Source="/Images/Arcademia_Logo.png"
                        Width="594"
                        Height="298"
-                       Stretch="Uniform" Canvas.Left="663" Canvas.Top="51"/>
-                <TextBlock x:Name="PressStartText" Text="PRESS START" Style="{StaticResource Early GameBoy}" FontSize="42" Foreground="White" VerticalAlignment="Top" HorizontalAlignment="Left" Canvas.Left="715" Canvas.Top="518" Height="44" Width="490"/>
+                       Stretch="Uniform"/>
+                
+                <TextBlock x:Name="PressStartText"
+                           Text="PRESS START"
+                           Style="{StaticResource Early GameBoy}"
+                           FontSize="42"
+                           Foreground="White"
+                           Height="44"
+                           Width="480"/>
             </Canvas>
         </Grid>
 
@@ -315,6 +331,7 @@
                     <Grid x:Name="CreditsPanel" Visibility="Collapsed" Background="#000" Canvas.Top="{StaticResource {x:Static SystemParameters.PrimaryScreenHeightKey}}" Width="{Binding ElementName=HomeMenuImageArea, Path=ActualWidth}"/>
                     <Image x:Name="UoL_Logo" Source="/Images/uolwhite.png" Visibility="Collapsed" Opacity="0.8" Width="200" Canvas.Bottom="10" Canvas.Right="10" Stretch="Uniform"/>
                     <Image x:Name="intlab_Logo" Source="/Images/intlab.png" Visibility="Collapsed" Opacity="0.8" Width="200" Canvas.Bottom="10" Canvas.Right="220" Stretch="Uniform"/>
+                    <Image x:Name="CSS_Logo" Source="/Images/css.png" Visibility="Collapsed" Opacity="0.8" Width="200" Canvas.Bottom="10" Canvas.Right="430" Stretch="Uniform"/>
                 </Canvas>
             </Grid>
         </Grid>
@@ -611,7 +628,7 @@
                         <Image x:Name="Gif_GameThumbnail"
                            gif:AnimationBehavior.CacheFramesInMemory="True"
                            gif:AnimationBehavior.SourceUri="/Images/ThumbnailPlaceholder.png"
-                           Stretch="UniformToFill" />
+                           Stretch="Uniform" />
                     </Border>
                 </Grid>
                 <Grid Grid.Row="1" Background="Black">
@@ -623,7 +640,7 @@
 
                     <!-- Game Title -->
                     <Grid Grid.Row="0" Margin="50,25,50,0">
-                        <TextBlock x:Name="GameTitle" Text="Select A Game" Foreground="White" FontSize="36" VerticalAlignment="Bottom" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="GameTitle" Text="Select A Game" Foreground="White" FontSize="36" VerticalAlignment="Bottom" Style="{StaticResource Early GameBoy}"/>
                     </Grid>
 
                     <!-- Game Author(s) -->
@@ -687,7 +704,7 @@
                 </Grid>
                 <!-- Game Description -->
                 <Grid Grid.Row="2" Background="Black" Margin="50">
-                    <TextBlock x:Name="GameDescription" Text="Select a game using the joystick and by pressing A." Foreground="White" FontSize="14" VerticalAlignment="Top" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="GameDescription" Text="Select a game using the joystick and by pressing A." Foreground="White" FontSize="14" VerticalAlignment="Top" Style="{StaticResource Early GameBoy}" TextWrapping="Wrap" LineHeight="20"/>
                 </Grid>
                 <!-- Game Start/Update -->
                 <Grid Grid.Row="3" Background="Black" Margin="25">
