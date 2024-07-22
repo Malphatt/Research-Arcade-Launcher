@@ -185,6 +185,7 @@ namespace ArcademiaGameLauncher
         private bool showingDebouncedGame = false;
 
         private int afkTimer = 0;
+        private int noInputTimeout = 0;
         private bool afkTimerActive = false;
 
         private int timeSinceLastButton = 0;
@@ -789,7 +790,14 @@ namespace ArcademiaGameLauncher
             bool foundGameDatabase = false;
             if (File.Exists(configPath))
             {
-                gameDatabaseURL = JObject.Parse(File.ReadAllText(configPath))["GameDatabaseURL"].ToString();
+                // Load Config.json
+                JObject config = JObject.Parse(File.ReadAllText(configPath));
+
+                // Get the GameDatabaseURL and NoInputTimeout from the Config.json file
+                gameDatabaseURL = config["GameDatabaseURL"].ToString();
+                noInputTimeout = int.Parse(config["NoInputTimeout_ms"].ToString());
+
+                // Start checking for game database changes and game updates
                 foundGameDatabase = CheckForGameDatabaseChanges();
             }
             // If the Config.json file does not exist, show an error message
@@ -861,9 +869,10 @@ namespace ArcademiaGameLauncher
             }
 
             // If the user is AFK for 3 minutes, Warn them and then close the currently running application
-            if (afkTimer >= 180000)
+            if (afkTimer >= noInputTimeout)
             {
-                if (afkTimer >= 185000)
+                // If the user is AFK for 5 seconds after the warning, close the currently running application and show the Start Menu
+                if (afkTimer >= noInputTimeout + 5000)
                 {
                     // Reset the timer
                     afkTimerActive = false;
