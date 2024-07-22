@@ -39,7 +39,7 @@ namespace ArcademiaGameLauncher
         private int leftStickY;
 
         // Deadzone and Midpoint values for the joystick
-        readonly int joystickDeadzone = 1000;
+        readonly int joystickDeadzone = 7700;
         readonly int joystickMidpoint = 32511;
 
         public Joystick joystick;
@@ -247,6 +247,25 @@ namespace ArcademiaGameLauncher
             // Create the games directory if it doesn't exist
             if (!Directory.Exists(gameDirectoryPath))
                 Directory.CreateDirectory(gameDirectoryPath);
+
+            // Set the locations of each item on the start menu
+            int screenWidth = (int)SystemParameters.PrimaryScreenWidth;
+            int screenHeight = (int)SystemParameters.PrimaryScreenHeight;
+
+            // StartMenu_Rect
+            double RectActualWidth = Math.Cos((double)5 * (Math.PI / (double)180)) * StartMenu_Rect.Width;
+            double RectActualHeight = Math.Sin((double)5 * Math.PI / (double)180) * StartMenu_Rect.Width + Math.Cos((double)5 * Math.PI / (double)180) * StartMenu_Rect.Height;
+
+            Canvas.SetLeft(StartMenu_Rect, (screenWidth / 2) - (RectActualWidth / 2) + (screenWidth / 40));
+            Canvas.SetTop(StartMenu_Rect, screenHeight / 2 - RectActualHeight / 2);
+
+            // StartMenu_ArcademiaLogo
+            Canvas.SetLeft(StartMenu_ArcademiaLogo, screenWidth / 2 - StartMenu_ArcademiaLogo.Width / 2);
+            Canvas.SetTop(StartMenu_ArcademiaLogo, 100);
+
+            // PressStartText
+            Canvas.SetLeft(PressStartText, screenWidth / 2 - PressStartText.Width / 2);
+            Canvas.SetTop(PressStartText, screenHeight / 2 - PressStartText.Height / 2);
         }
 
         // Initialization
@@ -396,6 +415,7 @@ namespace ArcademiaGameLauncher
 
         private void CheckForUpdates(int _updateIndexOfGame)
         {
+            // Set the updateIndexOfGame to the index of the game being updated
             // Set the updateIndexOfGame to the index of the game being updated
             updateIndexOfGame = _updateIndexOfGame;
 
@@ -640,6 +660,7 @@ namespace ArcademiaGameLauncher
                         // Show the CreditsPanel Logos
                         UoL_Logo.Visibility = Visibility.Visible;
                         intlab_Logo.Visibility = Visibility.Visible;
+                        CSS_Logo.Visibility = Visibility.Visible;
 
                         // Set Canvas.Top of the CreditsPanel to the screen height
                         Canvas.SetTop(CreditsPanel, (int)SystemParameters.PrimaryScreenHeight);
@@ -670,6 +691,7 @@ namespace ArcademiaGameLauncher
                         // Hide the CreditsPanel Logos
                         UoL_Logo.Visibility = Visibility.Collapsed;
                         intlab_Logo.Visibility = Visibility.Collapsed;
+                        CSS_Logo.Visibility = Visibility.Collapsed;
                     });
                 }
                 catch (TaskCanceledException) { }
