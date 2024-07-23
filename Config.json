@@ -1,4 +1,4 @@
 {
   "GameDatabaseURL": "https://researcharcade.com/gamedb/GameDatabase.json",
-  "NoInputTimeout_ms": 18000
+  "NoInputTimeout_ms": 180000
 }
