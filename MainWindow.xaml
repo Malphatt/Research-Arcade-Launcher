@@ -330,8 +330,8 @@
                         <RowDefinition Height="1*"/>
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="[Research-Arcade-Launcher] Developed by Matthew Freeman" Foreground="#777" FontSize="10" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left"/>
-                    <TextBlock Grid.Row="1" Text="(Based on [arcade-ui-kiosk] Developed by Benjamin Williams)" Foreground="#777" FontSize="10" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left"/>
-                    <TextBlock Grid.Row="3" Text="[v1.1.0-24 Release Build]" Foreground="#777" FontSize="10" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left"/>
+                    <TextBlock Grid.Row="1" Text="Based on [arcade-ui-kiosk] Developed by Benjamin Williams" Foreground="#444" FontSize="10" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left"/>
+                    <TextBlock Grid.Row="3" Text="[v1.1.1-24 Release Build]" Foreground="#777" FontSize="10" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left"/>
                 </Grid>
             </Grid>
             <Grid x:Name="HomeMenuImageArea" Grid.Column="1">
@@ -341,7 +341,7 @@
                                Stretch="UniformToFill"/>
                     </Grid>
                     <!-- Lock width of Credits Panel to the Width of HomeMenuImageArea -->
-                    <Grid x:Name="CreditsPanel" Visibility="Collapsed" Background="#000" Canvas.Top="{StaticResource {x:Static SystemParameters.PrimaryScreenHeightKey}}" Width="{Binding ElementName=HomeMenuImageArea, Path=ActualWidth}"/>
+                    <Grid x:Name="CreditsPanel" Visibility="Collapsed" Canvas.Top="{StaticResource {x:Static SystemParameters.PrimaryScreenHeightKey}}" Width="{Binding ElementName=HomeMenuImageArea, Path=ActualWidth}" Margin="50,0,0,0"/>
                     <Image x:Name="UoL_Logo" Source="/Images/uolwhite.png" Visibility="Collapsed" Opacity="0.8" Width="150" Canvas.Bottom="10" Canvas.Right="10" Stretch="Uniform"/>
                     <Image x:Name="intlab_Logo" Source="/Images/intlab.png" Visibility="Collapsed" Opacity="0.8" Width="150" Canvas.Bottom="10" Canvas.Right="170" Stretch="Uniform"/>
                     <Image x:Name="CSS_Logo" Source="/Images/css.png" Visibility="Collapsed" Opacity="0.8" Width="150" Canvas.Bottom="10" Canvas.Right="330" Stretch="Uniform"/>
