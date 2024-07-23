@@ -14,7 +14,7 @@
     },
     {
       "Type": "Note",
-      "Value": "The Arcademia project has been rebooted since its initial development in 2022. It focuses on showcasing video games developed by the student cohort in the University of Lincoln. A successor to The Research Arcade project (and Arcademia 2022), its emphasis is shifted towards showcasing student work rather than collecting valuable data for research purposes."
+      "Value": "The Arcademia project has been rebooted since its initial development in 2022. This Game Launcher is a successor to The Research Arcade project (and Arcademia 2022). This project is made in collaboration with the Computer Science Society (CSS)."
     },
     {
       "Type": "Heading",
@@ -269,6 +269,7 @@
     {
         "Type": "Image",
         "Stretch": "Uniform",
+        "HeightOverride": 100,
         "Path": "Images/creditEnemy.gif"
     },
     {

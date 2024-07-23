@@ -127,10 +127,6 @@ namespace ArcademiaGameLauncher
         public void SetButtonState(int _button, bool _state)
         {
             buttonStates[_button] = _state;
-            if (_state)
-            {
-                Console.WriteLine(_button);
-            }
         }
     }
 
@@ -254,10 +250,10 @@ namespace ArcademiaGameLauncher
             int screenHeight = (int)SystemParameters.PrimaryScreenHeight;
 
             // StartMenu_Rect
-            double RectActualWidth = Math.Cos((double)5 * (Math.PI / (double)180)) * StartMenu_Rect.Width;
-            double RectActualHeight = Math.Sin((double)5 * Math.PI / (double)180) * StartMenu_Rect.Width + Math.Cos((double)5 * Math.PI / (double)180) * StartMenu_Rect.Height;
+            double RectActualWidth = Math.Cos((double)5 * (Math.PI / (double)180)) * (double)StartMenu_Rect.Width;
+            double RectActualHeight = Math.Sin((double)5 * Math.PI / (double)180) * (double)StartMenu_Rect.Width + Math.Cos((double)5 * Math.PI / (double)180) * (double)StartMenu_Rect.Height;
 
-            Canvas.SetLeft(StartMenu_Rect, (screenWidth / 2) - (RectActualWidth / 2) + (screenWidth / 40));
+            Canvas.SetLeft(StartMenu_Rect, (screenWidth / 2) - (RectActualWidth / 2) + ((double)screenWidth / 30));
             Canvas.SetTop(StartMenu_Rect, screenHeight / 2 - RectActualHeight / 2);
 
             // StartMenu_ArcademiaLogo
@@ -267,6 +263,23 @@ namespace ArcademiaGameLauncher
             // PressStartText
             Canvas.SetLeft(PressStartText, screenWidth / 2 - PressStartText.Width / 2);
             Canvas.SetTop(PressStartText, screenHeight / 2 - PressStartText.Height / 2);
+
+            // Set width and height of the logos
+            double logoWidth = (double)screenWidth * (double)0.08;
+
+            // UoL_Logo
+            UoL_Logo.Width = logoWidth;
+            UoL_Logo.Height = logoWidth;
+
+            // intlab_Logo
+            intlab_Logo.Width = logoWidth;
+            intlab_Logo.Height = logoWidth;
+            Canvas.SetRight(intlab_Logo, 10 + logoWidth);
+
+            // CSS_Logo
+            CSS_Logo.Width = logoWidth;
+            CSS_Logo.Height = logoWidth;
+            Canvas.SetRight(CSS_Logo, 2 * (10 + logoWidth));
         }
 
         // Initialization
@@ -310,9 +323,7 @@ namespace ArcademiaGameLauncher
             // Query all suported ForceFeedback effects
             var allEffects = joystick.GetEffects();
             foreach (var effectInfo in allEffects)
-            {
                 Console.WriteLine(effectInfo.Name);
-            }
 
             // Set BufferSize in order to use buffered data.
             joystick.Properties.BufferSize = 128;
@@ -1163,7 +1174,7 @@ namespace ArcademiaGameLauncher
 
                             break;
                         case "Note":
-                            int noteHeight = 25 + (creditsArray[i]["Value"].ToString().Length / 150 * 25);
+                            int noteHeight = 30 + (creditsArray[i]["Value"].ToString().Length / 150 * 30);
 
                             // Create a new RowDefinition
                             RowDefinition noteRow = new RowDefinition();
@@ -1186,7 +1197,7 @@ namespace ArcademiaGameLauncher
                             noteText.HorizontalAlignment = HorizontalAlignment.Left;
                             noteText.VerticalAlignment = VerticalAlignment.Center;
                             noteText.TextWrapping = TextWrapping.Wrap;
-                            noteText.LineHeight = 15;
+                            noteText.LineHeight = 25;
 
                             // Add the TextBlock to the Grid
                             noteGrid.Children.Add(noteText);
@@ -1224,9 +1235,12 @@ namespace ArcademiaGameLauncher
 
                             break;
                         case "Image":
+                            double overrideHeight = creditsArray[i]["HeightOverride"] != null ? double.Parse(creditsArray[i]["HeightOverride"].ToString()) : 100;
+                            string stretch = creditsArray[i]["Stretch"] != null ? creditsArray[i]["Stretch"].ToString() : "Uniform";
+
                             // Create a new RowDefinition
                             RowDefinition imageRow = new RowDefinition();
-                            imageRow.Height = new GridLength(100, GridUnitType.Pixel);
+                            imageRow.Height = new GridLength(overrideHeight, GridUnitType.Pixel);
                             CreditsPanel.RowDefinitions.Add(imageRow);
 
                             // Create a new Grid
@@ -1240,14 +1254,29 @@ namespace ArcademiaGameLauncher
                             // Create a new Image (Static)
                             Image imageStatic = new Image();
                             imageStatic.Source = new BitmapImage(new Uri(imagePath, UriKind.Relative));
-                            imageStatic.Stretch = Stretch.None;
+
+                            // Set Image Stretch
+                            switch (stretch)
+                            {
+                                case "Fill":
+                                    imageStatic.Stretch = Stretch.Fill;
+                                    break;
+                                case "None":
+                                    imageStatic.Stretch = Stretch.None;
+                                    break;
+                                case "Uniform":
+                                    imageStatic.Stretch = Stretch.Uniform;
+                                    break;
+                                case "UniformToFill":
+                                    imageStatic.Stretch = Stretch.UniformToFill;
+                                    break;
+                            }
 
                             // Add the Image to the Grid
                             imageGrid.Children.Add(imageStatic);
 
                             // Set Grid Height to Image Height
-                            double imageHeight = imageStatic.Source.Height;
-                            imageGrid.Height = imageHeight;
+                            imageGrid.Height = overrideHeight;
 
                             // Create a new Image (Gif)
                             if (imagePath.EndsWith(".gif"))
@@ -1255,7 +1284,23 @@ namespace ArcademiaGameLauncher
                                 // Copy GifTemplateElement_Parent's child element to make a new Image
                                 Image imageGif = CloneXamlElement((Image)GifTemplateElement_Parent.Children[0]);
                                 AnimationBehavior.SetSourceUri(imageGif, new Uri(imagePath, UriKind.Relative));
-                                imageGif.Stretch = Stretch.None;
+
+                                // Set Image Stretch
+                                switch (stretch)
+                                {
+                                    case "Fill":
+                                        imageGif.Stretch = Stretch.Fill;
+                                        break;
+                                    case "None":
+                                        imageGif.Stretch = Stretch.None;
+                                        break;
+                                    case "Uniform":
+                                        imageGif.Stretch = Stretch.Uniform;
+                                        break;
+                                    case "UniformToFill":
+                                        imageGif.Stretch = Stretch.UniformToFill;
+                                        break;
+                                }
 
                                 // Add the Image to the Grid
                                 imageGrid.Children.Add(imageGif);
