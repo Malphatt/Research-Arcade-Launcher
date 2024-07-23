@@ -666,7 +666,7 @@ namespace ArcademiaGameLauncher
                         HomeMenu.Visibility = Visibility.Visible;
                         SelectionMenu.Visibility = Visibility.Collapsed;
 
-                        HomeImage.Visibility = Visibility.Collapsed;
+                        HomeImage.Opacity = 0.2;
                         CreditsPanel.Visibility = Visibility.Visible;
 
                         // Show the CreditsPanel Logos
@@ -697,7 +697,7 @@ namespace ArcademiaGameLauncher
                         HomeMenu.Visibility = Visibility.Collapsed;
                         SelectionMenu.Visibility = Visibility.Collapsed;
 
-                        HomeImage.Visibility = Visibility.Visible;
+                        HomeImage.Opacity = 1;
                         CreditsPanel.Visibility = Visibility.Collapsed;
 
                         // Hide the CreditsPanel Logos
