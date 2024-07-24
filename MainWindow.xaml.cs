@@ -265,7 +265,7 @@ namespace ArcademiaGameLauncher
             Canvas.SetTop(PressStartText, screenHeight / 2 - PressStartText.Height / 2);
 
             // Set width and height of the logos
-            double logoWidth = (double)screenWidth * (double)0.08;
+            double logoWidth = (double)screenWidth * (double)0.06;
 
             // UoL_Logo
             UoL_Logo.Width = logoWidth;
