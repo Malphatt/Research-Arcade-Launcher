@@ -12,7 +12,9 @@
         ContentRendered="Window_ContentRendered"
         Title="Launcher"  Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}"
         xmlns:gif="https://github.com/XamlAnimatedGif/XamlAnimatedGif">
+    <!-- Declare the Launcher Version, Global Font and ToggleButton style -->
     <Window.Resources>
+        <System:String x:Key="LauncherVersion">[v1.1.2-24 Release Build]</System:String>
         <System:String x:Key="YearStyle">yyyy</System:String>
         <Style x:Key="Early GameBoy">
             <Setter Property="TextElement.FontFamily" Value="/Fonts/#Press Start 2P"/>
@@ -331,7 +333,7 @@
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="[Research-Arcade-Launcher] Developed by Matthew Freeman" Foreground="#777" FontSize="10" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left"/>
                     <TextBlock Grid.Row="1" Text="Based on [arcade-ui-kiosk] Developed by Benjamin Williams" Foreground="#444" FontSize="10" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left"/>
-                    <TextBlock Grid.Row="3" Text="[v1.1.1-24 Release Build]" Foreground="#777" FontSize="10" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left"/>
+                    <TextBlock Grid.Row="3" Text="{StaticResource LauncherVersion}" Foreground="#777" FontSize="10" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left"/>
                 </Grid>
             </Grid>
             <Grid x:Name="HomeMenuImageArea" Grid.Column="1">
