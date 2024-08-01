@@ -231,10 +231,16 @@ namespace ArcademiaGameLauncher
 
         public MainWindow()
         {
+            // Setup closing event
+            Closing += Window_Closing;
+
             InitializeComponent();
 
             // Setup Directories
-            rootPath = Directory.GetCurrentDirectory();
+            if (Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "Launcher")))
+                rootPath = Path.Combine(Directory.GetCurrentDirectory(), "Launcher");
+            else
+                rootPath = Directory.GetCurrentDirectory();
 
             configPath = Path.Combine(rootPath, "Config.json");
             gameDirectoryPath = Path.Combine(rootPath, "Games");
@@ -427,7 +433,6 @@ namespace ArcademiaGameLauncher
 
         private void CheckForUpdates(int _updateIndexOfGame)
         {
-            // Set the updateIndexOfGame to the index of the game being updated
             // Set the updateIndexOfGame to the index of the game being updated
             updateIndexOfGame = _updateIndexOfGame;
 
@@ -833,6 +838,18 @@ namespace ArcademiaGameLauncher
             if (controllerStates.Count > 0)
                 controllerStates[0].UpdateButtonStates();
 
+            // Check if the exit key sent from the updater is pressed
+            if (GetAsyncKeyState(69) != 0)
+            {
+                // Trigger Window_Closing event
+                Window_Closing(null, null);
+
+                // Close the application
+                if (Application.Current != null)
+                    try { Application.Current.Dispatcher.Invoke(() => Application.Current.Shutdown()); }
+                    catch (TaskCanceledException) { }
+            }
+
             // Keylogger for AFK Timer
             if (afkTimerActive)
             {
@@ -995,6 +1012,16 @@ namespace ArcademiaGameLauncher
 
             // Increment the global counter
             globalCounter += 10;
+        }
+
+        private void Window_Closing(object sender, CancelEventArgs e)
+        {
+            // Close the currently running process
+            if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
+                currentlyRunningProcess.Kill();
+
+            // Close the updateTimer
+            updateTimer.Close();
         }
 
         // Credits
