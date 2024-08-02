@@ -21,13 +21,14 @@ namespace ArcademiaGameLauncher
 {
     // Launcher State Enum
 
-    enum LauncherState
+    enum GameState
     {
-        ready,
-        failed,
         checkingForUpdates,
         downloadingGame,
-        downloadingUpdate
+        downloadingUpdate,
+        failed,
+        loadingInfo,
+        start
     }
 
     // Controller State Class
@@ -197,7 +198,7 @@ namespace ArcademiaGameLauncher
 
         private Process currentlyRunningProcess = null;
 
-        private LauncherState[] gameTitleStates;
+        private GameState[] gameTitleStates;
 
         // MAIN WINDOW
 
@@ -350,7 +351,7 @@ namespace ArcademiaGameLauncher
 
                 JArray onlineGames = (JArray)gameDatabaseFile["Games"];
                 gameInfoFilesList = new JObject[onlineGames.Count];
-                gameTitleStates = new LauncherState[onlineGames.Count];
+                gameTitleStates = new GameState[onlineGames.Count];
 
                 // Show the game titles as "Loading..." until the game database is updated
                 for (int i = previousPageIndex * 10; i < (previousPageIndex + 1) * 10; i++)
@@ -365,7 +366,7 @@ namespace ArcademiaGameLauncher
                 }
 
                 for (int i = 0; i < onlineGames.Count; i++)
-                    SetGameTitleState(i, LauncherState.checkingForUpdates);
+                    SetGameTitleState(i, GameState.checkingForUpdates);
 
                 // Update the FolderName property of each game in the local game database
                 for (int i = 0; i < onlineGames.Count; i++)
@@ -468,11 +469,11 @@ namespace ArcademiaGameLauncher
                     if (onlineVersion.IsDifferentVersion(localVersion))
                         InstallGameFiles(true, onlineJson, gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString());
                     else
-                        SetGameTitleState(updateIndexOfGame, LauncherState.ready);
+                        SetGameTitleState(updateIndexOfGame, GameState.loadingInfo);
                 }
                 catch (Exception ex)
                 {
-                    SetGameTitleState(updateIndexOfGame, LauncherState.failed);
+                    SetGameTitleState(updateIndexOfGame, GameState.failed);
                     MessageBox.Show($"Failed to check for updates: {ex.Message}");
                 }
             }
@@ -491,12 +492,12 @@ namespace ArcademiaGameLauncher
                 if (_isUpdate)
                 {
                     // If the game has an update, set the state to downloadingUpdate
-                    SetGameTitleState(updateIndexOfGame, LauncherState.downloadingUpdate);
+                    SetGameTitleState(updateIndexOfGame, GameState.downloadingUpdate);
                 }
                 else
                 {
                     // If the game doesn't have an update, set the state to downloadingGame
-                    SetGameTitleState(updateIndexOfGame, LauncherState.downloadingGame);
+                    SetGameTitleState(updateIndexOfGame, GameState.downloadingGame);
 
                     // Set _onlineJson to the online JSON object
                     _onlineJson = JObject.Parse(webClient.DownloadString(_downloadURL));
@@ -516,7 +517,7 @@ namespace ArcademiaGameLauncher
                 }
 
                 // If the download fails, set the state to failed and show an error message
-                SetGameTitleState(updateIndexOfGame, LauncherState.failed);
+                SetGameTitleState(updateIndexOfGame, GameState.failed);
                 MessageBox.Show($"Failed installing game files: {ex.Message}");
             }
         }
@@ -587,7 +588,7 @@ namespace ArcademiaGameLauncher
                                 gameTitlesList[currentUpdateIndexOfGame % 10].Visibility = Visibility.Visible;
                             }
 
-                            SetGameTitleState(currentUpdateIndexOfGame, LauncherState.ready);
+                            SetGameTitleState(currentUpdateIndexOfGame, GameState.loadingInfo);
                         });
                     }
                     catch (TaskCanceledException) { }
@@ -607,7 +608,7 @@ namespace ArcademiaGameLauncher
                 }
 
                 // If the download fails, set the state to failed and show an error message
-                SetGameTitleState(updateIndexOfGame, LauncherState.failed);
+                SetGameTitleState(updateIndexOfGame, GameState.failed);
                 MessageBox.Show($"Failed to complete download: {ex.Message}");
             }
         }
@@ -736,10 +737,8 @@ namespace ArcademiaGameLauncher
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
             // If the game info display is not showing the currently selected game, return
-            if (!showingDebouncedGame) return;
-
-            // If the currently selected game is not ready, return
-            if (gameTitleStates[currentlySelectedGameIndex] != LauncherState.ready) return;
+            if (!showingDebouncedGame || gameTitleStates[currentlySelectedGameIndex] != GameState.start)
+                return;
 
             // Get the current game folder, game info, and game executable
             string currentGameFolder = gameDatabaseFile["Games"][currentlySelectedGameIndex]["FolderName"].ToString();
@@ -751,7 +750,7 @@ namespace ArcademiaGameLauncher
                 );
 
             // Start the game if the game executable exists and the launcher is ready
-            if (File.Exists(currentGameExe) && gameTitleStates[currentlySelectedGameIndex] == LauncherState.ready)
+            if (File.Exists(currentGameExe))
             {
                 // Create a new ProcessStartInfo object and set the Working Directory to the game directory
                 ProcessStartInfo startInfo = new ProcessStartInfo(currentGameExe);
@@ -765,7 +764,7 @@ namespace ArcademiaGameLauncher
                 else
                     SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
             }
-            else if (gameTitleStates[currentlySelectedGameIndex] == LauncherState.failed)
+            else if (gameTitleStates[currentlySelectedGameIndex] == GameState.failed)
             {
                 // Run CheckForUpdatesInit again
                 Task.Run(() => CheckForUpdatesInit(((JArray)gameDatabaseFile["Games"]).Count));
@@ -1369,7 +1368,7 @@ namespace ArcademiaGameLauncher
             return selectionAnimationFrames[selectionAnimationFrame];
         }
 
-        private void SetGameTitleState(int _index, LauncherState _state)
+        private void SetGameTitleState(int _index, GameState _state)
         {
             // Set the game title state
             gameTitleStates[_index] = _state;
@@ -1602,12 +1601,21 @@ namespace ArcademiaGameLauncher
             for (int i = 0; i < 10; i++)
             {
                 // Break if the current index is out of bounds
-                if (i + _pageIndex * 10 >= gameInfoFilesList.Length || gameInfoFilesList[i + _pageIndex * 10] == null)
+                if (i + _pageIndex * 10 >= gameInfoFilesList.Length)
                     break;
 
-                // Set the text of the title and make it visible
-                gameTitlesList[i].Text = gameInfoFilesList[i + _pageIndex * 10]["GameName"].ToString();
-                gameTitlesList[i].Visibility = Visibility.Visible;
+                if (gameInfoFilesList[i + _pageIndex * 10] == null)
+                {
+                    // Set the text to "Loading..." and make it visible
+                    gameTitlesList[i].Text = "Loading...";
+                    gameTitlesList[i].Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    // Set the text to the game title and make it visible
+                    gameTitlesList[i].Text = gameInfoFilesList[i + _pageIndex * 10]["GameName"].ToString();
+                    gameTitlesList[i].Visibility = Visibility.Visible;
+                }
             }
         }
 
@@ -1657,9 +1665,10 @@ namespace ArcademiaGameLauncher
                 // Set the Game Description and Version
                 GameDescription.Text = gameInfoFilesList[currentlySelectedGameIndex]["GameDescription"].ToString();
                 VersionText.Text = "v" + gameInfoFilesList[currentlySelectedGameIndex]["GameVersion"].ToString();
-            }
 
-            showingDebouncedGame = true;
+                showingDebouncedGame = true;
+                SetGameTitleState(currentlySelectedGameIndex, GameState.start);
+            }
         }
 
         public void StyleStartButtonState(int _index)
@@ -1673,25 +1682,29 @@ namespace ArcademiaGameLauncher
                         // Style the StartButton
                         switch (gameTitleStates[_index])
                         {
-                            case LauncherState.ready:
-                                StartButton.IsChecked = true;
-                                StartButton.Content = "Start";
-                                break;
-                            case LauncherState.failed:
-                                StartButton.IsChecked = false;
-                                StartButton.Content = "Failed";
-                                break;
-                            case LauncherState.checkingForUpdates:
+                            case GameState.checkingForUpdates:
                                 StartButton.IsChecked = false;
                                 StartButton.Content = "Checking for Updates...";
                                 break;
-                            case LauncherState.downloadingGame:
+                            case GameState.downloadingGame:
                                 StartButton.IsChecked = false;
                                 StartButton.Content = "Downloading Game...";
                                 break;
-                            case LauncherState.downloadingUpdate:
+                            case GameState.downloadingUpdate:
                                 StartButton.IsChecked = false;
                                 StartButton.Content = "Updating Game...";
+                                break;
+                            case GameState.failed:
+                                StartButton.IsChecked = false;
+                                StartButton.Content = "Failed";
+                                break;
+                            case GameState.loadingInfo:
+                                StartButton.IsChecked = false;
+                                StartButton.Content = "Loading Game Info...";
+                                break;
+                            case GameState.start:
+                                StartButton.IsChecked = true;
+                                StartButton.Content = "Start";
                                 break;
                             default:
                                 break;
