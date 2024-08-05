@@ -14,7 +14,7 @@
         Title="Launcher"  Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
     <!-- Declare the Launcher Version, Global Font and ToggleButton style -->
     <Window.Resources>
-        <System:String x:Key="LauncherVersion">[v1.2.2-24 Release Build]</System:String>
+        <System:String x:Key="LauncherVersion">[v1.2.3-24 Release Build]</System:String>
         <System:String x:Key="YearStyle">yyyy</System:String>
         <Style x:Key="Early GameBoy">
             <Setter Property="TextElement.FontFamily" Value="/Fonts/#Press Start 2P"/>
@@ -84,7 +84,7 @@
                gif:AnimationBehavior.SourceUri=""/>
         </Grid>
         <!-- Start Menu -->
-        <Grid x:Name="StartMenu" Visibility="Collapsed" Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
+        <Grid x:Name="StartMenu" Visibility="Visible" Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
             <Grid.Background>
                 <SolidColorBrush Color="Black"/>
             </Grid.Background>
@@ -356,7 +356,7 @@
         </Grid>
 
         <!-- Selection Menu -->
-        <Grid x:Name="SelectionMenu" Visibility="Visible" Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
+        <Grid x:Name="SelectionMenu" Visibility="Collapsed" Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
             <Grid.Background>
                 <SolidColorBrush Color="Black"/>
             </Grid.Background>
