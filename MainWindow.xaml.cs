@@ -144,8 +144,9 @@ namespace ArcademiaGameLauncher
         private readonly string gameDirectoryPath;
 
         private readonly string configPath;
-        private string gameDatabaseURL;
+        private JObject config;
 
+        private string gameDatabaseURL;
         private readonly string localGameDatabasePath;
         private JObject gameDatabaseFile;
 
@@ -328,6 +329,103 @@ namespace ArcademiaGameLauncher
 
             // Start the timer
             updateTimer.Enabled = true;
+        }
+
+        // Downloading and Installing Updater Methods
+
+        private void CheckForUpdaterUpdates()
+        {
+            try
+            {
+                // Get the online version of the Updater
+                WebClient webClient = new WebClient();
+
+                // Create the version file if it doesn't exist
+                if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "Updater_Version.txt")))
+                    File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "Updater_Version.txt"), "0.0.0");
+
+                // Get the local version of the Updater
+                Version currentVersion = new Version(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "Updater_Version.txt")));
+
+                // Get the online version of the Updater
+                Version latestVersion = new Version(webClient.DownloadString(config["UpdaterVersionURL"].ToString()));
+
+                // Check if the updater is up to date
+                if (currentVersion.IsDifferentVersion(latestVersion))
+                {
+                    // Close the currently running process
+                    if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
+                    {
+                        currentlyRunningProcess.Kill();
+                        currentlyRunningProcess = null;
+                    }
+
+                    // Find the Updater process and close it
+                    Process[] processes = Process.GetProcessesByName("Research-Arcade-Updater");
+                    foreach (Process process in processes)
+                        process.Kill();
+
+                    // Wait for 1 second to allow the updater to close
+                    Task.Run(async () =>
+                    {
+                        await Task.Delay(1000);
+
+                        // Update the updater
+                        UpdateUpdater();
+
+                        // Update the version file
+                        File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "Updater_Version.txt"), latestVersion.ToString());
+
+                        // Start the new updater
+                        Process.Start(Path.Combine(Directory.GetCurrentDirectory(), "Research-Arcade-Updater.exe"));
+
+                        // Close the current application
+                        if (Application.Current != null && Application.Current.Dispatcher != null)
+                            try { Application.Current.Dispatcher.Invoke(() => Application.Current.Shutdown()); }
+                            catch (TaskCanceledException) { }
+                    });
+                }
+            }
+            catch (Exception) { }
+        }
+
+        private void UpdateUpdater()
+        {
+            // Alert the user that the application is Undergoing Maintenance
+            if (Application.Current != null && Application.Current.Dispatcher != null)
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        StartMenu.Visibility = Visibility.Collapsed;
+                        HomeMenu.Visibility = Visibility.Collapsed;
+                        SelectionMenu.Visibility = Visibility.Collapsed;
+
+                        MaintenanceScreen.Visibility = Visibility.Visible;
+                    });
+                }
+                catch (TaskCanceledException) { }
+
+            // Delete the old updater files (except the Launcher folder and the version file)
+            foreach (string file in Directory.GetFiles(Directory.GetCurrentDirectory()))
+                if (file != Path.Combine(Directory.GetCurrentDirectory(), "Updater_Version.txt") &&
+                    file != Path.Combine(Directory.GetCurrentDirectory(), "Launcher"))
+                    File.Delete(file);
+
+            try
+            {
+                // Download the updater
+                WebClient webClient = new WebClient();
+                webClient.DownloadFile(config["UpdaterURL"].ToString(), Path.Combine(Directory.GetCurrentDirectory(), "Updater.zip"));
+
+                // Extract the updater
+                FastZip fastZip = new FastZip();
+                fastZip.ExtractZip(Path.Combine(Directory.GetCurrentDirectory(), "Updater.zip"), Directory.GetCurrentDirectory(), null);
+
+                // Delete the zip file
+                File.Delete(Path.Combine(Directory.GetCurrentDirectory(), "Updater.zip"));
+            }
+            catch (Exception) { }
         }
 
         // Downloading and Installing Game Methods
@@ -790,7 +888,7 @@ namespace ArcademiaGameLauncher
             if (File.Exists(configPath))
             {
                 // Load Config.json
-                JObject config = JObject.Parse(File.ReadAllText(configPath));
+                config = JObject.Parse(File.ReadAllText(configPath));
 
                 // Get the GameDatabaseURL and NoInputTimeout from the Config.json file
                 gameDatabaseURL = config["GameDatabaseURL"].ToString();
@@ -808,6 +906,16 @@ namespace ArcademiaGameLauncher
             // Initialize the controller states
             JoyStickInit();
 
+            // Every 30 minutes, check for updates to the updater
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    CheckForUpdaterUpdates();
+                    await Task.Delay(30 * 60 * 1000);
+                }
+            });
+
             // Perform an initial update of the game info display
             currentlySelectedGameIndex = 0;
             UpdateGameInfoDisplay();
@@ -818,6 +926,10 @@ namespace ArcademiaGameLauncher
 
         private void OnTimedEvent(Object source, System.Timers.ElapsedEventArgs e)
         {
+            // If the application is undergoing maintenance, disallow any input and pause the afk timer
+            if (MaintenanceScreen.Visibility == Visibility.Visible)
+                return;
+
             if (controllerStates.Count > 0)
                 controllerStates[0].UpdateButtonStates();
 

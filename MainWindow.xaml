@@ -14,7 +14,7 @@
         Title="Launcher"  Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
     <!-- Declare the Launcher Version, Global Font and ToggleButton style -->
     <Window.Resources>
-        <System:String x:Key="LauncherVersion">[v1.2.3-24 Release Build]</System:String>
+        <System:String x:Key="LauncherVersion">[v1.3.0-24 Release Build]</System:String>
         <System:String x:Key="YearStyle">yyyy</System:String>
         <Style x:Key="Early GameBoy">
             <Setter Property="TextElement.FontFamily" Value="/Fonts/#Press Start 2P"/>
@@ -83,6 +83,19 @@
             <Image gif:AnimationBehavior.CacheFramesInMemory="True"
                gif:AnimationBehavior.SourceUri=""/>
         </Grid>
+        
+        <!-- Maintenance Screen -->
+        <Grid x:Name="MaintenanceScreen" Visibility="Collapsed" Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="5*"/>
+                <RowDefinition Height="1*"/>
+                <RowDefinition Height="1*"/>
+                <RowDefinition Height="5*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="1" Text="Undergoing Maintenance" Foreground="White" FontSize="40" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+            <TextBlock Grid.Row="2" Text="Please Wait" Foreground="White" FontSize="40" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+        </Grid>
+
         <!-- Start Menu -->
         <Grid x:Name="StartMenu" Visibility="Visible" Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
             <Grid.Background>
@@ -128,6 +141,7 @@
             </Canvas>
         </Grid>
 
+        <!-- Home Menu -->
         <Grid x:Name="HomeMenu" Visibility="Collapsed" Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
             <Grid.Background>
                 <SolidColorBrush Color="Black"/>
