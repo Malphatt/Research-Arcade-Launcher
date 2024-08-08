@@ -35,8 +35,8 @@ namespace ArcademiaGameLauncher
 
     public class ControllerState
     {
-        private int index;
-        private bool[] buttonStates;
+        private readonly int index; 
+        private readonly bool[] buttonStates;
         private int leftStickX;
         private int leftStickY;
 
@@ -129,6 +129,12 @@ namespace ArcademiaGameLauncher
         public void SetButtonState(int _button, bool _state)
         {
             buttonStates[_button] = _state;
+        }
+        
+        // Getter for the index
+        public int GetIndex()
+        {
+            return index;
         }
     }
 
@@ -270,50 +276,48 @@ namespace ArcademiaGameLauncher
             directInput = new DirectInput();
 
             // Find a JoyStick Guid
-            var joystickGuid = Guid.Empty;
+            List<Guid> joystickGuids = new List<Guid>();
 
             // Find a Gamepad Guid
             foreach (var deviceInstance in directInput.GetDevices(DeviceType.Gamepad, DeviceEnumerationFlags.AllDevices))
-            {
-                joystickGuid = deviceInstance.InstanceGuid;
-                break;
-            }
+                joystickGuids.Add(deviceInstance.InstanceGuid);
 
             // If no Gamepad is found, find a Joystick
-            if (joystickGuid == Guid.Empty)
-            {
+            if (joystickGuids.Count == 0)
                 foreach (var deviceInstance in directInput.GetDevices(DeviceType.Joystick, DeviceEnumerationFlags.AllDevices))
-                {
-                    joystickGuid = deviceInstance.InstanceGuid;
-                    break;
-                }
-            }
+                    joystickGuids.Add(deviceInstance.InstanceGuid);
 
             // If no Joystick is found, throw an error
-            if (joystickGuid == Guid.Empty)
+            if (joystickGuids.Count == 0)
             {
                 MessageBox.Show("No joystick or gamepad found.");
                 Application.Current.Shutdown();
                 return;
             }
 
-            // Instantiate the joystick
-            Joystick joystick = new Joystick(directInput, joystickGuid);
+            // For each Joystick Guid, create a new Joystick object
+            foreach (Guid joystickGuid in joystickGuids)
+            {
+                // Instantiate the joystick
+                Joystick joystick = new Joystick(directInput, joystickGuid);
 
-            // Query all suported ForceFeedback effects
-            var allEffects = joystick.GetEffects();
-            foreach (var effectInfo in allEffects)
-                Console.WriteLine(effectInfo.Name);
+                // Query all suported ForceFeedback effects
+                var allEffects = joystick.GetEffects();
+                foreach (var effectInfo in allEffects)
+                    Console.WriteLine(effectInfo.Name);
 
-            // Set BufferSize in order to use buffered data.
-            joystick.Properties.BufferSize = 128;
+                // Set BufferSize in order to use buffered data.
+                joystick.Properties.BufferSize = 128;
 
-            // Acquire the joystick
-            joystick.Acquire();
+                // Acquire the joystick
+                joystick.Acquire();
 
-            // Create a new ControllerState object for the joystick
-            ControllerState controllerState = new ControllerState(joystick, controllerStates.Count);
-            controllerStates.Add(controllerState);
+                // Create a new ControllerState object for the joystick
+                ControllerState controllerState = new ControllerState(joystick, controllerStates.Count);
+                controllerStates.Add(controllerState);
+            }
+
+            MessageBox.Show(controllerStates.Count + " controller(s) found.");
         }
 
         private void InitializeUpdateTimer()
@@ -926,12 +930,9 @@ namespace ArcademiaGameLauncher
 
         private void OnTimedEvent(Object source, System.Timers.ElapsedEventArgs e)
         {
-            // If the application is undergoing maintenance, disallow any input and pause the afk timer
+            // If the application is undergoing maintenance, pause main loop
             if (MaintenanceScreen.Visibility == Visibility.Visible)
                 return;
-
-            if (controllerStates.Count > 0)
-                controllerStates[0].UpdateButtonStates();
 
             // Check if the exit key sent from the updater is pressed
             if (GetAsyncKeyState(69) != 0)
@@ -1494,145 +1495,153 @@ namespace ArcademiaGameLauncher
 
         private void UpdateCurrentSelection()
         {
-            // If theres a game running, don't listen for inputs
-            if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
+            // For each Controller State
+            for (int i = 0; i < controllerStates.Count; i++)
             {
-                // If the user hits the exit button (Button 0) close the application
-                if (controllerStates[0].GetButtonState(0))
+                // Update Controller Input
+                if (controllerStates.Count > 0)
+                    controllerStates[i].UpdateButtonStates();
+
+                // If theres a game running, don't listen for inputs
+                if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
                 {
-                    currentlyRunningProcess.Kill();
-                    SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+                    // If the user hits the exit button (Button 0) close the application
+                    if (controllerStates[i].GetButtonState(0))
+                    {
+                        currentlyRunningProcess.Kill();
+                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+                    }
+                    else return;
                 }
-                else return;
-            }
 
-            // Use a multiplier to speed up the selection update when the stick is held in either direction
-            double multiplier = 1.00;
-            if (selectionUpdateIntervalCounter > 0)
-                multiplier = (double)1.00 - ((double)selectionUpdateIntervalCounter / ((double)selectionUpdateIntervalCounterMax * 1.6));
+                // Use a multiplier to speed up the selection update when the stick is held in either direction
+                double multiplier = 1.00;
+                if (selectionUpdateIntervalCounter > 0)
+                    multiplier = (double)1.00 - ((double)selectionUpdateIntervalCounter / ((double)selectionUpdateIntervalCounterMax * 1.6));
 
-            // If the selection update counter is greater than the selection update interval, update the selection
-            if (selectionUpdateCounter >= selectionUpdateInterval * multiplier)
-            {
-                int[] leftStickDirection = controllerStates[0].GetLeftStickDirection();
-
-                // If the left of right stick's direction is up
-                if (leftStickDirection[1] == -1)
+                // If the selection update counter is greater than the selection update interval, update the selection
+                if (selectionUpdateCounter >= selectionUpdateInterval * multiplier)
                 {
-                    // Reset the selection update counter and increment the selection update interval counter
-                    selectionUpdateCounter = 0;
-                    if (selectionUpdateIntervalCounter < selectionUpdateIntervalCounterMax)
-                        selectionUpdateIntervalCounter++;
+                    int[] leftStickDirection = controllerStates[i].GetLeftStickDirection();
 
-                    // If the Home Menu is visible, decrement the currently selected Home Index
+                    // If the left of right stick's direction is up
+                    if (leftStickDirection[1] == -1)
+                    {
+                        // Reset the selection update counter and increment the selection update interval counter
+                        selectionUpdateCounter = 0;
+                        if (selectionUpdateIntervalCounter < selectionUpdateIntervalCounterMax)
+                            selectionUpdateIntervalCounter++;
+
+                        // If the Home Menu is visible, decrement the currently selected Home Index
+                        if (HomeMenu.Visibility == Visibility.Visible)
+                        {
+                            currentlySelectedHomeIndex -= 1;
+                            if (currentlySelectedHomeIndex < 0)
+                                currentlySelectedHomeIndex = 0;
+
+                            // Highlight the current Home Menu Option
+                            HighlightCurrentHomeMenuOption();
+                        }
+                        // If the Selection Menu is visible, decrement the currently selected Game Index
+                        else if (SelectionMenu.Visibility == Visibility.Visible)
+                        {
+                            currentlySelectedGameIndex -= 1;
+                            if (currentlySelectedGameIndex < -1)
+                                currentlySelectedGameIndex = -1;
+
+                            // Highlight the current Game Menu Option and debounce the game info display update
+                            HighlightCurrentGameMenuOption();
+                            DebounceUpdateGameInfoDisplay();
+                        }
+                    }
+                    // If the left of right stick's direction is down
+                    else if (leftStickDirection[1] == 1)
+                    {
+                        // Reset the selection update counter and increment the selection update interval counter
+                        selectionUpdateCounter = 0;
+                        if (selectionUpdateIntervalCounter < selectionUpdateIntervalCounterMax)
+                            selectionUpdateIntervalCounter++;
+
+                        // If the Home Menu is visible, increment the currently selected Home Index
+                        if (HomeMenu.Visibility == Visibility.Visible)
+                        {
+                            currentlySelectedHomeIndex += 1;
+                            if (currentlySelectedHomeIndex > 2)
+                                currentlySelectedHomeIndex = 2;
+
+                            // Highlight the current Home Menu Option
+                            HighlightCurrentHomeMenuOption();
+                        }
+                        // If the Selection Menu is visible, increment the currently selected Game Index
+                        else if (SelectionMenu.Visibility == Visibility.Visible)
+                        {
+                            currentlySelectedGameIndex += 1;
+                            if (currentlySelectedGameIndex > gameInfoFilesList.Length - 1)
+                                currentlySelectedGameIndex = gameInfoFilesList.Length - 1;
+
+                            // Highlight the current Game Menu Option and debounce the game info display update
+                            HighlightCurrentGameMenuOption();
+                            DebounceUpdateGameInfoDisplay();
+                        }
+                    }
+                }
+
+                // Check if the Start/A button is pressed
+                if (timeSinceLastButton > 250 && (controllerStates[i].GetButtonState(1) || controllerStates[i].GetButtonState(2)))
+                {
+                    // Reset the time since the last button press
+                    timeSinceLastButton = 0;
+
+                    // Check if the Home Menu is visible
                     if (HomeMenu.Visibility == Visibility.Visible)
                     {
-                        currentlySelectedHomeIndex -= 1;
-                        if (currentlySelectedHomeIndex < 0)
-                            currentlySelectedHomeIndex = 0;
-
-                        // Highlight the current Home Menu Option
-                        HighlightCurrentHomeMenuOption();
+                        // If the Game Library option is selected
+                        if (currentlySelectedHomeIndex == 0)
+                        {
+                            // Show the Selection Menu
+                            GameLibraryButton_Click(null, null);
+                        }
+                        // If the About option is selected
+                        else if (currentlySelectedHomeIndex == 1)
+                        {
+                            // Show the Credits
+                            AboutButton_Click(null, null);
+                        }
+                        // If the Exit option is selected
+                        else if (currentlySelectedHomeIndex == 2)
+                        {
+                            // Go back to the Start Menu
+                            ExitButton_Click(null, null);
+                        }
                     }
-                    // If the Selection Menu is visible, decrement the currently selected Game Index
+                    // Else check if the Selection Menu is visible
                     else if (SelectionMenu.Visibility == Visibility.Visible)
                     {
-                        currentlySelectedGameIndex -= 1;
-                        if (currentlySelectedGameIndex < -1)
-                            currentlySelectedGameIndex = -1;
-
-                        // Highlight the current Game Menu Option and debounce the game info display update
-                        HighlightCurrentGameMenuOption();
-                        DebounceUpdateGameInfoDisplay();
+                        // If a game is selected, attempt to start the game
+                        if (currentlySelectedGameIndex >= 0) StartButton_Click(null, null);
+                        // If the back button is selected, return to the Home Menu
+                        else BackFromGameLibraryButton_Click(null, null);
                     }
                 }
-                // If the left of right stick's direction is down
-                else if (leftStickDirection[1] == 1)
-                {
-                    // Reset the selection update counter and increment the selection update interval counter
-                    selectionUpdateCounter = 0;
-                    if (selectionUpdateIntervalCounter < selectionUpdateIntervalCounterMax)
-                        selectionUpdateIntervalCounter++;
 
-                    // If the Home Menu is visible, increment the currently selected Home Index
+                // Check if the Exit/B button is pressed
+                if (timeSinceLastButton > 250 && (controllerStates[i].GetButtonState(0) || controllerStates[i].GetButtonState(3)))
+                {
+                    // Reset the time since the last button press
+                    timeSinceLastButton = 0;
+
+                    // If the Home Menu is visible
                     if (HomeMenu.Visibility == Visibility.Visible)
-                    {
-                        currentlySelectedHomeIndex += 1;
-                        if (currentlySelectedHomeIndex > 2)
-                            currentlySelectedHomeIndex = 2;
-
-                        // Highlight the current Home Menu Option
-                        HighlightCurrentHomeMenuOption();
-                    }
-                    // If the Selection Menu is visible, increment the currently selected Game Index
-                    else if (SelectionMenu.Visibility == Visibility.Visible)
-                    {
-                        currentlySelectedGameIndex += 1;
-                        if (currentlySelectedGameIndex > gameInfoFilesList.Length - 1)
-                            currentlySelectedGameIndex = gameInfoFilesList.Length - 1;
-
-                        // Highlight the current Game Menu Option and debounce the game info display update
-                        HighlightCurrentGameMenuOption();
-                        DebounceUpdateGameInfoDisplay();
-                    }
-                }
-            }
-
-            // Check if the Start/A button is pressed
-            if (timeSinceLastButton > 250 && (controllerStates[0].GetButtonState(1) || controllerStates[0].GetButtonState(2)))
-            {
-                // Reset the time since the last button press
-                timeSinceLastButton = 0;
-
-                // Check if the Home Menu is visible
-                if (HomeMenu.Visibility == Visibility.Visible)
-                {
-                    // If the Game Library option is selected
-                    if (currentlySelectedHomeIndex == 0)
-                    {
-                        // Show the Selection Menu
-                        GameLibraryButton_Click(null, null);
-                    }
-                    // If the About option is selected
-                    else if (currentlySelectedHomeIndex == 1)
-                    {
-                        // Show the Credits
-                        AboutButton_Click(null, null);
-                    }
-                    // If the Exit option is selected
-                    else if (currentlySelectedHomeIndex == 2)
                     {
                         // Go back to the Start Menu
                         ExitButton_Click(null, null);
                     }
-                }
-                // Else check if the Selection Menu is visible
-                else if (SelectionMenu.Visibility == Visibility.Visible)
-                {
-                    // If a game is selected, attempt to start the game
-                    if (currentlySelectedGameIndex >= 0) StartButton_Click(null, null);
-                    // If the back button is selected, return to the Home Menu
-                    else BackFromGameLibraryButton_Click(null, null);
-                }
-            }
-
-            // Check if the Exit/B button is pressed
-            if (timeSinceLastButton > 250 && (controllerStates[0].GetButtonState(0) || controllerStates[0].GetButtonState(3)))
-            {
-                // Reset the time since the last button press
-                timeSinceLastButton = 0;
-
-                // If the Home Menu is visible
-                if (HomeMenu.Visibility == Visibility.Visible)
-                {
-                    // Go back to the Start Menu
-                    ExitButton_Click(null, null);
-                }
-                // Else if the Selection Menu is visible
-                else if (SelectionMenu.Visibility == Visibility.Visible)
-                {
-                    // Go back to the Home Menu
-                    BackFromGameLibraryButton_Click(null, null);
+                    // Else if the Selection Menu is visible
+                    else if (SelectionMenu.Visibility == Visibility.Visible)
+                    {
+                        // Go back to the Home Menu
+                        BackFromGameLibraryButton_Click(null, null);
+                    }
                 }
             }
         }
