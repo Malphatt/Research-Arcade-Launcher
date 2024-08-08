@@ -316,8 +316,6 @@ namespace ArcademiaGameLauncher
                 ControllerState controllerState = new ControllerState(joystick, controllerStates.Count);
                 controllerStates.Add(controllerState);
             }
-
-            MessageBox.Show(controllerStates.Count + " controller(s) found.");
         }
 
         private void InitializeUpdateTimer()
