@@ -140,6 +140,8 @@ namespace ArcademiaGameLauncher
 
     public partial class MainWindow : Window
     {
+        readonly bool production;
+
         [DllImport("User32.dll")]
         public static extern int GetAsyncKeyState(Int32 i);
 
@@ -218,9 +220,15 @@ namespace ArcademiaGameLauncher
 
             // Setup Directories
             if (Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "Launcher")))
+            {
                 rootPath = Path.Combine(Directory.GetCurrentDirectory(), "Launcher");
+                production = true;
+            }
             else
+            {
                 rootPath = Directory.GetCurrentDirectory();
+                production = false;
+            }
 
             configPath = Path.Combine(rootPath, "Config.json");
             gameDirectoryPath = Path.Combine(rootPath, "Games");
@@ -491,19 +499,48 @@ namespace ArcademiaGameLauncher
                 JArray games = (JArray)gameDatabaseFile["Games"];
 
                 if (games.Count > 0)
-                {
                     // In a new thread, check for updates for each game (CheckForUpdatesInit)
                     Task.Run(() => CheckForUpdatesInit(games.Count));
-                }
-                // If no games are found, show an error message
-                else MessageBox.Show("Failed to get game database: No games found.");
+                //else
+                //    // If no games are found, show an error message
+                //    MessageBox.Show("Failed to get game database: No games found.");
 
                 return true;
             }
             catch (Exception ex)
             {
                 // If the game database cannot be retrieved, show an error message
-                MessageBox.Show($"Failed to get game database: {ex.Message}");
+                //MessageBox.Show($"Failed to get game database: {ex.Message}");
+
+                if (File.Exists(localGameDatabasePath))
+                    gameDatabaseFile = JObject.Parse(File.ReadAllText(localGameDatabasePath));
+
+                JArray games = (JArray)gameDatabaseFile["Games"];
+
+                gameInfoFilesList = new JObject[games.Count];
+                gameTitleStates = new GameState[games.Count];
+
+                // Show the game titles as "Loading..." until each title is loaded
+                for (int i = previousPageIndex * 10; i < (previousPageIndex + 1) * 10; i++)
+                {
+                    if (i < games.Count)
+                    {
+                        gameTitlesList[i % 10].Text = "Loading...";
+                        gameTitlesList[i % 10].Visibility = Visibility.Visible;
+                    }
+                    else
+                        gameTitlesList[i % 10].Visibility = Visibility.Hidden;
+                }
+
+                for (int i = 0; i < games.Count; i++)
+                    SetGameTitleState(i, GameState.checkingForUpdates);
+
+                if (games.Count > 0)
+                    // In a new thread, check for updates for each game (CheckForUpdatesInit)
+                    Task.Run(() => CheckForUpdatesInit(games.Count));
+                //else
+                //    // If no games are found, show an error message
+                //    MessageBox.Show("Failed to get game database: No games found.");
 
                 return false;
             }
@@ -537,20 +574,15 @@ namespace ArcademiaGameLauncher
 
                 // Update the game title text block if it's on the first page of the Selection Menu
                 if (updateIndexOfGame >= previousPageIndex * 10 && updateIndexOfGame < (previousPageIndex + 1) * 10)
-                {
                     if (Application.Current != null && Application.Current.Dispatcher != null)
-                    {
                         try
                         {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
+                            Application.Current.Dispatcher.Invoke(() => {
                                 gameTitlesList[updateIndexOfGame % 10].Text = gameInfoFilesList[updateIndexOfGame]["GameName"].ToString();
                                 gameTitlesList[updateIndexOfGame % 10].Visibility = Visibility.Visible;
                             });
                         }
                         catch (TaskCanceledException) { }
-                    }
-                }
 
                 // Get the local version of the game and update the VersionText text block
                 Version localVersion = new Version(gameInfoFilesList[updateIndexOfGame]["GameVersion"].ToString());
@@ -571,17 +603,14 @@ namespace ArcademiaGameLauncher
                     else
                         SetGameTitleState(updateIndexOfGame, GameState.loadingInfo);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     SetGameTitleState(updateIndexOfGame, GameState.failed);
-                    MessageBox.Show($"Failed to check for updates: {ex.Message}");
                 }
             }
             else
-            {
                 // If the game does not have a local GameInfo.json file, install the game files with a temporary GameInfo.json file of file version 0.0.0
                 InstallGameFiles(false, JObject.Parse("{\r\n\"GameVersion\": \"0.0.0\"\r\n}\r\n"), gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString());
-            }
         }
 
         private void InstallGameFiles(bool _isUpdate, JObject _onlineJson, string _downloadURL)
@@ -900,18 +929,21 @@ namespace ArcademiaGameLauncher
                 foundGameDatabase = CheckForGameDatabaseChanges();
             }
             // If the Config.json file does not exist, show an error message
-            else MessageBox.Show("Failed to get game database URL: Config.json does not exist.");
+            else
+            {
+                MessageBox.Show("Failed to get game database URL: Config.json does not exist.");
+                Application.Current.Shutdown();
+            }
 
             // Quit the application
-            if (!foundGameDatabase) Application.Current.Shutdown();
+            //if (!foundGameDatabase) Application.Current.Shutdown();
 
             // Initialize the controller states
             JoyStickInit();
 
             // Every 30 minutes, check for updates to the updater
-            Task.Run(async () =>
-            {
-                while (true)
+            Task.Run(async () => {
+                while (true && production)
                 {
                     CheckForUpdaterUpdates();
                     await Task.Delay(30 * 60 * 1000);
@@ -1541,15 +1573,17 @@ namespace ArcademiaGameLauncher
                             HighlightCurrentHomeMenuOption();
                         }
                         // If the Selection Menu is visible, decrement the currently selected Game Index
-                        else if (SelectionMenu.Visibility == Visibility.Visible)
+                        else if (SelectionMenu.Visibility == Visibility.Visible && gameInfoFilesList != null)
                         {
                             currentlySelectedGameIndex -= 1;
                             if (currentlySelectedGameIndex < -1)
                                 currentlySelectedGameIndex = -1;
-
-                            // Highlight the current Game Menu Option and debounce the game info display update
-                            HighlightCurrentGameMenuOption();
-                            DebounceUpdateGameInfoDisplay();
+                            else
+                            {
+                                // Highlight the current Game Menu Option and debounce the game info display update
+                                HighlightCurrentGameMenuOption();
+                                DebounceUpdateGameInfoDisplay();
+                            }
                         }
                     }
                     // If the left of right stick's direction is down
@@ -1571,15 +1605,17 @@ namespace ArcademiaGameLauncher
                             HighlightCurrentHomeMenuOption();
                         }
                         // If the Selection Menu is visible, increment the currently selected Game Index
-                        else if (SelectionMenu.Visibility == Visibility.Visible)
+                        else if (SelectionMenu.Visibility == Visibility.Visible && gameInfoFilesList != null)
                         {
                             currentlySelectedGameIndex += 1;
                             if (currentlySelectedGameIndex > gameInfoFilesList.Length - 1)
                                 currentlySelectedGameIndex = gameInfoFilesList.Length - 1;
-
-                            // Highlight the current Game Menu Option and debounce the game info display update
-                            HighlightCurrentGameMenuOption();
-                            DebounceUpdateGameInfoDisplay();
+                            else
+                            {
+                                // Highlight the current Game Menu Option and debounce the game info display update
+                                HighlightCurrentGameMenuOption();
+                                DebounceUpdateGameInfoDisplay();
+                            }
                         }
                     }
                 }
@@ -1740,6 +1776,9 @@ namespace ArcademiaGameLauncher
 
         private void UpdateGameInfoDisplay()
         {
+            if (gameInfoFilesList == null)
+                currentlySelectedGameIndex = -1;
+
             // Update the game info
             if (currentlySelectedGameIndex != -1 && gameInfoFilesList[currentlySelectedGameIndex] != null)
             {
@@ -1788,9 +1827,12 @@ namespace ArcademiaGameLauncher
                 showingDebouncedGame = true;
                 SetGameTitleState(currentlySelectedGameIndex, GameState.start);
             }
+
+            StyleStartButtonState(currentlySelectedGameIndex);
         }
 
-        public void StyleStartButtonState(int _index)
+        public void StyleStartButtonState(int _index) => StyleStartButtonState(gameTitleStates[_index]);
+        private void StyleStartButtonState(GameState _gameState)
         {
             if (Application.Current != null && Application.Current.Dispatcher != null)
             {
@@ -1799,7 +1841,7 @@ namespace ArcademiaGameLauncher
                     Application.Current.Dispatcher.Invoke(() =>
                     {
                         // Style the StartButton
-                        switch (gameTitleStates[_index])
+                        switch (_gameState)
                         {
                             case GameState.checkingForUpdates:
                                 StartButton.IsChecked = false;
@@ -1903,7 +1945,7 @@ namespace ArcademiaGameLauncher
         private void DebounceUpdateGameInfoDisplay()
         {
             if (currentlySelectedGameIndex >=0 && currentlySelectedGameIndex < gameInfoFilesList.Length)
-                StyleStartButtonState(currentlySelectedGameIndex);
+                StyleStartButtonState(GameState.loadingInfo);
 
             showingDebouncedGame = false;
 
