@@ -28,7 +28,7 @@
     },
     {
       "Type": "Heading",
-      "Value": "Artists / Cabinet Design",
+      "Value": "Artists / New Cabinet Design",
       "Subheadings": [
         {
           "Value": "Amelia Wilson",
@@ -57,10 +57,6 @@
         {
           "Value": "Alex Dickinson",
           "Colour": "White"
-        },
-        {
-            "Value": "Oliver Grooby",
-            "Colour": "White"
         },
         {
             "Value": "Mike Lowen",
@@ -134,7 +130,7 @@
     },
     {
       "Type": "Note",
-      "Value": "The Arcademia project focuses on showcasing video games developed by the student cohort in the University of Lincoln. A successor to The Research Arcade project, its emphasis is shifted towards showcasing student work rather than collecting valuable data for research purposes."
+      "Value": "The Arcademia project focuses on showcasing video games developed by the student cohort in the University of Lincoln. A successor to The Research Arcade project, its emphasis is shifted towards showcasing student work rather than collecting valuable data for research purposes, running from 2022 to its closure in 2024."
     },
     {
       "Type": "Heading",

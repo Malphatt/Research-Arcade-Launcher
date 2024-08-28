@@ -1,20 +1,25 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
+﻿// System Libraries
+
+using System;
 using System.IO;
 using System.Net;
 using System.Xml;
 using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Controls;
 using System.Windows.Markup;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
+
+// Custom Libraries
+
 using ICSharpCode.SharpZipLib.Zip;
 using Newtonsoft.Json.Linq;
 using SharpDX.DirectInput;
-using System.Threading.Tasks;
 using XamlAnimatedGif;
 
 namespace ArcademiaGameLauncher
@@ -35,8 +40,9 @@ namespace ArcademiaGameLauncher
 
     public class ControllerState
     {
-        private readonly int index; 
+        private readonly int index;
         private readonly bool[] buttonStates;
+        private readonly bool[] buttonDownStates;
         private int leftStickX;
         private int leftStickY;
 
@@ -57,6 +63,7 @@ namespace ArcademiaGameLauncher
             // Initialize the button states
             state = new JoystickState();
             buttonStates = new bool[128];
+            buttonDownStates = new bool[128];
             state = joystick.GetCurrentState();
         }
 
@@ -83,7 +90,8 @@ namespace ArcademiaGameLauncher
         {
             return leftStickX;
         }
-        public int GetLeftStickY() {
+        public int GetLeftStickY()
+        {
             return leftStickY;
         }
 
@@ -126,11 +134,20 @@ namespace ArcademiaGameLauncher
         {
             return buttonStates[_button];
         }
-        public void SetButtonState(int _button, bool _state)
+        public bool GetButtonDownState(int _button)
         {
-            buttonStates[_button] = _state;
+            return buttonDownStates[_button];
         }
-        
+        public void SetButtonState(int _button, bool _buttonState)
+        {
+            if (!buttonStates[_button] && _buttonState)
+                buttonDownStates[_button] = true;
+            else
+                buttonDownStates[_button] = false;
+
+            buttonStates[_button] = _buttonState;
+        }
+
         // Getter for the index
         public int GetIndex()
         {
@@ -577,7 +594,8 @@ namespace ArcademiaGameLauncher
                     if (Application.Current != null && Application.Current.Dispatcher != null)
                         try
                         {
-                            Application.Current.Dispatcher.Invoke(() => {
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
                                 gameTitlesList[updateIndexOfGame % 10].Text = gameInfoFilesList[updateIndexOfGame]["GameName"].ToString();
                                 gameTitlesList[updateIndexOfGame % 10].Visibility = Visibility.Visible;
                             });
@@ -689,7 +707,7 @@ namespace ArcademiaGameLauncher
                 // Update the game database with the new FolderName property
                 JObject gameDatabase = JObject.Parse(File.ReadAllText(localGameDatabasePath));
                 gameDatabase["Games"][currentUpdateIndexOfGame]["FolderName"] = onlineJson["FolderName"].ToString();
-                
+
                 // Write the updated game database to the local game database file (lock to prevent multiple threads writing to the file at the same time)
                 lock (gameDatabaseFile)
                 {
@@ -698,7 +716,8 @@ namespace ArcademiaGameLauncher
 
                 if (Application.Current != null && Application.Current.Dispatcher != null)
                 {
-                    try {
+                    try
+                    {
                         Application.Current.Dispatcher.Invoke(() =>
                         {
                             // Set the game database variable to the updated game database
@@ -882,8 +901,10 @@ namespace ArcademiaGameLauncher
             if (File.Exists(currentGameExe))
             {
                 // Create a new ProcessStartInfo object and set the Working Directory to the game directory
-                ProcessStartInfo startInfo = new ProcessStartInfo(currentGameExe);
-                startInfo.WorkingDirectory = currentGameFolder;
+                ProcessStartInfo startInfo = new ProcessStartInfo(currentGameExe)
+                {
+                    WorkingDirectory = currentGameFolder
+                };
 
                 // Start the game if no process is currently running
                 if (currentlyRunningProcess == null || currentlyRunningProcess.HasExited)
@@ -942,7 +963,8 @@ namespace ArcademiaGameLauncher
             JoyStickInit();
 
             // Every 30 minutes, check for updates to the updater
-            Task.Run(async () => {
+            Task.Run(async () =>
+            {
                 while (true && production)
                 {
                     CheckForUpdaterUpdates();
@@ -1116,8 +1138,10 @@ namespace ArcademiaGameLauncher
             // Flash the Start Button if the Start Menu is visible
             if (StartMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
             {
-                try {
-                    Application.Current.Dispatcher.Invoke(() => {
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
                         if (timeSinceLastButton % 300 == 0)
                             PressStartText.Visibility = PressStartText.Visibility == Visibility.Visible ? Visibility.Hidden : Visibility.Visible;
                     });
@@ -1174,33 +1198,43 @@ namespace ArcademiaGameLauncher
                     {
                         case "Title":
                             // Create a new RowDefinition
-                            RowDefinition titleRow = new RowDefinition();
-                            titleRow.Height = new GridLength(60, GridUnitType.Pixel);
+                            RowDefinition titleRow = new RowDefinition
+                            {
+                                Height = new GridLength(60, GridUnitType.Pixel)
+                            };
                             CreditsPanel.RowDefinitions.Add(titleRow);
 
                             // Create a new Grid
-                            Grid titleGrid = new Grid();
+                            Grid titleGrid = new Grid
+                            {
+                                HorizontalAlignment = HorizontalAlignment.Left,
+                                VerticalAlignment = VerticalAlignment.Center
+                            };
                             Grid.SetRow(titleGrid, 2 * i);
-                            titleGrid.HorizontalAlignment = HorizontalAlignment.Left;
-                            titleGrid.VerticalAlignment = VerticalAlignment.Center;
 
                             // Create 2 new RowDefinitions
-                            RowDefinition titleGridTitleRow = new RowDefinition();
-                            titleGridTitleRow.Height = new GridLength(40, GridUnitType.Pixel);
+                            RowDefinition titleGridTitleRow = new RowDefinition
+                            {
+                                Height = new GridLength(40, GridUnitType.Pixel)
+                            };
                             titleGrid.RowDefinitions.Add(titleGridTitleRow);
 
-                            RowDefinition titleGridSubtitleRow = new RowDefinition();
-                            titleGridSubtitleRow.Height = new GridLength(20, GridUnitType.Pixel);
+                            RowDefinition titleGridSubtitleRow = new RowDefinition
+                            {
+                                Height = new GridLength(20, GridUnitType.Pixel)
+                            };
                             titleGrid.RowDefinitions.Add(titleGridSubtitleRow);
 
                             // Create a new TextBlock (Title)
-                            TextBlock titleText = new TextBlock();
-                            titleText.Text = creditsArray[i]["Value"].ToString();
-                            titleText.Style = (Style)FindResource("Early GameBoy");
-                            titleText.FontSize = 24;
-                            titleText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xD9, 0x66));
-                            titleText.HorizontalAlignment = HorizontalAlignment.Left;
-                            titleText.VerticalAlignment = VerticalAlignment.Center;
+                            TextBlock titleText = new TextBlock
+                            {
+                                Text = creditsArray[i]["Value"].ToString(),
+                                Style = (Style)FindResource("Early GameBoy"),
+                                FontSize = 24,
+                                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xD9, 0x66)),
+                                HorizontalAlignment = HorizontalAlignment.Left,
+                                VerticalAlignment = VerticalAlignment.Center
+                            };
 
                             // Add the TextBlock to the Grid
                             Grid.SetRow(titleText, 0);
@@ -1209,13 +1243,15 @@ namespace ArcademiaGameLauncher
                             // Create a new TextBlock (Subtitle)
                             if (creditsArray[i]["Subtitle"] != null)
                             {
-                                TextBlock subtitleText = new TextBlock();
-                                subtitleText.Text = creditsArray[i]["Subtitle"].ToString();
-                                subtitleText.Style = (Style)FindResource("Early GameBoy");
-                                subtitleText.FontSize = 16;
-                                subtitleText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
-                                subtitleText.HorizontalAlignment = HorizontalAlignment.Left;
-                                subtitleText.VerticalAlignment = VerticalAlignment.Center;
+                                TextBlock subtitleText = new TextBlock
+                                {
+                                    Text = creditsArray[i]["Subtitle"].ToString(),
+                                    Style = (Style)FindResource("Early GameBoy"),
+                                    FontSize = 16,
+                                    Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)),
+                                    HorizontalAlignment = HorizontalAlignment.Left,
+                                    VerticalAlignment = VerticalAlignment.Center
+                                };
 
                                 // Add the TextBlock to the Grid
                                 Grid.SetRow(subtitleText, 1);
@@ -1231,88 +1267,112 @@ namespace ArcademiaGameLauncher
                             JArray subheadingsArray = (JArray)creditsArray[i]["Subheadings"];
 
                             // Create a new RowDefinition
-                            RowDefinition headingRow = new RowDefinition();
-                            headingRow.Height = new GridLength(30 + (subheadingsArray.Count * 25), GridUnitType.Pixel);
+                            RowDefinition headingRow = new RowDefinition
+                            {
+                                Height = new GridLength(30 + (subheadingsArray.Count * 25), GridUnitType.Pixel)
+                            };
                             CreditsPanel.RowDefinitions.Add(headingRow);
 
                             // Create a new Grid
-                            Grid headingGrid = new Grid();
+                            Grid headingGrid = new Grid
+                            {
+                                HorizontalAlignment = HorizontalAlignment.Left,
+                                VerticalAlignment = VerticalAlignment.Center
+                            };
                             Grid.SetRow(headingGrid, 2 * i);
-                            headingGrid.HorizontalAlignment = HorizontalAlignment.Left;
-                            headingGrid.VerticalAlignment = VerticalAlignment.Center;
 
                             // Create 2 new ColumnDefinitions
-                            ColumnDefinition headingGridBorderColumn = new ColumnDefinition();
-                            headingGridBorderColumn.Width = new GridLength(3, GridUnitType.Pixel);
+                            ColumnDefinition headingGridBorderColumn = new ColumnDefinition
+                            {
+                                Width = new GridLength(3, GridUnitType.Pixel)
+                            };
                             headingGrid.ColumnDefinitions.Add(headingGridBorderColumn);
 
-                            ColumnDefinition headingGridContentColumn = new ColumnDefinition();
-                            headingGridContentColumn.Width = new GridLength(1, GridUnitType.Star);
+                            ColumnDefinition headingGridContentColumn = new ColumnDefinition
+                            {
+                                Width = new GridLength(1, GridUnitType.Star)
+                            };
                             headingGrid.ColumnDefinitions.Add(headingGridContentColumn);
 
                             // Create a Grid to function as a border
-                            Grid headingBorderGrid = new Grid();
-                            headingBorderGrid.Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x33, 0x33, 0x33));
-                            headingBorderGrid.Margin = new Thickness(0, 10, 0, 10);
+                            Grid headingBorderGrid = new Grid
+                            {
+                                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x33, 0x33, 0x33)),
+                                Margin = new Thickness(0, 10, 0, 10)
+                            };
 
                             // Add the Grid to the Grid
                             Grid.SetColumn(headingBorderGrid, 0);
                             headingGrid.Children.Add(headingBorderGrid);
 
                             // Create a new Grid to hold the Title and Subheadings
-                            Grid headingContentGrid = new Grid();
-                            headingContentGrid.HorizontalAlignment = HorizontalAlignment.Left;
-                            headingContentGrid.VerticalAlignment = VerticalAlignment.Center;
-                            headingContentGrid.Margin = new Thickness(25, 0, 0, 0);
+                            Grid headingContentGrid = new Grid
+                            {
+                                HorizontalAlignment = HorizontalAlignment.Left,
+                                VerticalAlignment = VerticalAlignment.Center,
+                                Margin = new Thickness(25, 0, 0, 0)
+                            };
 
                             // Add the Grid to the Grid
                             Grid.SetColumn(headingContentGrid, 1);
                             headingGrid.Children.Add(headingContentGrid);
 
                             // Create 2 new RowDefinitions
-                            RowDefinition headingGridTitleRow = new RowDefinition();
-                            headingGridTitleRow.Height = new GridLength(30, GridUnitType.Pixel);
+                            RowDefinition headingGridTitleRow = new RowDefinition
+                            {
+                                Height = new GridLength(30, GridUnitType.Pixel)
+                            };
                             headingContentGrid.RowDefinitions.Add(headingGridTitleRow);
 
-                            RowDefinition headingGridSubheadingsRow = new RowDefinition();
-                            headingGridSubheadingsRow.Height = new GridLength(subheadingsArray.Count * 25, GridUnitType.Pixel);
+                            RowDefinition headingGridSubheadingsRow = new RowDefinition
+                            {
+                                Height = new GridLength(subheadingsArray.Count * 25, GridUnitType.Pixel)
+                            };
                             headingContentGrid.RowDefinitions.Add(headingGridSubheadingsRow);
 
                             // Create a new TextBlock (Title)
-                            TextBlock headingText = new TextBlock();
-                            headingText.Text = creditsArray[i]["Value"].ToString();
-                            headingText.Style = (Style)FindResource("Early GameBoy");
-                            headingText.FontSize = 16;
-                            headingText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x85, 0x8E, 0xFF));
-                            headingText.HorizontalAlignment = HorizontalAlignment.Left;
-                            headingText.VerticalAlignment = VerticalAlignment.Center;
+                            TextBlock headingText = new TextBlock
+                            {
+                                Text = creditsArray[i]["Value"].ToString(),
+                                Style = (Style)FindResource("Early GameBoy"),
+                                FontSize = 16,
+                                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x85, 0x8E, 0xFF)),
+                                HorizontalAlignment = HorizontalAlignment.Left,
+                                VerticalAlignment = VerticalAlignment.Center
+                            };
 
                             // Add the TextBlock to the Grid
                             Grid.SetRow(headingText, 0);
                             headingContentGrid.Children.Add(headingText);
 
                             // Create a new Grid for the Subheadings
-                            Grid subheadingsGrid = new Grid();
+                            Grid subheadingsGrid = new Grid
+                            {
+                                HorizontalAlignment = HorizontalAlignment.Left,
+                                VerticalAlignment = VerticalAlignment.Center
+                            };
                             Grid.SetRow(subheadingsGrid, 1);
-                            subheadingsGrid.HorizontalAlignment = HorizontalAlignment.Left;
-                            subheadingsGrid.VerticalAlignment = VerticalAlignment.Center;
 
                             // For each Subheading
                             for (int j = 0; j < subheadingsArray.Count; j++)
                             {
                                 // Create new RowDefinitions & for each Subheading
-                                RowDefinition subheadingRow = new RowDefinition();
-                                subheadingRow.Height = new GridLength(25, GridUnitType.Pixel);
+                                RowDefinition subheadingRow = new RowDefinition
+                                {
+                                    Height = new GridLength(25, GridUnitType.Pixel)
+                                };
                                 subheadingsGrid.RowDefinitions.Add(subheadingRow);
 
                                 // Create a new TextBlock (Subheading)
-                                TextBlock subheadingText = new TextBlock();
-                                subheadingText.Text = subheadingsArray[j]["Value"].ToString();
-                                subheadingText.Style = (Style)FindResource("Early GameBoy");
-                                subheadingText.FontSize = 18;
-                                subheadingText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(subheadingsArray[j]["Colour"].ToString()));
-                                subheadingText.HorizontalAlignment = HorizontalAlignment.Left;
-                                subheadingText.VerticalAlignment = VerticalAlignment.Center;
+                                TextBlock subheadingText = new TextBlock
+                                {
+                                    Text = subheadingsArray[j]["Value"].ToString(),
+                                    Style = (Style)FindResource("Early GameBoy"),
+                                    FontSize = 18,
+                                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(subheadingsArray[j]["Colour"].ToString())),
+                                    HorizontalAlignment = HorizontalAlignment.Left,
+                                    VerticalAlignment = VerticalAlignment.Center
+                                };
 
                                 // Add the TextBlock to the Grid
                                 Grid.SetRow(subheadingText, j);
@@ -1327,30 +1387,36 @@ namespace ArcademiaGameLauncher
 
                             break;
                         case "Note":
-                            int noteHeight = 30 + (creditsArray[i]["Value"].ToString().Length / 150 * 30);
+                            int noteHeight = 20 + (creditsArray[i]["Value"].ToString().Length / 80 * 20);
 
                             // Create a new RowDefinition
-                            RowDefinition noteRow = new RowDefinition();
-                            noteRow.Height = new GridLength(noteHeight, GridUnitType.Pixel);
+                            RowDefinition noteRow = new RowDefinition
+                            {
+                                Height = new GridLength(noteHeight, GridUnitType.Pixel)
+                            };
                             CreditsPanel.RowDefinitions.Add(noteRow);
 
                             // Create a new Grid
-                            Grid noteGrid = new Grid();
+                            Grid noteGrid = new Grid
+                            {
+                                HorizontalAlignment = HorizontalAlignment.Left,
+                                VerticalAlignment = VerticalAlignment.Center,
+                                Margin = new Thickness(0, 0, 100, 0)
+                            };
                             Grid.SetRow(noteGrid, 2 * i);
-                            noteGrid.HorizontalAlignment = HorizontalAlignment.Left;
-                            noteGrid.VerticalAlignment = VerticalAlignment.Center;
-                            noteGrid.Margin = new Thickness(0, 0, 100, 0);
 
                             // Create a new TextBlock
-                            TextBlock noteText = new TextBlock();
-                            noteText.Text = creditsArray[i]["Value"].ToString();
-                            noteText.Style = (Style)FindResource("Early GameBoy");
-                            noteText.FontSize = 11;
-                            noteText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
-                            noteText.HorizontalAlignment = HorizontalAlignment.Left;
-                            noteText.VerticalAlignment = VerticalAlignment.Center;
-                            noteText.TextWrapping = TextWrapping.Wrap;
-                            noteText.LineHeight = 25;
+                            TextBlock noteText = new TextBlock
+                            {
+                                Text = creditsArray[i]["Value"].ToString(),
+                                Style = (Style)FindResource("Early GameBoy"),
+                                FontSize = 11,
+                                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)),
+                                HorizontalAlignment = HorizontalAlignment.Left,
+                                VerticalAlignment = VerticalAlignment.Center,
+                                TextWrapping = TextWrapping.Wrap,
+                                LineHeight = 20
+                            };
 
                             // Add the TextBlock to the Grid
                             noteGrid.Children.Add(noteText);
@@ -1361,24 +1427,30 @@ namespace ArcademiaGameLauncher
                             break;
                         case "Break":
                             // Create a new RowDefinition
-                            RowDefinition breakRow = new RowDefinition();
-                            breakRow.Height = new GridLength(10, GridUnitType.Pixel);
+                            RowDefinition breakRow = new RowDefinition
+                            {
+                                Height = new GridLength(10, GridUnitType.Pixel)
+                            };
                             CreditsPanel.RowDefinitions.Add(breakRow);
 
                             // Create a new Grid
-                            Grid breakGrid = new Grid();
+                            Grid breakGrid = new Grid
+                            {
+                                HorizontalAlignment = HorizontalAlignment.Left,
+                                VerticalAlignment = VerticalAlignment.Center
+                            };
                             Grid.SetRow(breakGrid, 2 * i);
-                            breakGrid.HorizontalAlignment = HorizontalAlignment.Left;
-                            breakGrid.VerticalAlignment = VerticalAlignment.Center;
 
                             // Create a new TextBlock
-                            TextBlock breakText = new TextBlock();
-                            breakText.Text = "----------------------";
-                            breakText.Style = (Style)FindResource("Early GameBoy");
-                            breakText.FontSize = 16;
-                            breakText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-                            breakText.HorizontalAlignment = HorizontalAlignment.Left;
-                            breakText.VerticalAlignment = VerticalAlignment.Center;
+                            TextBlock breakText = new TextBlock
+                            {
+                                Text = "----------------------",
+                                Style = (Style)FindResource("Early GameBoy"),
+                                FontSize = 16,
+                                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77)),
+                                HorizontalAlignment = HorizontalAlignment.Left,
+                                VerticalAlignment = VerticalAlignment.Center
+                            };
 
                             // Add the TextBlock to the Grid
                             breakGrid.Children.Add(breakText);
@@ -1392,21 +1464,27 @@ namespace ArcademiaGameLauncher
                             string stretch = creditsArray[i]["Stretch"] != null ? creditsArray[i]["Stretch"].ToString() : "Uniform";
 
                             // Create a new RowDefinition
-                            RowDefinition imageRow = new RowDefinition();
-                            imageRow.Height = new GridLength(overrideHeight, GridUnitType.Pixel);
+                            RowDefinition imageRow = new RowDefinition
+                            {
+                                Height = new GridLength(overrideHeight, GridUnitType.Pixel)
+                            };
                             CreditsPanel.RowDefinitions.Add(imageRow);
 
                             // Create a new Grid
-                            Grid imageGrid = new Grid();
+                            Grid imageGrid = new Grid
+                            {
+                                HorizontalAlignment = HorizontalAlignment.Left,
+                                VerticalAlignment = VerticalAlignment.Center
+                            };
                             Grid.SetRow(imageGrid, 2 * i);
-                            imageGrid.HorizontalAlignment = HorizontalAlignment.Left;
-                            imageGrid.VerticalAlignment = VerticalAlignment.Center;
 
                             string imagePath = creditsArray[i]["Path"].ToString();
 
                             // Create a new Image (Static)
-                            Image imageStatic = new Image();
-                            imageStatic.Source = new BitmapImage(new Uri(imagePath, UriKind.Relative));
+                            Image imageStatic = new Image
+                            {
+                                Source = new BitmapImage(new Uri(imagePath, UriKind.Relative))
+                            };
 
                             // Set Image Stretch
                             switch (stretch)
@@ -1478,8 +1556,10 @@ namespace ArcademiaGameLauncher
                     if (i < creditsArray.Count - 1)
                     {
                         // Create a new RowDefinition
-                        RowDefinition spaceRow = new RowDefinition();
-                        spaceRow.Height = new GridLength(50, GridUnitType.Pixel);
+                        RowDefinition spaceRow = new RowDefinition
+                        {
+                            Height = new GridLength(40, GridUnitType.Pixel)
+                        };
                         CreditsPanel.RowDefinitions.Add(spaceRow);
                     }
                 }
@@ -1917,7 +1997,7 @@ namespace ArcademiaGameLauncher
             GameTagBorder6.Visibility = Visibility.Hidden;
             GameTagBorder7.Visibility = Visibility.Hidden;
             GameTagBorder8.Visibility = Visibility.Hidden;
-            
+
             // Reset the Border and Text Colour of each Game Tag
             GameTag0.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
             GameTag1.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
@@ -1944,7 +2024,7 @@ namespace ArcademiaGameLauncher
 
         private void DebounceUpdateGameInfoDisplay()
         {
-            if (currentlySelectedGameIndex >=0 && currentlySelectedGameIndex < gameInfoFilesList.Length)
+            if (currentlySelectedGameIndex >= 0 && currentlySelectedGameIndex < gameInfoFilesList.Length)
                 StyleStartButtonState(GameState.loadingInfo);
 
             showingDebouncedGame = false;
@@ -1970,7 +2050,7 @@ namespace ArcademiaGameLauncher
             updateGameInfoDisplayDebounceTimer.AutoReset = false;
             updateGameInfoDisplayDebounceTimer.Enabled = true;
         }
-    
+
         private T CloneXamlElement<T>(T element) where T : UIElement
         {
             // Clone the XAML element and return it
@@ -2001,7 +2081,7 @@ namespace ArcademiaGameLauncher
         internal Version(string version)
         {
             string[] parts = version.Split('.');
-            
+
             // Reset the version number if it is not in the correct format
             if (parts.Length != 3)
             {
