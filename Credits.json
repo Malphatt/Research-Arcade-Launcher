@@ -28,11 +28,33 @@
     },
     {
       "Type": "Heading",
-      "Value": "Artists / New Cabinet Design",
+      "Value": "Artists",
       "Subheadings": [
         {
           "Value": "Amelia Wilson",
-          "Colour": "White"
+          "Colour": "#F5ACD8"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Updated Cabinet Design",
+      "Subheadings": [
+        {
+          "Value": "Amelia Wilson",
+          "Colour": "#9FD29F"
+        },
+        {
+          "Value": "Matthew Freeman",
+          "Colour": "#BBAEE7"
+        },
+        {
+          "Value": "Alex Dickinson",
+          "Colour": "#AEDBE7"
+        },
+        {
+          "Value": "Mike Lowen",
+          "Colour": "#DB9797"
         }
       ]
     },
@@ -45,8 +67,8 @@
           "Colour": "White"
         },
         {
-            "Value": "Matthew Freeman",
-            "Colour": "White"
+          "Value": "Matthew Freeman",
+          "Colour": "White"
         }
       ]
     },
@@ -59,14 +81,14 @@
           "Colour": "White"
         },
         {
-            "Value": "Mike Lowen",
-            "Colour": "White"
+          "Value": "Mike Lowen",
+          "Colour": "White"
         }
       ]
     },
     {
       "Type": "Heading",
-      "Value": "Game Developers - \"Robot Wars\" (Arcademia Jam 2024 Winner)",
+      "Value": "Game Developers - \"Mech Melee\" (Arcademia Jam 2024 Winner)",
       "Subheadings": [
         {
           "Value": "Alex \"Dicko\" Dickinson",
@@ -80,15 +102,16 @@
     },
     {
       "Type": "Heading",
-      "Value": "Game Developers - \"  \"",
+      "Value": "Game Developers - \"The Last Dance\"",
       "Subheadings": [
         {
-          "Value": "Name",
-          "Colour": "Magenta"
+          "Value": "Amelia Wilson"
         },
         {
-          "Value": "Name",
-          "Colour": "Magenta"
+          "Value": "Luke Davies"
+        },
+        {
+          "Value": "Logan Kirby"
         }
       ]
     },
@@ -263,10 +286,10 @@
       "Subtitle": "(2018-2022)"
     },
     {
-        "Type": "Image",
-        "Stretch": "Uniform",
-        "HeightOverride": 100,
-        "Path": "Images/creditEnemy.gif"
+      "Type": "Image",
+      "Stretch": "Uniform",
+      "HeightOverride": 100,
+      "Path": "Images/creditEnemy.gif"
     },
     {
       "Type": "Note",

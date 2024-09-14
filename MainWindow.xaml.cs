@@ -375,7 +375,7 @@ namespace ArcademiaGameLauncher
                 Version currentVersion = new Version(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "Updater_Version.txt")));
 
                 // Get the online version of the Updater
-                Version latestVersion = new Version(webClient.DownloadString(config["UpdaterVersionURL"].ToString()));
+                Version latestVersion = new Version(webClient.DownloadString(EncodeOneDriveLink(config["UpdaterVersionURL"].ToString())));
 
                 // Check if the updater is up to date
                 if (currentVersion.IsDifferentVersion(latestVersion))
@@ -443,7 +443,7 @@ namespace ArcademiaGameLauncher
             {
                 // Download the updater
                 WebClient webClient = new WebClient();
-                webClient.DownloadFile(config["UpdaterURL"].ToString(), Path.Combine(Directory.GetCurrentDirectory(), "Updater.zip"));
+                webClient.DownloadFile(EncodeOneDriveLink(config["UpdaterURL"].ToString()), Path.Combine(Directory.GetCurrentDirectory(), "Updater.zip"));
 
                 // Extract the updater
                 FastZip fastZip = new FastZip();
@@ -464,7 +464,7 @@ namespace ArcademiaGameLauncher
                 // Get the game database file from the online URL
                 WebClient webClient = new WebClient();
                 //gameDatabaseFile = JObject.Parse(File.ReadAllText(localGameDatabasePath)); // For Testing
-                gameDatabaseFile = JObject.Parse(webClient.DownloadString(gameDatabaseURL));
+                gameDatabaseFile = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(gameDatabaseURL)));
 
                 // If the local game database file does not exist, create it and write the game database to it
                 if (!File.Exists(localGameDatabasePath))
@@ -612,7 +612,7 @@ namespace ArcademiaGameLauncher
                 {
                     // Get the online version of the game
                     WebClient webClient = new WebClient();
-                    JObject onlineJson = JObject.Parse(webClient.DownloadString(gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString()));
+                    JObject onlineJson = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString())));
                     Version onlineVersion = new Version(onlineJson["GameVersion"].ToString());
 
                     // Compare the local version with the online version to see if an update is needed
@@ -647,12 +647,12 @@ namespace ArcademiaGameLauncher
                     SetGameTitleState(updateIndexOfGame, GameState.downloadingGame);
 
                     // Set _onlineJson to the online JSON object
-                    _onlineJson = JObject.Parse(webClient.DownloadString(_downloadURL));
+                    _onlineJson = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(_downloadURL)));
                 }
 
                 // Asynchronously download the game zip file
                 webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(DownloadGameCompletedCallback);
-                webClient.DownloadFileAsync(new Uri(_onlineJson["LinkToGameZip"].ToString()), Path.Combine(rootPath, _onlineJson["FolderName"].ToString() + ".zip"), _onlineJson);
+                webClient.DownloadFileAsync(new Uri(EncodeOneDriveLink(_onlineJson["LinkToGameZip"].ToString())), Path.Combine(rootPath, _onlineJson["FolderName"].ToString() + ".zip"), _onlineJson);
             }
             catch (Exception ex)
             {
@@ -684,7 +684,7 @@ namespace ArcademiaGameLauncher
                 // Find the index of the game being updated from the game database
                 for (int i = 0; i < games.Count; i++)
                 {
-                    if (JObject.Parse(webClient.DownloadString(games[i]["LinkToGameInfo"].ToString()))["LinkToGameZip"].ToString() == onlineJson["LinkToGameZip"].ToString())
+                    if (JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(games[i]["LinkToGameInfo"].ToString())))["LinkToGameZip"].ToString() == onlineJson["LinkToGameZip"].ToString())
                     {
                         currentUpdateIndexOfGame = i;
                         break;
@@ -962,13 +962,16 @@ namespace ArcademiaGameLauncher
             // Initialize the controller states
             JoyStickInit();
 
-            // Every 30 minutes, check for updates to the updater
+            // Every 30 minutes, check for updates to the updater,
+            // and check for game database changes.
             Task.Run(async () =>
             {
+                CheckForUpdaterUpdates();
                 while (true && production)
                 {
-                    CheckForUpdaterUpdates();
                     await Task.Delay(30 * 60 * 1000);
+                    CheckForUpdaterUpdates();
+                    CheckForGameDatabaseChanges();
                 }
             });
 
@@ -1363,13 +1366,15 @@ namespace ArcademiaGameLauncher
                                 };
                                 subheadingsGrid.RowDefinitions.Add(subheadingRow);
 
+                                string colour = subheadingsArray[j]["Colour"] != null ? subheadingsArray[j]["Colour"].ToString() : "White";
+
                                 // Create a new TextBlock (Subheading)
                                 TextBlock subheadingText = new TextBlock
                                 {
                                     Text = subheadingsArray[j]["Value"].ToString(),
                                     Style = (Style)FindResource("Early GameBoy"),
                                     FontSize = 18,
-                                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(subheadingsArray[j]["Colour"].ToString())),
+                                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colour)),
                                     HorizontalAlignment = HorizontalAlignment.Left,
                                     VerticalAlignment = VerticalAlignment.Center
                                 };
@@ -2020,7 +2025,7 @@ namespace ArcademiaGameLauncher
             GameTagBorder8.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
         }
 
-        // Custom Methods (Debounce, CloneXamlElement)
+        // Custom Methods (Debounce, CloneXamlElement, EncodeOneDriveLink)
 
         private void DebounceUpdateGameInfoDisplay()
         {
@@ -2058,6 +2063,15 @@ namespace ArcademiaGameLauncher
             StringReader stringReader = new StringReader(xaml);
             XmlReader xmlReader = XmlReader.Create(stringReader);
             return (T)XamlReader.Load(xmlReader);
+        }
+    
+        private string EncodeOneDriveLink(string _link)
+        {
+            // Encode the OneDrive link
+            string base64Value = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(_link));
+            string encodedUrl = "u!" + base64Value.TrimEnd('=').Replace('/', '_').Replace('+', '-');
+
+            return "https://api.onedrive.com/v1.0/shares/" + encodedUrl + "/root/content";
         }
     }
 
