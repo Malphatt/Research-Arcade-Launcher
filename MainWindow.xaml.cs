@@ -175,6 +175,8 @@ namespace ArcademiaGameLauncher
         private readonly string localGameDatabasePath;
         private JObject gameDatabaseFile;
 
+        private int arcadeMachineID;
+
         private int updateIndexOfGame;
         private System.Timers.Timer updateTimer;
 
@@ -470,11 +472,21 @@ namespace ArcademiaGameLauncher
                 if (!File.Exists(localGameDatabasePath))
                     File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
 
+                // TEMPORARY TO UPDATE THE ARCADE MACHINE STRUCTURE
+                File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
+
                 // Save the FolderName property of each local game and write it to the new game database file
                 JObject localGameDatabaseFile = JObject.Parse(File.ReadAllText(localGameDatabasePath));
-                JArray localGames = (JArray)localGameDatabaseFile["Games"];
 
-                JArray onlineGames = (JArray)gameDatabaseFile["Games"];
+                // Get the ID of the arcade machine
+                arcadeMachineID = 0;
+
+                if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")))
+                    arcadeMachineID = int.Parse(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")));
+
+                JArray localGames = (JArray)localGameDatabaseFile["Cabinets"][arcadeMachineID]["Games"];
+
+                JArray onlineGames = (JArray)gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"];
                 gameInfoFilesList = new JObject[onlineGames.Count];
                 gameTitleStates = new GameState[onlineGames.Count];
 
@@ -503,9 +515,9 @@ namespace ArcademiaGameLauncher
                         {
                             // Update the FolderName property of the game in the updated game database file
                             if (localGames[j]["FolderName"] != null)
-                                gameDatabaseFile["Games"][i]["FolderName"] = localGames[j]["FolderName"].ToString();
+                                gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][i]["FolderName"] = localGames[j]["FolderName"].ToString();
                             else
-                                gameDatabaseFile["Games"][i]["FolderName"] = "";
+                                gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][i]["FolderName"] = "";
                             break;
                         }
                     }
@@ -513,7 +525,7 @@ namespace ArcademiaGameLauncher
 
                 File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
 
-                JArray games = (JArray)gameDatabaseFile["Games"];
+                JArray games = (JArray)gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"];
 
                 if (games.Count > 0)
                     // In a new thread, check for updates for each game (CheckForUpdatesInit)
@@ -532,7 +544,13 @@ namespace ArcademiaGameLauncher
                 if (File.Exists(localGameDatabasePath))
                     gameDatabaseFile = JObject.Parse(File.ReadAllText(localGameDatabasePath));
 
-                JArray games = (JArray)gameDatabaseFile["Games"];
+                arcadeMachineID = 0;
+
+                if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")))
+                    arcadeMachineID = int.Parse(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")));
+
+
+                JArray games = (JArray)gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"];
 
                 gameInfoFilesList = new JObject[games.Count];
                 gameTitleStates = new GameState[games.Count];
@@ -575,10 +593,10 @@ namespace ArcademiaGameLauncher
             // Set the updateIndexOfGame to the index of the game being updated
             updateIndexOfGame = _updateIndexOfGame;
 
-            if (gameDatabaseFile["Games"][updateIndexOfGame]["FolderName"] == null)
-                gameDatabaseFile["Games"][updateIndexOfGame]["FolderName"] = "";
+            if (gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][updateIndexOfGame]["FolderName"] == null)
+                gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][updateIndexOfGame]["FolderName"] = "";
 
-            string folderName = gameDatabaseFile["Games"][updateIndexOfGame]["FolderName"].ToString();
+            string folderName = gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][updateIndexOfGame]["FolderName"].ToString();
             string localGameInfoPath = "";
 
             if (folderName != "")
@@ -612,12 +630,12 @@ namespace ArcademiaGameLauncher
                 {
                     // Get the online version of the game
                     WebClient webClient = new WebClient();
-                    JObject onlineJson = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString())));
+                    JObject onlineJson = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString())));
                     Version onlineVersion = new Version(onlineJson["GameVersion"].ToString());
 
                     // Compare the local version with the online version to see if an update is needed
                     if (onlineVersion.IsDifferentVersion(localVersion))
-                        InstallGameFiles(true, onlineJson, gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString());
+                        InstallGameFiles(true, onlineJson, gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString());
                     else
                         SetGameTitleState(updateIndexOfGame, GameState.loadingInfo);
                 }
@@ -628,7 +646,7 @@ namespace ArcademiaGameLauncher
             }
             else
                 // If the game does not have a local GameInfo.json file, install the game files with a temporary GameInfo.json file of file version 0.0.0
-                InstallGameFiles(false, JObject.Parse("{\r\n\"GameVersion\": \"0.0.0\"\r\n}\r\n"), gameDatabaseFile["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString());
+                InstallGameFiles(false, JObject.Parse("{\r\n\"GameVersion\": \"0.0.0\"\r\n}\r\n"), gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString());
         }
 
         private void InstallGameFiles(bool _isUpdate, JObject _onlineJson, string _downloadURL)
@@ -679,7 +697,7 @@ namespace ArcademiaGameLauncher
                 int currentUpdateIndexOfGame = -1;
 
                 WebClient webClient = new WebClient();
-                JArray games = (JArray)gameDatabaseFile["Games"];
+                JArray games = (JArray)gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"];
 
                 // Find the index of the game being updated from the game database
                 for (int i = 0; i < games.Count; i++)
@@ -706,7 +724,7 @@ namespace ArcademiaGameLauncher
 
                 // Update the game database with the new FolderName property
                 JObject gameDatabase = JObject.Parse(File.ReadAllText(localGameDatabasePath));
-                gameDatabase["Games"][currentUpdateIndexOfGame]["FolderName"] = onlineJson["FolderName"].ToString();
+                gameDatabase["Cabinets"][arcadeMachineID]["Games"][currentUpdateIndexOfGame]["FolderName"] = onlineJson["FolderName"].ToString();
 
                 // Write the updated game database to the local game database file (lock to prevent multiple threads writing to the file at the same time)
                 lock (gameDatabaseFile)
@@ -889,7 +907,7 @@ namespace ArcademiaGameLauncher
                 return;
 
             // Get the current game folder, game info, and game executable
-            string currentGameFolder = gameDatabaseFile["Games"][currentlySelectedGameIndex]["FolderName"].ToString();
+            string currentGameFolder = gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][currentlySelectedGameIndex]["FolderName"].ToString();
             string currentGameExe = Path.Combine
                 (
                     gameDirectoryPath,
@@ -912,12 +930,20 @@ namespace ArcademiaGameLauncher
 
                 // Set focus to the currently running process
                 else
+                {
                     SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
+                    
+                    // After 3 seconds, set the focus to the currently running process
+                    Task.Delay(3000).ContinueWith(t =>
+                    {
+                        SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
+                    });
+                }
             }
             else if (gameTitleStates[currentlySelectedGameIndex] == GameState.failed)
             {
                 // Run CheckForUpdatesInit again
-                Task.Run(() => CheckForUpdatesInit(((JArray)gameDatabaseFile["Games"]).Count));
+                Task.Run(() => CheckForUpdatesInit(((JArray)gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"]).Count));
             }
         }
 
@@ -966,7 +992,7 @@ namespace ArcademiaGameLauncher
             // and check for game database changes.
             Task.Run(async () =>
             {
-                CheckForUpdaterUpdates();
+                if (production) CheckForUpdaterUpdates();
                 while (true && production)
                 {
                     await Task.Delay(30 * 60 * 1000);
@@ -1913,7 +1939,8 @@ namespace ArcademiaGameLauncher
                 SetGameTitleState(currentlySelectedGameIndex, GameState.start);
             }
 
-            StyleStartButtonState(currentlySelectedGameIndex);
+            if (currentlySelectedGameIndex >= 0)
+                StyleStartButtonState(currentlySelectedGameIndex);
         }
 
         public void StyleStartButtonState(int _index) => StyleStartButtonState(gameTitleStates[_index]);
