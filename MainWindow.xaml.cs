@@ -438,6 +438,7 @@ namespace ArcademiaGameLauncher
             // Delete the old updater files (except the Launcher folder and the version file)
             foreach (string file in Directory.GetFiles(Directory.GetCurrentDirectory()))
                 if (file != Path.Combine(Directory.GetCurrentDirectory(), "Updater_Version.txt") &&
+                    file != Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt") &&
                     file != Path.Combine(Directory.GetCurrentDirectory(), "Launcher"))
                     File.Delete(file);
 
@@ -472,9 +473,6 @@ namespace ArcademiaGameLauncher
                 if (!File.Exists(localGameDatabasePath))
                     File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
 
-                // TEMPORARY TO UPDATE THE ARCADE MACHINE STRUCTURE
-                File.WriteAllText(localGameDatabasePath, gameDatabaseFile.ToString());
-
                 // Save the FolderName property of each local game and write it to the new game database file
                 JObject localGameDatabaseFile = JObject.Parse(File.ReadAllText(localGameDatabasePath));
 
@@ -483,6 +481,13 @@ namespace ArcademiaGameLauncher
 
                 if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")))
                     arcadeMachineID = int.Parse(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")));
+
+                // Check if the ID of the arcade machine is valid
+                if (arcadeMachineID >= ((JArray)gameDatabaseFile["Cabinets"]).Count || arcadeMachineID < 0)
+                {
+                    arcadeMachineID = 0;
+                    File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt"), arcadeMachineID.ToString());
+                }
 
                 JArray localGames = (JArray)localGameDatabaseFile["Cabinets"][arcadeMachineID]["Games"];
 
