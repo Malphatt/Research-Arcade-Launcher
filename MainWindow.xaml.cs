@@ -479,8 +479,12 @@ namespace ArcademiaGameLauncher
                 // Get the ID of the arcade machine
                 arcadeMachineID = 0;
 
+                // Read the ArcadeMachineID.txt file to get the ID of the arcade machine
                 if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")))
                     arcadeMachineID = int.Parse(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")));
+                // Write the ID of the arcade machine to the ArcadeMachineID.txt file if it doesn't exist
+                else
+                    File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt"), arcadeMachineID.ToString());
 
                 // Check if the ID of the arcade machine is valid
                 if (arcadeMachineID >= ((JArray)gameDatabaseFile["Cabinets"]).Count || arcadeMachineID < 0)
