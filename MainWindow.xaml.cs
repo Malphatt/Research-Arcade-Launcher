@@ -499,20 +499,32 @@ namespace ArcademiaGameLauncher
                 gameInfoFilesList = new JObject[onlineGames.Count];
                 gameTitleStates = new GameState[onlineGames.Count];
 
+                for (int i = 0; i < onlineGames.Count; i++)
+                    gameTitleStates[i] = GameState.loadingInfo;
+
                 // Show the game titles as "Loading..." until the game database is updated
-                for (int i = previousPageIndex * 10; i < (previousPageIndex + 1) * 10; i++)
+                if (Application.Current != null && Application.Current.Dispatcher != null)
                 {
-                    if (i < onlineGames.Count)
+                    try
                     {
-                        gameTitlesList[i % 10].Text = "Loading...";
-                        gameTitlesList[i % 10].Visibility = Visibility.Visible;
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            for (int i = previousPageIndex * 10; i < (previousPageIndex + 1) * 10; i++)
+                            {
+                                if (i < onlineGames.Count)
+                                {
+                                    gameTitlesList[i % 10].Text = "Loading...";
+                                    gameTitlesList[i % 10].Visibility = Visibility.Visible;
+                                }
+                                else
+                                    gameTitlesList[i % 10].Visibility = Visibility.Hidden;
+                            }
+                        });
                     }
-                    else
-                        gameTitlesList[i % 10].Visibility = Visibility.Hidden;
+                    catch (TaskCanceledException) { }
                 }
 
-                for (int i = 0; i < onlineGames.Count; i++)
-                    SetGameTitleState(i, GameState.checkingForUpdates);
+
 
                 // Update the FolderName property of each game in the local game database
                 for (int i = 0; i < onlineGames.Count; i++)
@@ -576,9 +588,6 @@ namespace ArcademiaGameLauncher
                         gameTitlesList[i % 10].Visibility = Visibility.Hidden;
                 }
 
-                for (int i = 0; i < games.Count; i++)
-                    SetGameTitleState(i, GameState.checkingForUpdates);
-
                 if (games.Count > 0)
                     // In a new thread, check for updates for each game (CheckForUpdatesInit)
                     Task.Run(() => CheckForUpdatesInit(games.Count));
@@ -599,6 +608,9 @@ namespace ArcademiaGameLauncher
 
         private void CheckForUpdates(int _updateIndexOfGame)
         {
+            SetGameTitleState(_updateIndexOfGame, GameState.checkingForUpdates);
+            DebounceUpdateGameInfoDisplay();
+
             // Set the updateIndexOfGame to the index of the game being updated
             updateIndexOfGame = _updateIndexOfGame;
 
@@ -646,7 +658,7 @@ namespace ArcademiaGameLauncher
                     if (onlineVersion.IsDifferentVersion(localVersion))
                         InstallGameFiles(true, onlineJson, gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString());
                     else
-                        SetGameTitleState(updateIndexOfGame, GameState.loadingInfo);
+                        SetGameTitleState(updateIndexOfGame, GameState.start);
                 }
                 catch (Exception)
                 {
@@ -812,7 +824,7 @@ namespace ArcademiaGameLauncher
 
             // Set the currently selected game index to 0
             currentlySelectedGameIndex = 0;
-            UpdateGameInfoDisplay();
+            DebounceUpdateGameInfoDisplay();
         }
 
         private void AboutButton_Click(object sender, RoutedEventArgs e)
@@ -1002,11 +1014,21 @@ namespace ArcademiaGameLauncher
             Task.Run(async () =>
             {
                 if (production) CheckForUpdaterUpdates();
-                while (true && production)
+                while (true)
                 {
-                    await Task.Delay(30 * 60 * 1000);
-                    CheckForUpdaterUpdates();
-                    CheckForGameDatabaseChanges();
+                    await Task.Delay(3 * 1000);
+                    if (Application.Current != null && Application.Current.Dispatcher != null)
+                    {
+                        try
+                        {
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                if (production) CheckForUpdaterUpdates();
+                                CheckForGameDatabaseChanges();
+                            });
+                        }
+                        catch (TaskCanceledException) { }
+                    }
                 }
             });
 
