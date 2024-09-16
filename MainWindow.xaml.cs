@@ -1016,7 +1016,7 @@ namespace ArcademiaGameLauncher
                 if (production) CheckForUpdaterUpdates();
                 while (true)
                 {
-                    await Task.Delay(3 * 1000);
+                    await Task.Delay(30 * 60 * 1000);
                     if (Application.Current != null && Application.Current.Dispatcher != null)
                     {
                         try
