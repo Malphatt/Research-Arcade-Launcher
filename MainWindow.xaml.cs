@@ -33,7 +33,9 @@ namespace ArcademiaGameLauncher
         downloadingUpdate,
         failed,
         loadingInfo,
-        start
+        ready,
+        launching,
+        runningGame
     }
 
     // Controller State Class
@@ -161,7 +163,6 @@ namespace ArcademiaGameLauncher
 
         [DllImport("User32.dll")]
         public static extern int GetAsyncKeyState(Int32 i);
-
         [DllImport("User32.dll")]
         public static extern bool SetForegroundWindow(IntPtr hWnd);
 
@@ -658,7 +659,7 @@ namespace ArcademiaGameLauncher
                     if (onlineVersion.IsDifferentVersion(localVersion))
                         InstallGameFiles(true, onlineJson, gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString());
                     else
-                        SetGameTitleState(updateIndexOfGame, GameState.start);
+                        SetGameTitleState(updateIndexOfGame, GameState.ready);
                 }
                 catch (Exception)
                 {
@@ -924,7 +925,7 @@ namespace ArcademiaGameLauncher
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
             // If the game info display is not showing the currently selected game, return
-            if (!showingDebouncedGame || gameTitleStates[currentlySelectedGameIndex] != GameState.start)
+            if (!showingDebouncedGame || gameTitleStates[currentlySelectedGameIndex] != GameState.ready)
                 return;
 
             // Get the current game folder, game info, and game executable
@@ -947,25 +948,27 @@ namespace ArcademiaGameLauncher
 
                 // Start the game if no process is currently running
                 if (currentlyRunningProcess == null || currentlyRunningProcess.HasExited)
+                {
                     currentlyRunningProcess = Process.Start(startInfo);
 
+                    StyleStartButtonState(GameState.launching);
+                }
+
                 // Set focus to the currently running process
-                else
+                SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
+                    
+                // After 3 seconds, set the focus to the currently running process
+                Task.Delay(3000).ContinueWith(t =>
                 {
                     SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
-                    
-                    // After 3 seconds, set the focus to the currently running process
-                    Task.Delay(3000).ContinueWith(t =>
-                    {
-                        SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
-                    });
-                }
+
+                    SetGameTitleState(currentlySelectedGameIndex, GameState.runningGame);
+                    StyleStartButtonState(currentlySelectedGameIndex);
+                });
             }
+            // Run CheckForUpdatesInit again
             else if (gameTitleStates[currentlySelectedGameIndex] == GameState.failed)
-            {
-                // Run CheckForUpdatesInit again
                 Task.Run(() => CheckForUpdatesInit(((JArray)gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"]).Count));
-            }
         }
 
         // Event Handlers
@@ -1193,6 +1196,8 @@ namespace ArcademiaGameLauncher
             {
                 SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
                 currentlyRunningProcess = null;
+
+                DebounceUpdateGameInfoDisplay();
             }
 
             // Flash the Start Button if the Start Menu is visible
@@ -1967,7 +1972,7 @@ namespace ArcademiaGameLauncher
                 VersionText.Text = "v" + gameInfoFilesList[currentlySelectedGameIndex]["GameVersion"].ToString();
 
                 showingDebouncedGame = true;
-                SetGameTitleState(currentlySelectedGameIndex, GameState.start);
+                SetGameTitleState(currentlySelectedGameIndex, GameState.ready);
             }
 
             if (currentlySelectedGameIndex >= 0)
@@ -2006,9 +2011,17 @@ namespace ArcademiaGameLauncher
                                 StartButton.IsChecked = false;
                                 StartButton.Content = "Loading Game Info...";
                                 break;
-                            case GameState.start:
+                            case GameState.ready:
                                 StartButton.IsChecked = true;
                                 StartButton.Content = "Start";
+                                break;
+                            case GameState.launching:
+                                StartButton.IsChecked = false;
+                                StartButton.Content = "Launching Game...";
+                                break;
+                            case GameState.runningGame:
+                                StartButton.IsChecked = false;
+                                StartButton.Content = "Running Game...";
                                 break;
                             default:
                                 break;
