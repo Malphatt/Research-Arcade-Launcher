@@ -21,6 +21,7 @@ using ICSharpCode.SharpZipLib.Zip;
 using Newtonsoft.Json.Linq;
 using SharpDX.DirectInput;
 using XamlAnimatedGif;
+using NAudio.Wave;
 
 namespace ArcademiaGameLauncher
 {
@@ -294,6 +295,9 @@ namespace ArcademiaGameLauncher
             CSS_Logo.Width = logoWidth;
             CSS_Logo.Height = logoWidth;
             Canvas.SetRight(CSS_Logo, 2 * (10 + logoWidth));
+
+            // Show the Start Menu
+            StartMenu.Visibility = Visibility.Visible;
         }
 
         // Initialization
@@ -558,7 +562,7 @@ namespace ArcademiaGameLauncher
 
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // If the game database cannot be retrieved, show an error message
                 //MessageBox.Show($"Failed to get game database: {ex.Message}");
@@ -2096,7 +2100,7 @@ namespace ArcademiaGameLauncher
             GameTagBorder8.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
         }
 
-        // Custom Methods (Debounce, CloneXamlElement, EncodeOneDriveLink)
+        // Custom Methods (Debounce, CloneXamlElement, EncodeOneDriveLink, PlayAudioFile)
 
         private void DebounceUpdateGameInfoDisplay()
         {
@@ -2143,6 +2147,20 @@ namespace ArcademiaGameLauncher
             string encodedUrl = "u!" + base64Value.TrimEnd('=').Replace('/', '_').Replace('+', '-');
 
             return "https://api.onedrive.com/v1.0/shares/" + encodedUrl + "/root/content";
+        }
+    
+        private void PlayAudioFile(string _audioFile) => Task.Run(() => PlayAudioFileAsync(_audioFile));
+
+        private async Task PlayAudioFileAsync(string _audioFile)
+        {
+            using (var audioFile = new AudioFileReader(_audioFile))
+            using (var outputDevice = new WaveOutEvent())
+            {
+                outputDevice.Init(audioFile);
+                outputDevice.Play();
+                while (outputDevice.PlaybackState == PlaybackState.Playing)
+                    await Task.Delay(1000);
+            }
         }
     }
 
