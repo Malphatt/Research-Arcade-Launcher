@@ -14,7 +14,7 @@
         Title="Launcher"  Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
     <!-- Declare the Launcher Version, Global Font and ToggleButton style -->
     <Window.Resources>
-        <System:String x:Key="LauncherVersion">[v1.5.7-24 Release Build]</System:String>
+        <System:String x:Key="LauncherVersion">[v1.5.8-24 Release Build]</System:String>
         <System:String x:Key="YearStyle">yyyy</System:String>
         <Style x:Key="Early GameBoy">
             <Setter Property="TextElement.FontFamily" Value="/Fonts/#Press Start 2P"/>
@@ -97,7 +97,7 @@
         </Grid>
 
         <!-- Start Menu -->
-        <Grid x:Name="StartMenu" Visibility="Visible" Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
+        <Grid x:Name="StartMenu" Visibility="Collapsed" Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
             <Grid.Background>
                 <SolidColorBrush Color="Black"/>
             </Grid.Background>
@@ -653,16 +653,20 @@
                         BorderBrush="#FFF"
                         Margin="25">
                         <Image x:Name="NonGif_GameThumbnail"
-                           Source="/Images/ThumbnailPlaceholder.png"
-                           Stretch="UniformToFill" />
+                            Source="/Images/ThumbnailPlaceholder.png"
+                            Stretch="UniformToFill"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
                     </Border>
                     <Border BorderThickness="5"
                         BorderBrush="#FFF"
                         Margin="25">
                         <Image x:Name="Gif_GameThumbnail"
-                           gif:AnimationBehavior.CacheFramesInMemory="True"
-                           gif:AnimationBehavior.SourceUri="/Images/ThumbnailPlaceholder.png"
-                           Stretch="UniformToFill" />
+                            gif:AnimationBehavior.CacheFramesInMemory="True"
+                            gif:AnimationBehavior.SourceUri="/Images/ThumbnailPlaceholder.png"
+                            Stretch="UniformToFill"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
                     </Border>
                 </Grid>
                 <Grid Grid.Row="1" Background="Black">
