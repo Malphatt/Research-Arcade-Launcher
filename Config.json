@@ -2,5 +2,8 @@
   "UpdaterURL": "https://1drv.ms/u/s!ApFCuzP3UzpsyqN425dlrU9jOg5m_A",
   "UpdaterVersionURL": "https://1drv.ms/t/s!ApFCuzP3UzpsyqN3SNhnmS5ZyYHPCg",
   "GameDatabaseURL": "https://1drv.ms/u/s!ApFCuzP3UzpsyqcZzpM5lvBM6r86Eg",
-  "NoInputTimeout_ms": 180000
+  "NoInputTimeout_ms": 180000,
+
+  "WS_IP": "tffsvrrm.ddns.net",
+  "WS_Port": "42069"
 }
