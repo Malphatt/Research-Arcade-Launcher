@@ -39,125 +39,6 @@ namespace ArcademiaGameLauncher
         runningGame
     }
 
-    // Controller State Class
-
-    public class ControllerState
-    {
-        private readonly int index;
-        private readonly bool[] buttonStates;
-        private readonly bool[] buttonDownStates;
-        private int leftStickX;
-        private int leftStickY;
-
-        // Deadzone and Midpoint values for the joystick
-        readonly int joystickDeadzone = 7700;
-        readonly int joystickMidpoint = 32511;
-
-        public Joystick joystick;
-        public JoystickState state;
-
-        public ControllerState(Joystick _joystick, int _index)
-        {
-            // Set the index of the controller
-            index = _index;
-            // Set the joystick
-            joystick = _joystick;
-
-            // Initialize the button states
-            state = new JoystickState();
-            buttonStates = new bool[128];
-            buttonDownStates = new bool[128];
-            state = joystick.GetCurrentState();
-        }
-
-        public void UpdateButtonStates()
-        {
-            // Poll the joystick for the current state
-            joystick.Poll();
-            state = joystick.GetCurrentState();
-
-
-            // Update the joystick states
-            leftStickX = state.X;
-            leftStickY = state.Y;
-
-            // Update the button states
-            for (int i = 0; i < buttonStates.Length; i++)
-            {
-                SetButtonState(i, state.Buttons[i]);
-            }
-        }
-
-        // Getters for the joystick states
-        public int GetLeftStickX()
-        {
-            return leftStickX;
-        }
-        public int GetLeftStickY()
-        {
-            return leftStickY;
-        }
-
-        // Getters for the joystick directions
-        public int[] GetLeftStickDirection()
-        {
-            int[] direction = new int[2];
-
-            if (leftStickX > joystickMidpoint + joystickDeadzone)
-            {
-                direction[0] = 1;
-            }
-            else if (leftStickX < joystickMidpoint - joystickDeadzone)
-            {
-                direction[0] = -1;
-            }
-            else
-            {
-                direction[0] = 0;
-            }
-
-            if (leftStickY > joystickMidpoint + joystickDeadzone)
-            {
-                direction[1] = 1;
-            }
-            else if (leftStickY < joystickMidpoint - joystickDeadzone)
-            {
-                direction[1] = -1;
-            }
-            else
-            {
-                direction[1] = 0;
-            }
-
-            return direction;
-        }
-
-        // Getter and Setter for the button states
-        public bool GetButtonState(int _button)
-        {
-            return buttonStates[_button];
-        }
-        public bool GetButtonDownState(int _button)
-        {
-            return buttonDownStates[_button];
-        }
-        public void SetButtonState(int _button, bool _buttonState)
-        {
-            if (!buttonStates[_button] && _buttonState)
-                buttonDownStates[_button] = true;
-            else
-                buttonDownStates[_button] = false;
-
-            buttonStates[_button] = _buttonState;
-        }
-
-        // Getter for the index
-        public int GetIndex()
-        {
-            return index;
-        }
-    }
-
     public partial class MainWindow : Window
     {
         readonly bool production;
@@ -229,6 +110,7 @@ namespace ArcademiaGameLauncher
         private Process currentlyRunningProcess = null;
 
         private GameState[] gameTitleStates;
+        private Socket socket;
 
         // MAIN WINDOW
 
@@ -323,7 +205,7 @@ namespace ArcademiaGameLauncher
             if (joystickGuids.Count == 0)
             {
                 MessageBox.Show("No joystick or gamepad found.");
-                Application.Current.Shutdown();
+                if (Application.Current != null) Application.Current.Shutdown();
                 return;
             }
 
@@ -799,9 +681,14 @@ namespace ArcademiaGameLauncher
                     return;
                 }
 
-                // If the download fails, set the state to failed and show an error message
-                SetGameTitleState(updateIndexOfGame, GameState.failed);
-                MessageBox.Show($"Failed to complete download: {ex.Message}");
+                JObject onlineJson = (JObject)e.UserState;
+
+                if (!ex.Message.Contains(onlineJson["GameThumbnail"].ToString()))
+                {
+                    // If the download fails, set the state to failed and show an error message
+                    SetGameTitleState(updateIndexOfGame, GameState.failed);
+                    MessageBox.Show($"Failed to complete download: {ex.Message}");
+                }
             }
         }
 
@@ -1045,6 +932,15 @@ namespace ArcademiaGameLauncher
 
             // Initialize the updateTimer
             InitializeUpdateTimer();
+
+            // Connect to the WebSocket Server
+            int arcadeMachineID = 0;
+            if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")))
+                arcadeMachineID = int.Parse(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")));
+
+            string arcadeMachineName = arcadeMachineID == 0 ? "Arcade Machine (CSS)" : arcadeMachineID == 1 ? "Arcade Machine (UoL)" : "Arcade Machine (Unknown)";
+
+            socket = new Socket(config["WS_IP"].ToString(), config["WS_Port"].ToString(), arcadeMachineName, this);
         }
 
         private void OnTimedEvent(Object source, System.Timers.ElapsedEventArgs e)
@@ -1240,7 +1136,7 @@ namespace ArcademiaGameLauncher
                 currentlyRunningProcess.Kill();
 
             // Close the updateTimer
-            updateTimer.Close();
+            if (updateTimer != null) updateTimer.Close();
         }
 
         // Credits
@@ -2149,10 +2045,12 @@ namespace ArcademiaGameLauncher
             return "https://api.onedrive.com/v1.0/shares/" + encodedUrl + "/root/content";
         }
     
-        private void PlayAudioFile(string _audioFile) => Task.Run(() => PlayAudioFileAsync(_audioFile));
+        public void PlayAudioFile(string _audioFile) => Task.Run(() => PlayAudioFileAsync(_audioFile));
 
         private async Task PlayAudioFileAsync(string _audioFile)
         {
+            _audioFile = Path.Combine(rootPath, "Audio", _audioFile, ".wav");
+
             using (var audioFile = new AudioFileReader(_audioFile))
             using (var outputDevice = new WaveOutEvent())
             {
@@ -2161,61 +2059,6 @@ namespace ArcademiaGameLauncher
                 while (outputDevice.PlaybackState == PlaybackState.Playing)
                     await Task.Delay(1000);
             }
-        }
-    }
-
-    struct Version
-    {
-        // Zero value for the Version struct
-        internal static Version zero = new Version(0, 0, 0);
-
-        public int major;
-        public int minor;
-        public int subMinor;
-
-        internal Version(short _major, short _minor, short _subMinor)
-        {
-            // Initialize the version number
-            major = _major;
-            minor = _minor;
-            subMinor = _subMinor;
-        }
-
-        internal Version(string version)
-        {
-            string[] parts = version.Split('.');
-
-            // Reset the version number if it is not in the correct format
-            if (parts.Length != 3)
-            {
-                major = 0;
-                minor = 0;
-                subMinor = 0;
-                return;
-            }
-
-            // Parse the version number
-            major = int.Parse(parts[0]);
-            minor = int.Parse(parts[1]);
-            subMinor = int.Parse(parts[2]);
-        }
-
-        internal bool IsDifferentVersion(Version _otherVersion)
-        {
-            // Compare each part of the version number
-            if (major != _otherVersion.major)
-                return true;
-            else if (minor != _otherVersion.minor)
-                return true;
-            else if (subMinor != _otherVersion.subMinor)
-                return true;
-            else return false;
-        }
-
-        public override string ToString()
-        {
-            // Return the version number as a string
-            return $"{major}.{minor}.{subMinor}";
         }
     }
 }
