@@ -253,7 +253,7 @@ namespace ArcademiaGameLauncher
 
         // Downloading and Installing Updater Methods
 
-        private void CheckForUpdaterUpdates()
+        public void CheckForUpdaterUpdates()
         {
             try
             {
@@ -351,7 +351,7 @@ namespace ArcademiaGameLauncher
 
         // Downloading and Installing Game Methods
 
-        private bool CheckForGameDatabaseChanges()
+        public bool CheckForGameDatabaseChanges()
         {
             try
             {
@@ -1200,6 +1200,10 @@ namespace ArcademiaGameLauncher
             // Close the updateTimer
             if (updateTimer != null) updateTimer.Close();
         }
+
+        // Misc
+
+        public void RestartLauncher() => Window_Closing(null, null);
 
         // Credits
 
