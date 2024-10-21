@@ -2053,6 +2053,9 @@ namespace ArcademiaGameLauncher
         {
             _audioFile = Path.Combine(rootPath, "Audio", _audioFile, ".wav");
 
+            if (!File.Exists(_audioFile))
+                return;
+
             using (var audioFile = new AudioFileReader(_audioFile))
             using (var outputDevice = new WaveOutEvent())
             {

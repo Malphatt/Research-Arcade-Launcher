@@ -85,14 +85,14 @@ namespace ArcademiaGameLauncher
 
         private void Socket_PlayAudio(SocketIOResponse response)
         {
-            Console.WriteLine("[Socket] Playing audio file " + response.GetValue<string>());
+            Console.WriteLine("[Socket] Playing audio file " + response.GetValue<int>());
 
-            switch (response.GetValue<string>())
+            switch (response.GetValue<int>())
             {
-                case "0":
+                case 0:
                     mainWindow.PlayAudioFile("");
                     break;
-                case "1":
+                case 1:
                     mainWindow.PlayAudioFile("");
                     break;
                 default:
