@@ -9,10 +9,16 @@ namespace ArcademiaGameLauncher
         readonly MainWindow mainWindow;
         readonly SocketIOClient.SocketIO client;
         private readonly string clientName;
+        private readonly string[] audioFiles =
+        {
+            "7Knocks",
+            "longburp1",
+            "longburp2",
+        };
 
         public Socket(string ip, string port, string clientName, MainWindow mainWindow)
         {
-            Console.WriteLine("Connecting to " + ip + ":" + port);
+            Console.WriteLine("[Socket] Connecting to " + ip + ":" + port);
 
             this.mainWindow = mainWindow;
             client = new SocketIOClient.SocketIO("ws://" + ip + ":" + port, new SocketIOOptions()
@@ -78,26 +84,15 @@ namespace ArcademiaGameLauncher
         private void Socket_FetchAudio(SocketIOResponse response)
         {
             Console.WriteLine("[Socket] Fetching audio files");
-            string audioFiles = "fileName,fileName";
 
-            client.EmitAsync("fetchedAudio", audioFiles);
+            client.EmitAsync("fetchedAudio", string.Join(",", audioFiles));
         }
 
         private void Socket_PlayAudio(SocketIOResponse response)
         {
-            Console.WriteLine("[Socket] Playing audio file " + response.GetValue<int>());
+            Console.WriteLine("[Socket] Playing audio file " + audioFiles[response.GetValue<int>()] + ".wav");
 
-            switch (response.GetValue<int>())
-            {
-                case 0:
-                    mainWindow.PlayAudioFile("");
-                    break;
-                case 1:
-                    mainWindow.PlayAudioFile("");
-                    break;
-                default:
-                    break;
-            }
+            mainWindow.PlayAudioFile(audioFiles[response.GetValue<int>()]);
         }
     }
 }
