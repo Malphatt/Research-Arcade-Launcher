@@ -110,7 +110,11 @@ namespace ArcademiaGameLauncher
         private Process currentlyRunningProcess = null;
 
         private GameState[] gameTitleStates;
+
         private Socket socket;
+
+        private JArray audioFiles;
+        private string[] audioFileNames;
 
         // MAIN WINDOW
 
@@ -692,6 +696,59 @@ namespace ArcademiaGameLauncher
             }
         }
 
+        // Audio File Methods
+
+        public void DownloadAudioFiles()
+        {
+            try
+            {
+                // Get the audio files from the online DB
+                WebClient webClient = new WebClient();
+                JObject audioFilesJson = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(config["AudioFilesURL"].ToString())));
+                audioFiles = (JArray)audioFilesJson["AudioFiles"];
+
+                // Create the Audio folder if it doesn't exist
+                if (!Directory.Exists(Path.Combine(rootPath, "Assets", "Audio")))
+                    Directory.CreateDirectory(Path.Combine(rootPath, "Assets", "Audio"));
+
+                audioFileNames = new string[audioFiles.Count];
+
+                for (int i = 0; i < audioFiles.Count; i++)
+                {
+                    string downloadURL = EncodeOneDriveLink(((JObject)audioFiles[i])["URL"].ToString());
+                    string fileName = ((JObject)audioFiles[i])["FileName"].ToString();
+
+                    // Try to download the audio file
+                    try
+                    {
+                        webClient.DownloadFile(downloadURL, Path.Combine(rootPath, "Assets", "Audio", fileName + ".wav"));
+
+                        // If the download is successful, set the audio file name
+                        audioFileNames[i] = fileName;
+                    }
+                    catch (Exception)
+                    {
+                        // If the download fails, set the audio file name to an empty string
+                        audioFileNames[i] = "Failed To Load Audio";
+                    }
+                }
+
+                // Delete all audio files that are not in the online DB
+                string[] localAudioFiles = Directory.GetFiles(Path.Combine(rootPath, "Assets", "Audio"));
+
+                foreach (string localAudioFile in localAudioFiles)
+                    if (Array.IndexOf(audioFileNames, Path.GetFileNameWithoutExtension(localAudioFile)) == -1)
+                        File.Delete(localAudioFile);
+            }
+            catch (Exception)
+            {
+                audioFiles = new JArray();
+                audioFileNames = new string[0];
+            }
+        }
+
+        public string[] GetAudioFileNames() => audioFileNames;
+
         // Custom TextBlock Buttons
 
         private void GameLibraryButton_Click(object sender, RoutedEventArgs e)
@@ -932,6 +989,9 @@ namespace ArcademiaGameLauncher
 
             // Initialize the updateTimer
             InitializeUpdateTimer();
+
+            // Download the audio files
+            DownloadAudioFiles();
 
             // Connect to the WebSocket Server
             int arcadeMachineID = 0;
