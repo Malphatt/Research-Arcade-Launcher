@@ -2051,7 +2051,7 @@ namespace ArcademiaGameLauncher
 
         private async Task PlayAudioFileAsync(string _audioFile)
         {
-            _audioFile = Path.Combine(rootPath, "Audio", _audioFile, ".wav");
+            _audioFile = Path.Combine(rootPath, "Assets", "Audio", _audioFile + ".wav");
 
             if (!File.Exists(_audioFile))
                 return;
