@@ -18,8 +18,7 @@ namespace ArcademiaGameLauncher
             client = new SocketIOClient.SocketIO("ws://" + ip + ":" + port, new SocketIOOptions()
             {
                 Reconnection = true,
-                ReconnectionAttempts = 1,
-                ReconnectionDelay = 1000,
+                ReconnectionDelay = 3000,
                 ReconnectionDelayMax = 5000,
                 ConnectionTimeout = TimeSpan.FromSeconds(5)
             });
@@ -40,7 +39,8 @@ namespace ArcademiaGameLauncher
             client.OnReconnectAttempt += Socket_OnReconnecting;
             client.OnReconnectFailed += Socket_OnReconnectFailed;
 
-            client.On("PlayAudio", response => Socket_PlayAudio(response));
+            client.On("fetchAudio", response => Socket_FetchAudio(response));
+            client.On("playAudio", response => Socket_PlayAudio(response));
         }
 
         private void Socket_OnConnected(object sender, EventArgs e)
@@ -75,10 +75,29 @@ namespace ArcademiaGameLauncher
             Console.WriteLine("[Socket] Reconnect failed");
         }
 
+        private void Socket_FetchAudio(SocketIOResponse response)
+        {
+            Console.WriteLine("[Socket] Fetching audio files");
+            string audioFiles = "fileName,fileName";
+
+            client.EmitAsync("fetchedAudio", audioFiles);
+        }
+
         private void Socket_PlayAudio(SocketIOResponse response)
         {
-            Console.WriteLine("[Socket] PlayAudio: " + response.GetValue<string>());
-            mainWindow.PlayAudioFile(response.GetValue<string>());
+            Console.WriteLine("[Socket] Playing audio file " + response.GetValue<string>());
+
+            switch (response.GetValue<string>())
+            {
+                case "0":
+                    mainWindow.PlayAudioFile("");
+                    break;
+                case "1":
+                    mainWindow.PlayAudioFile("");
+                    break;
+                default:
+                    break;
+            }
         }
     }
 }
