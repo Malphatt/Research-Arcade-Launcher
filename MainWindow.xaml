@@ -106,7 +106,7 @@
                        Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}"
                        Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}"
                        gif:AnimationBehavior.CacheFramesInMemory="True"
-                       gif:AnimationBehavior.SourceUri="/Images/StartMenu_Background.gif"
+                       gif:AnimationBehavior.SourceUri="/Assets/Images/StartMenu_Background.gif"
                        Stretch="UniformToFill"/>
 
                 <Rectangle x:Name="StartMenu_Rect"
@@ -126,7 +126,7 @@
                 </Rectangle>
 
                 <Image x:Name="StartMenu_ArcademiaLogo"
-                       Source="/Images/Arcademia_Logo.png"
+                       Source="/Assets/Images/Arcademia_Logo.png"
                        Width="594"
                        Height="298"
                        Stretch="Uniform"/>
@@ -161,7 +161,7 @@
                     <RowDefinition Height="2.5*"/>
                 </Grid.RowDefinitions>
                 <Grid Grid.Row="1" Margin="100,0">
-                    <Image Source="/Images/Arcademia_Logo.png"/>
+                    <Image Source="/Assets/Images/Arcademia_Logo.png"/>
                 </Grid>
                 <Grid Grid.Row="2">
                     <Grid.RowDefinitions>
@@ -357,14 +357,14 @@
             <Grid x:Name="HomeMenuImageArea" Grid.Column="1">
                 <Canvas>
                     <Grid x:Name="HomeImage" Visibility="Visible" Background="#333" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
-                        <Image Source="/Images/ThumbnailPlaceholder.png"
+                        <Image Source="/Assets/Images/ThumbnailPlaceholder.png"
                                Stretch="UniformToFill"/>
                     </Grid>
                     <!-- Lock width of Credits Panel to the Width of HomeMenuImageArea -->
                     <Grid x:Name="CreditsPanel" Visibility="Collapsed" Canvas.Top="{StaticResource {x:Static SystemParameters.PrimaryScreenHeightKey}}" Width="{Binding ElementName=HomeMenuImageArea, Path=ActualWidth}" Margin="50,0,0,0"/>
-                    <Image x:Name="UoL_Logo" Source="/Images/uolwhite.png" Visibility="Collapsed" Opacity="0.8" Width="150" Canvas.Bottom="10" Canvas.Right="10" Stretch="Uniform"/>
-                    <Image x:Name="intlab_Logo" Source="/Images/intlab.png" Visibility="Collapsed" Opacity="0.8" Width="150" Canvas.Bottom="10" Canvas.Right="170" Stretch="Uniform"/>
-                    <Image x:Name="CSS_Logo" Source="/Images/css.png" Visibility="Collapsed" Opacity="0.8" Width="150" Canvas.Bottom="10" Canvas.Right="330" Stretch="Uniform"/>
+                    <Image x:Name="UoL_Logo" Source="/Assets/Images/uolwhite.png" Visibility="Collapsed" Opacity="0.8" Width="150" Canvas.Bottom="10" Canvas.Right="10" Stretch="Uniform"/>
+                    <Image x:Name="intlab_Logo" Source="/Assets/Images/intlab.png" Visibility="Collapsed" Opacity="0.8" Width="150" Canvas.Bottom="10" Canvas.Right="170" Stretch="Uniform"/>
+                    <Image x:Name="CSS_Logo" Source="/Assets/Images/css.png" Visibility="Collapsed" Opacity="0.8" Width="150" Canvas.Bottom="10" Canvas.Right="330" Stretch="Uniform"/>
                 </Canvas>
             </Grid>
         </Grid>
@@ -653,7 +653,7 @@
                         BorderBrush="#FFF"
                         Margin="25">
                         <Image x:Name="NonGif_GameThumbnail"
-                            Source="/Images/ThumbnailPlaceholder.png"
+                            Source="/Assets/Images/ThumbnailPlaceholder.png"
                             Stretch="UniformToFill"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center" />
@@ -663,7 +663,7 @@
                         Margin="25">
                         <Image x:Name="Gif_GameThumbnail"
                             gif:AnimationBehavior.CacheFramesInMemory="True"
-                            gif:AnimationBehavior.SourceUri="/Images/ThumbnailPlaceholder.png"
+                            gif:AnimationBehavior.SourceUri="/Assets/Images/ThumbnailPlaceholder.png"
                             Stretch="UniformToFill"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center" />

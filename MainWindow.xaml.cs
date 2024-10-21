@@ -940,6 +940,8 @@ namespace ArcademiaGameLauncher
 
             string arcadeMachineName = arcadeMachineID == 0 ? "Arcade Machine (CSS)" : arcadeMachineID == 1 ? "Arcade Machine (UoL)" : "Arcade Machine (Unknown)";
 
+            if (!production) arcadeMachineName = "Arcade Machine (Test)";
+
             socket = new Socket(config["WS_IP"].ToString(), config["WS_Port"].ToString(), arcadeMachineName, this);
         }
 
@@ -1944,8 +1946,8 @@ namespace ArcademiaGameLauncher
         private void ResetGameInfoDisplay()
         {
             // Reset the Thumbnail
-            NonGif_GameThumbnail.Source = new BitmapImage(new Uri("Images/ThumbnailPlaceholder.png", UriKind.Relative));
-            AnimationBehavior.SetSourceUri(Gif_GameThumbnail, new Uri("Images/ThumbnailPlaceholder.png", UriKind.Relative));
+            NonGif_GameThumbnail.Source = new BitmapImage(new Uri("Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative));
+            AnimationBehavior.SetSourceUri(Gif_GameThumbnail, new Uri("Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative));
 
             // Reset the Text Content of each element
             GameTitle.Text = "Select A Game";
