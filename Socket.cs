@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using SocketIOClient;
 
 
@@ -41,6 +42,10 @@ namespace ArcademiaGameLauncher
 
             client.On("fetchAudio", response => Socket_FetchAudio(response));
             client.On("playAudio", response => Socket_PlayAudio(response));
+
+            client.On("updateUpdater", response => Socket_UpdateUpdater(response));
+            client.On("updateLauncher", response => Socket_RestartLauncher(response));
+            client.On("updateGames", response => Socket_UpdateGames(response));
         }
 
         private void Socket_OnConnected(object sender, EventArgs e)
@@ -95,6 +100,27 @@ namespace ArcademiaGameLauncher
             Console.WriteLine("[Socket] Playing audio file " + mainWindow.GetAudioFileNames()[response.GetValue<int>()] + ".wav");
 
             mainWindow.PlayAudioFile(mainWindow.GetAudioFileNames()[response.GetValue<int>()]);
+        }
+
+        private void Socket_UpdateUpdater(SocketIOResponse response)
+        {
+            Console.WriteLine("[Socket] Updating updater");
+
+            mainWindow.CheckForUpdaterUpdates();
+        }
+
+        private void Socket_RestartLauncher(SocketIOResponse response)
+        {
+            Console.WriteLine("[Socket] Restarting launcher");
+
+            mainWindow.RestartLauncher();
+        }
+
+        private void Socket_UpdateGames(SocketIOResponse response)
+        {
+            Console.WriteLine("[Socket] Updating games");
+
+            mainWindow.CheckForGameDatabaseChanges();
         }
     }
 }
