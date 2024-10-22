@@ -114,7 +114,7 @@ namespace ArcademiaGameLauncher
         private Socket socket;
 
         private JArray audioFiles;
-        private string[] audioFileNames;
+        private string[] audioFileNames = new string[0];
 
         // MAIN WINDOW
 
@@ -705,6 +705,35 @@ namespace ArcademiaGameLauncher
                 // Get the audio files from the online DB
                 WebClient webClient = new WebClient();
                 JObject audioFilesJson = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(config["AudioFilesURL"].ToString())));
+
+                // Check if audioFiles is unchanged, if so, return
+                bool changed = false;
+                if (audioFiles != null)
+
+                    if (audioFiles.Count != ((JArray)audioFilesJson["AudioFiles"]).Count)
+                        changed = true;
+
+                    else
+                        for (int i = 0; i < audioFiles.Count; i++)
+                        {
+                            if (audioFiles[i]["URL"].ToString() != ((JArray)audioFilesJson["AudioFiles"])[i]["URL"].ToString())
+                            {
+                                changed = true;
+                                break;
+
+                            }
+
+                            if (audioFiles[i]["FileName"].ToString() != ((JArray)audioFilesJson["AudioFiles"])[i]["FileName"].ToString())
+                            {
+                                changed = true;
+                                break;
+                            }
+                        }
+
+                if (!changed) return;
+
+                Console.WriteLine("[Audio] Downloading audio files");
+
                 audioFiles = (JArray)audioFilesJson["AudioFiles"];
 
                 // Create the Audio folder if it doesn't exist
@@ -739,6 +768,8 @@ namespace ArcademiaGameLauncher
                 foreach (string localAudioFile in localAudioFiles)
                     if (Array.IndexOf(audioFileNames, Path.GetFileNameWithoutExtension(localAudioFile)) == -1)
                         File.Delete(localAudioFile);
+
+                Console.WriteLine("[Audio] Finished downloading audio files");
             }
             catch (Exception)
             {
