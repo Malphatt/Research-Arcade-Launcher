@@ -14,7 +14,7 @@
         Title="Launcher"  Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
     <!-- Declare the Launcher Version, Global Font and ToggleButton style -->
     <Window.Resources>
-        <System:String x:Key="LauncherVersion">[v1.6.4-24 Release Build]</System:String>
+        <System:String x:Key="LauncherVersion">[v1.6.6-24 Release Build]</System:String>
         <System:String x:Key="YearStyle">yyyy</System:String>
         <Style x:Key="Early GameBoy">
             <Setter Property="TextElement.FontFamily" Value="/Fonts/#Press Start 2P"/>

@@ -209,7 +209,7 @@ namespace ArcademiaGameLauncher
             if (joystickGuids.Count == 0)
             {
                 MessageBox.Show("No joystick or gamepad found.");
-                if (Application.Current != null) Application.Current.Shutdown();
+                //if (Application.Current != null) Application.Current.Shutdown();
                 return;
             }
 
@@ -707,8 +707,9 @@ namespace ArcademiaGameLauncher
                 JObject audioFilesJson = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(config["AudioFilesURL"].ToString())));
 
                 // Check if audioFiles is unchanged, if so, return
-                bool changed = false;
                 if (audioFiles != null)
+                {
+                    bool changed = false;
 
                     if (audioFiles.Count != ((JArray)audioFilesJson["AudioFiles"]).Count)
                         changed = true;
@@ -730,7 +731,8 @@ namespace ArcademiaGameLauncher
                             }
                         }
 
-                if (!changed) return;
+                    if (!changed) return;
+                }
 
                 Console.WriteLine("[Audio] Downloading audio files");
 
@@ -744,6 +746,12 @@ namespace ArcademiaGameLauncher
 
                 for (int i = 0; i < audioFiles.Count; i++)
                 {
+                    if (((JObject)audioFiles[i])["URL"].ToString() == "Spacer")
+                    {
+                        audioFileNames[i] = "";
+                        continue;
+                    }
+
                     string downloadURL = EncodeOneDriveLink(((JObject)audioFiles[i])["URL"].ToString());
                     string fileName = ((JObject)audioFiles[i])["FileName"].ToString();
 
