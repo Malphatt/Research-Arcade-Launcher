@@ -115,6 +115,7 @@ namespace ArcademiaGameLauncher
 
         private JArray audioFiles;
         private string[] audioFileNames = new string[0];
+        private int[] periodicAudioFiles;
 
         // MAIN WINDOW
 
@@ -209,7 +210,7 @@ namespace ArcademiaGameLauncher
             if (joystickGuids.Count == 0)
             {
                 MessageBox.Show("No joystick or gamepad found.");
-                //if (Application.Current != null) Application.Current.Shutdown();
+                if (Application.Current != null) Application.Current.Shutdown();
                 return;
             }
 
@@ -696,97 +697,7 @@ namespace ArcademiaGameLauncher
             }
         }
 
-        // Audio File Methods
-
-        public void DownloadAudioFiles()
-        {
-            try
-            {
-                // Get the audio files from the online DB
-                WebClient webClient = new WebClient();
-                JObject audioFilesJson = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(config["AudioFilesURL"].ToString())));
-
-                // Check if audioFiles is unchanged, if so, return
-                if (audioFiles != null)
-                {
-                    bool changed = false;
-
-                    if (audioFiles.Count != ((JArray)audioFilesJson["AudioFiles"]).Count)
-                        changed = true;
-
-                    else
-                        for (int i = 0; i < audioFiles.Count; i++)
-                        {
-                            if (audioFiles[i]["URL"].ToString() != ((JArray)audioFilesJson["AudioFiles"])[i]["URL"].ToString())
-                            {
-                                changed = true;
-                                break;
-
-                            }
-
-                            if (audioFiles[i]["FileName"].ToString() != ((JArray)audioFilesJson["AudioFiles"])[i]["FileName"].ToString())
-                            {
-                                changed = true;
-                                break;
-                            }
-                        }
-
-                    if (!changed) return;
-                }
-
-                Console.WriteLine("[Audio] Downloading audio files");
-
-                audioFiles = (JArray)audioFilesJson["AudioFiles"];
-
-                // Create the Audio folder if it doesn't exist
-                if (!Directory.Exists(Path.Combine(rootPath, "Assets", "Audio")))
-                    Directory.CreateDirectory(Path.Combine(rootPath, "Assets", "Audio"));
-
-                audioFileNames = new string[audioFiles.Count];
-
-                for (int i = 0; i < audioFiles.Count; i++)
-                {
-                    if (((JObject)audioFiles[i])["URL"].ToString() == "Spacer")
-                    {
-                        audioFileNames[i] = "";
-                        continue;
-                    }
-
-                    string downloadURL = EncodeOneDriveLink(((JObject)audioFiles[i])["URL"].ToString());
-                    string fileName = ((JObject)audioFiles[i])["FileName"].ToString();
-
-                    // Try to download the audio file
-                    try
-                    {
-                        webClient.DownloadFile(downloadURL, Path.Combine(rootPath, "Assets", "Audio", fileName + ".wav"));
-
-                        // If the download is successful, set the audio file name
-                        audioFileNames[i] = fileName;
-                    }
-                    catch (Exception)
-                    {
-                        // If the download fails, set the audio file name to an empty string
-                        audioFileNames[i] = "Failed To Load Audio";
-                    }
-                }
-
-                // Delete all audio files that are not in the online DB
-                string[] localAudioFiles = Directory.GetFiles(Path.Combine(rootPath, "Assets", "Audio"));
-
-                foreach (string localAudioFile in localAudioFiles)
-                    if (Array.IndexOf(audioFileNames, Path.GetFileNameWithoutExtension(localAudioFile)) == -1)
-                        File.Delete(localAudioFile);
-
-                Console.WriteLine("[Audio] Finished downloading audio files");
-            }
-            catch (Exception)
-            {
-                audioFiles = new JArray();
-                audioFileNames = new string[0];
-            }
-        }
-
-        public string[] GetAudioFileNames() => audioFileNames;
+        
 
         // Custom TextBlock Buttons
 
@@ -1042,6 +953,16 @@ namespace ArcademiaGameLauncher
             if (!production) arcadeMachineName = "Arcade Machine (Test)";
 
             socket = new Socket(config["WS_IP"].ToString(), config["WS_Port"].ToString(), arcadeMachineName, this);
+
+            // Every (between 30 mins and an hour), play a random audio file
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    await Task.Delay(new Random(DateTime.Now.Millisecond).Next(30 * 60 * 1000, 60 * 60 * 1000));
+                    PlayRandomPeriodicAudioFile();
+                }
+            });
         }
 
         private void OnTimedEvent(Object source, System.Timers.ElapsedEventArgs e)
@@ -2149,21 +2070,162 @@ namespace ArcademiaGameLauncher
 
             return "https://api.onedrive.com/v1.0/shares/" + encodedUrl + "/root/content";
         }
-    
+
+        // Audio File Methods
+
+        public void DownloadAudioFiles()
+        {
+            try
+            {
+                // Get the audio files from the online DB
+                WebClient webClient = new WebClient();
+                JObject audioFilesJson = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(config["AudioFilesURL"].ToString())));
+
+                // Check if audioFiles is unchanged, if so, return
+                if (audioFiles != null)
+                {
+                    bool changed = false;
+
+                    if (audioFiles.Count != ((JArray)audioFilesJson["AudioFiles"]).Count)
+                        changed = true;
+
+                    else
+                        for (int i = 0; i < audioFiles.Count; i++)
+                        {
+                            if (audioFiles[i]["URL"].ToString() != ((JArray)audioFilesJson["AudioFiles"])[i]["URL"].ToString())
+                            {
+                                changed = true;
+                                break;
+
+                            }
+
+                            if (audioFiles[i]["FileName"].ToString() != ((JArray)audioFilesJson["AudioFiles"])[i]["FileName"].ToString())
+                            {
+                                changed = true;
+                                break;
+                            }
+                        }
+
+                    if (periodicAudioFiles.Length != ((JArray)audioFilesJson["PeriodicAudio"]).Count)
+                        changed = true;
+
+                    else
+                        for (int i = 0; i < periodicAudioFiles.Length; i++)
+                        {
+                            if (periodicAudioFiles[i] != int.Parse(((JArray)audioFilesJson["PeriodicAudio"])[i].ToString()))
+                            {
+                                changed = true;
+                                break;
+                            }
+                        }
+
+                    if (!changed) return;
+                }
+
+                Console.WriteLine("[Audio] Downloading audio files");
+
+                audioFiles = (JArray)audioFilesJson["AudioFiles"];
+
+                JArray periodicAudioFilesArray = (JArray)audioFilesJson["PeriodicAudio"];
+
+                periodicAudioFiles = new int[periodicAudioFilesArray.Count];
+
+                for (int i = 0; i < periodicAudioFilesArray.Count; i++)
+                    periodicAudioFiles[i] = int.Parse(periodicAudioFilesArray[i].ToString());
+
+                // Create the Audio folder if it doesn't exist
+                if (!Directory.Exists(Path.Combine(rootPath, "Assets", "Audio")))
+                    Directory.CreateDirectory(Path.Combine(rootPath, "Assets", "Audio"));
+
+                audioFileNames = new string[audioFiles.Count];
+
+                for (int i = 0; i < audioFiles.Count; i++)
+                {
+                    if (((JObject)audioFiles[i])["URL"].ToString() == "Spacer")
+                    {
+                        audioFileNames[i] = "";
+                        continue;
+                    }
+
+                    string downloadURL = EncodeOneDriveLink(((JObject)audioFiles[i])["URL"].ToString());
+                    string fileName = ((JObject)audioFiles[i])["FileName"].ToString();
+
+                    // Try to download the audio file
+                    try
+                    {
+                        webClient.DownloadFile(downloadURL, Path.Combine(rootPath, "Assets", "Audio", fileName + ".wav"));
+
+                        // If the download is successful, set the audio file name
+                        audioFileNames[i] = fileName;
+                    }
+                    catch (Exception)
+                    {
+                        // If the download fails, set the audio file name to an empty string
+                        audioFileNames[i] = "Failed To Load Audio";
+                    }
+                }
+
+                // Delete all audio files that are not in the online DB
+                string[] localAudioFiles = Directory.GetFiles(Path.Combine(rootPath, "Assets", "Audio"));
+
+                foreach (string localAudioFile in localAudioFiles)
+                    if (Array.IndexOf(audioFileNames, Path.GetFileNameWithoutExtension(localAudioFile)) == -1)
+                        File.Delete(localAudioFile);
+
+                Console.WriteLine("[Audio] Finished downloading audio files");
+            }
+            catch (Exception)
+            {
+                audioFiles = new JArray();
+                audioFileNames = new string[0];
+                periodicAudioFiles = new int[0];
+            }
+        }
+
+        public string[] GetAudioFileNames() => audioFileNames;
+
+        public void PlayRandomPeriodicAudioFile()
+        {
+            // Pick a random number between 0 and the length of the periodic audio files array
+            int randomIndex = new Random(DateTime.Now.Millisecond).Next(0, periodicAudioFiles.Length);
+
+            // Play the periodic audio file at the random index
+            PlayPeriodicAudioFile(randomIndex);
+        }
+
+        private void PlayPeriodicAudioFile(int _index)
+        {
+            // If the index is out of bounds, return
+            if (_index < 0 || _index >= periodicAudioFiles.Length)
+                return;
+
+            // If the periodic audio file at the index is out of bounds, return
+            if (periodicAudioFiles[_index] < 0 || periodicAudioFiles[_index] >= audioFileNames.Length)
+                return;
+
+            // Play the periodic audio file at the index
+            PlayAudioFile(audioFileNames[periodicAudioFiles[_index]]);
+        }
+
         public void PlayAudioFile(string _audioFile) => Task.Run(() => PlayAudioFileAsync(_audioFile));
 
         private async Task PlayAudioFileAsync(string _audioFile)
         {
+            // Find the audio file
             _audioFile = Path.Combine(rootPath, "Assets", "Audio", _audioFile + ".wav");
 
+            // If the audio file does not exist, return
             if (!File.Exists(_audioFile))
                 return;
 
+            // Play the audio file
             using (var audioFile = new AudioFileReader(_audioFile))
             using (var outputDevice = new WaveOutEvent())
             {
                 outputDevice.Init(audioFile);
                 outputDevice.Play();
+                
+                // Wait until the audio file has finished playing
                 while (outputDevice.PlaybackState == PlaybackState.Playing)
                     await Task.Delay(1000);
             }
