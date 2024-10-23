@@ -1163,7 +1163,7 @@ namespace ArcademiaGameLauncher
 
         // Misc
 
-        public void RestartLauncher() => Window_Closing(null, null);
+        public void RestartLauncher() => Application.Current?.Dispatcher?.Invoke(() => Application.Current?.Shutdown());
 
         // Credits
 
