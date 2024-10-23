@@ -1158,7 +1158,7 @@ namespace ArcademiaGameLauncher
                 currentlyRunningProcess.Kill();
 
             // Close the updateTimer
-            if (updateTimer != null) updateTimer.Close();
+            updateTimer?.Close();
         }
 
         // Misc
