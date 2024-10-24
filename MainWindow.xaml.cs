@@ -210,7 +210,7 @@ namespace ArcademiaGameLauncher
             if (joystickGuids.Count == 0)
             {
                 MessageBox.Show("No joystick or gamepad found.");
-                if (Application.Current != null) Application.Current.Shutdown();
+                //Application.Current?.Shutdown();
                 return;
             }
 
@@ -301,9 +301,8 @@ namespace ArcademiaGameLauncher
                         Process.Start(Path.Combine(Directory.GetCurrentDirectory(), "Research-Arcade-Updater.exe"));
 
                         // Close the current application
-                        if (Application.Current != null && Application.Current.Dispatcher != null)
-                            try { Application.Current.Dispatcher.Invoke(() => Application.Current.Shutdown()); }
-                            catch (TaskCanceledException) { }
+                        try { Application.Current?.Dispatcher?.Invoke(() => Application.Current?.Shutdown()); }
+                        catch (TaskCanceledException) { }
                     });
                 }
             }
@@ -313,19 +312,18 @@ namespace ArcademiaGameLauncher
         private void UpdateUpdater()
         {
             // Alert the user that the application is Undergoing Maintenance
-            if (Application.Current != null && Application.Current.Dispatcher != null)
-                try
+            try
+            {
+                Application.Current?.Dispatcher?.Invoke(() =>
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        StartMenu.Visibility = Visibility.Collapsed;
-                        HomeMenu.Visibility = Visibility.Collapsed;
-                        SelectionMenu.Visibility = Visibility.Collapsed;
+                    StartMenu.Visibility = Visibility.Collapsed;
+                    HomeMenu.Visibility = Visibility.Collapsed;
+                    SelectionMenu.Visibility = Visibility.Collapsed;
 
-                        MaintenanceScreen.Visibility = Visibility.Visible;
-                    });
-                }
-                catch (TaskCanceledException) { }
+                    MaintenanceScreen.Visibility = Visibility.Visible;
+                });
+            }
+            catch (TaskCanceledException) { }
 
             // Delete the old updater files (except the Launcher folder and the version file)
             foreach (string file in Directory.GetFiles(Directory.GetCurrentDirectory()))
@@ -395,27 +393,23 @@ namespace ArcademiaGameLauncher
                     gameTitleStates[i] = GameState.loadingInfo;
 
                 // Show the game titles as "Loading..." until the game database is updated
-                if (Application.Current != null && Application.Current.Dispatcher != null)
+                try
                 {
-                    try
+                    Application.Current?.Dispatcher?.Invoke(() =>
                     {
-                        Application.Current.Dispatcher.Invoke(() =>
+                        for (int i = previousPageIndex * 10; i < (previousPageIndex + 1) * 10; i++)
                         {
-                            for (int i = previousPageIndex * 10; i < (previousPageIndex + 1) * 10; i++)
+                            if (i < onlineGames.Count)
                             {
-                                if (i < onlineGames.Count)
-                                {
-                                    gameTitlesList[i % 10].Text = "Loading...";
-                                    gameTitlesList[i % 10].Visibility = Visibility.Visible;
-                                }
-                                else
-                                    gameTitlesList[i % 10].Visibility = Visibility.Hidden;
+                                gameTitlesList[i % 10].Text = "Loading...";
+                                gameTitlesList[i % 10].Visibility = Visibility.Visible;
                             }
-                        });
-                    }
-                    catch (TaskCanceledException) { }
+                            else
+                                gameTitlesList[i % 10].Visibility = Visibility.Hidden;
+                        }
+                    });
                 }
-
+                catch (TaskCanceledException) { }
 
 
                 // Update the FolderName property of each game in the local game database
@@ -522,22 +516,20 @@ namespace ArcademiaGameLauncher
 
                 // Update the game title text block if it's on the first page of the Selection Menu
                 if (updateIndexOfGame >= previousPageIndex * 10 && updateIndexOfGame < (previousPageIndex + 1) * 10)
-                    if (Application.Current != null && Application.Current.Dispatcher != null)
-                        try
+                    try
+                    {
+                        Application.Current?.Dispatcher?.Invoke(() =>
                         {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                gameTitlesList[updateIndexOfGame % 10].Text = gameInfoFilesList[updateIndexOfGame]["GameName"].ToString();
-                                gameTitlesList[updateIndexOfGame % 10].Visibility = Visibility.Visible;
-                            });
-                        }
-                        catch (TaskCanceledException) { }
+                            gameTitlesList[updateIndexOfGame % 10].Text = gameInfoFilesList[updateIndexOfGame]["GameName"].ToString();
+                            gameTitlesList[updateIndexOfGame % 10].Visibility = Visibility.Visible;
+                        });
+                    }
+                    catch (TaskCanceledException) { }
 
                 // Get the local version of the game and update the VersionText text block
                 Version localVersion = new Version(gameInfoFilesList[updateIndexOfGame]["GameVersion"].ToString());
-                if (Application.Current != null && Application.Current.Dispatcher != null)
-                    try { Application.Current.Dispatcher.Invoke(() => { VersionText.Text = "v" + localVersion.ToString(); }); }
-                    catch (TaskCanceledException) { }
+                try { Application.Current?.Dispatcher?.Invoke(() => { VersionText.Text = "v" + localVersion.ToString(); }); }
+                catch (TaskCanceledException) { }
 
                 try
                 {
@@ -645,33 +637,30 @@ namespace ArcademiaGameLauncher
                     File.WriteAllText(localGameDatabasePath, gameDatabase.ToString());
                 }
 
-                if (Application.Current != null && Application.Current.Dispatcher != null)
+                try
                 {
-                    try
+                    Application.Current?.Dispatcher?.Invoke(() =>
                     {
-                        Application.Current.Dispatcher.Invoke(() =>
+                        // Set the game database variable to the updated game database
+                        gameDatabaseFile = gameDatabase;
+
+                        // Write the GameInfo.json file to the game directory
+                        File.WriteAllText(Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString(), "GameInfo.json"), onlineJson.ToString());
+
+                        // Update the gameInfoFilesList with the online JSON object
+                        gameInfoFilesList[currentUpdateIndexOfGame] = onlineJson;
+
+                        // Update the game title text block if it's visible
+                        if (currentUpdateIndexOfGame >= previousPageIndex * 10 && currentUpdateIndexOfGame < (previousPageIndex + 1) * 10)
                         {
-                            // Set the game database variable to the updated game database
-                            gameDatabaseFile = gameDatabase;
+                            gameTitlesList[currentUpdateIndexOfGame % 10].Text = onlineJson["GameName"].ToString();
+                            gameTitlesList[currentUpdateIndexOfGame % 10].Visibility = Visibility.Visible;
+                        }
 
-                            // Write the GameInfo.json file to the game directory
-                            File.WriteAllText(Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString(), "GameInfo.json"), onlineJson.ToString());
-
-                            // Update the gameInfoFilesList with the online JSON object
-                            gameInfoFilesList[currentUpdateIndexOfGame] = onlineJson;
-
-                            // Update the game title text block if it's visible
-                            if (currentUpdateIndexOfGame >= previousPageIndex * 10 && currentUpdateIndexOfGame < (previousPageIndex + 1) * 10)
-                            {
-                                gameTitlesList[currentUpdateIndexOfGame % 10].Text = onlineJson["GameName"].ToString();
-                                gameTitlesList[currentUpdateIndexOfGame % 10].Visibility = Visibility.Visible;
-                            }
-
-                            SetGameTitleState(currentUpdateIndexOfGame, GameState.loadingInfo);
-                        });
-                    }
-                    catch (TaskCanceledException) { }
+                        SetGameTitleState(currentUpdateIndexOfGame, GameState.loadingInfo);
+                    });
                 }
+                catch (TaskCanceledException) { }
 
                 if (currentlySelectedGameIndex == currentUpdateIndexOfGame)
                     DebounceUpdateGameInfoDisplay();
@@ -704,19 +693,16 @@ namespace ArcademiaGameLauncher
         private void GameLibraryButton_Click(object sender, RoutedEventArgs e)
         {
             // Show the Selection Menu
-            if (Application.Current != null && Application.Current.Dispatcher != null)
+            try
             {
-                try
+                Application.Current?.Dispatcher?.Invoke(() =>
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        StartMenu.Visibility = Visibility.Collapsed;
-                        HomeMenu.Visibility = Visibility.Collapsed;
-                        SelectionMenu.Visibility = Visibility.Visible;
-                    });
-                }
-                catch (TaskCanceledException) { }
+                    StartMenu.Visibility = Visibility.Collapsed;
+                    HomeMenu.Visibility = Visibility.Collapsed;
+                    SelectionMenu.Visibility = Visibility.Visible;
+                });
             }
+            catch (TaskCanceledException) { }
 
             // Set the focus to the game launcher
             SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
@@ -729,30 +715,27 @@ namespace ArcademiaGameLauncher
         private void AboutButton_Click(object sender, RoutedEventArgs e)
         {
             // Show the About Menu
-            if (Application.Current != null && Application.Current.Dispatcher != null)
+            try
             {
-                try
+                Application.Current?.Dispatcher?.Invoke(() =>
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        StartMenu.Visibility = Visibility.Collapsed;
-                        HomeMenu.Visibility = Visibility.Visible;
-                        SelectionMenu.Visibility = Visibility.Collapsed;
+                    StartMenu.Visibility = Visibility.Collapsed;
+                    HomeMenu.Visibility = Visibility.Visible;
+                    SelectionMenu.Visibility = Visibility.Collapsed;
 
-                        HomeImage.Opacity = 0.2;
-                        CreditsPanel.Visibility = Visibility.Visible;
+                    HomeImage.Opacity = 0.2;
+                    CreditsPanel.Visibility = Visibility.Visible;
 
-                        // Show the CreditsPanel Logos
-                        UoL_Logo.Visibility = Visibility.Visible;
-                        intlab_Logo.Visibility = Visibility.Visible;
-                        CSS_Logo.Visibility = Visibility.Visible;
+                    // Show the CreditsPanel Logos
+                    UoL_Logo.Visibility = Visibility.Visible;
+                    intlab_Logo.Visibility = Visibility.Visible;
+                    CSS_Logo.Visibility = Visibility.Visible;
 
-                        // Set Canvas.Top of the CreditsPanel to the screen height
-                        Canvas.SetTop(CreditsPanel, (int)SystemParameters.PrimaryScreenHeight);
-                    });
-                }
-                catch (TaskCanceledException) { }
+                    // Set Canvas.Top of the CreditsPanel to the screen height
+                    Canvas.SetTop(CreditsPanel, (int)SystemParameters.PrimaryScreenHeight);
+                });
             }
+            catch (TaskCanceledException) { }
 
 
         }
@@ -760,27 +743,24 @@ namespace ArcademiaGameLauncher
         private void ExitButton_Click(object sender, RoutedEventArgs e)
         {
             // Show the Start Menu
-            if (Application.Current != null && Application.Current.Dispatcher != null)
+            try
             {
-                try
+                Application.Current?.Dispatcher?.Invoke(() =>
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        StartMenu.Visibility = Visibility.Visible;
-                        HomeMenu.Visibility = Visibility.Collapsed;
-                        SelectionMenu.Visibility = Visibility.Collapsed;
+                    StartMenu.Visibility = Visibility.Visible;
+                    HomeMenu.Visibility = Visibility.Collapsed;
+                    SelectionMenu.Visibility = Visibility.Collapsed;
 
-                        HomeImage.Opacity = 1;
-                        CreditsPanel.Visibility = Visibility.Collapsed;
+                    HomeImage.Opacity = 1;
+                    CreditsPanel.Visibility = Visibility.Collapsed;
 
-                        // Hide the CreditsPanel Logos
-                        UoL_Logo.Visibility = Visibility.Collapsed;
-                        intlab_Logo.Visibility = Visibility.Collapsed;
-                        CSS_Logo.Visibility = Visibility.Collapsed;
-                    });
-                }
-                catch (TaskCanceledException) { }
+                    // Hide the CreditsPanel Logos
+                    UoL_Logo.Visibility = Visibility.Collapsed;
+                    intlab_Logo.Visibility = Visibility.Collapsed;
+                    CSS_Logo.Visibility = Visibility.Collapsed;
+                });
             }
+            catch (TaskCanceledException) { }
 
             // Set the focus to the game launcher
             SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
@@ -798,19 +778,16 @@ namespace ArcademiaGameLauncher
         private void BackFromGameLibraryButton_Click(object sender, RoutedEventArgs e)
         {
             // Show the Home Menu
-            if (Application.Current != null && Application.Current.Dispatcher != null)
+            try
             {
-                try
+                Application.Current?.Dispatcher?.Invoke(() =>
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        StartMenu.Visibility = Visibility.Collapsed;
-                        HomeMenu.Visibility = Visibility.Visible;
-                        SelectionMenu.Visibility = Visibility.Collapsed;
-                    });
-                }
-                catch (TaskCanceledException) { }
+                    StartMenu.Visibility = Visibility.Collapsed;
+                    HomeMenu.Visibility = Visibility.Visible;
+                    SelectionMenu.Visibility = Visibility.Collapsed;
+                });
             }
+            catch (TaskCanceledException) { }
 
             // Set the focus to the game launcher
             SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
@@ -901,7 +878,7 @@ namespace ArcademiaGameLauncher
             else
             {
                 MessageBox.Show("Failed to get game database URL: Config.json does not exist.");
-                Application.Current.Shutdown();
+                Application.Current?.Shutdown();
             }
 
             // Quit the application
@@ -918,18 +895,15 @@ namespace ArcademiaGameLauncher
                 while (true)
                 {
                     await Task.Delay(30 * 60 * 1000);
-                    if (Application.Current != null && Application.Current.Dispatcher != null)
+                    try
                     {
-                        try
+                        Application.Current?.Dispatcher?.Invoke(() =>
                         {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                if (production) CheckForUpdaterUpdates();
-                                CheckForGameDatabaseChanges();
-                            });
-                        }
-                        catch (TaskCanceledException) { }
+                            if (production) CheckForUpdaterUpdates();
+                            CheckForGameDatabaseChanges();
+                        });
                     }
+                    catch (TaskCanceledException) { }
                 }
             });
 
@@ -940,28 +914,34 @@ namespace ArcademiaGameLauncher
             // Initialize the updateTimer
             InitializeUpdateTimer();
 
-            // Download the audio files
-            DownloadAudioFiles();
-
-            // Connect to the WebSocket Server
-            int arcadeMachineID = 0;
-            if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")))
-                arcadeMachineID = int.Parse(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")));
-
-            string arcadeMachineName = arcadeMachineID == 0 ? "Arcade Machine (CSS)" : arcadeMachineID == 1 ? "Arcade Machine (UoL)" : "Arcade Machine (Unknown)";
-
-            if (!production) arcadeMachineName = "Arcade Machine (Test)";
-
-            socket = new Socket(config["WS_IP"].ToString(), config["WS_Port"].ToString(), arcadeMachineName, this);
-
-            // Every (between 30 mins and an hour), play a random audio file
-            Task.Run(async () =>
+            Task.Run(() =>
             {
-                while (true)
+                // Delete all the audio files
+                DeleteAllAudioFiles();
+
+                // Download the audio files
+                DownloadAudioFiles();
+
+                // Connect to the WebSocket Server
+                int arcadeMachineID = 0;
+                if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")))
+                    arcadeMachineID = int.Parse(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")));
+
+                string arcadeMachineName = arcadeMachineID == 0 ? "Arcade Machine (CSS)" : arcadeMachineID == 1 ? "Arcade Machine (UoL)" : "Arcade Machine (Unknown)";
+
+                if (!production) arcadeMachineName = "Arcade Machine (Test)";
+
+                socket = new Socket(config["WS_IP"].ToString(), config["WS_Port"].ToString(), arcadeMachineName, this);
+
+                // Every (between 30 mins and an hour), play a random audio file
+                Task.Run(async () =>
                 {
-                    await Task.Delay(new Random(DateTime.Now.Millisecond).Next(30 * 60 * 1000, 60 * 60 * 1000));
-                    PlayRandomPeriodicAudioFile();
-                }
+                    while (true)
+                    {
+                        await Task.Delay(new Random(DateTime.Now.Millisecond).Next(30 * 60 * 1000, 60 * 60 * 1000));
+                        PlayRandomPeriodicAudioFile();
+                    }
+                });
             });
         }
 
@@ -978,9 +958,8 @@ namespace ArcademiaGameLauncher
                 Window_Closing(null, null);
 
                 // Close the application
-                if (Application.Current != null)
-                    try { Application.Current.Dispatcher.Invoke(() => Application.Current.Shutdown()); }
-                    catch (TaskCanceledException) { }
+                try { Application.Current?.Dispatcher?.Invoke(() => Application.Current?.Shutdown()); }
+                catch (TaskCanceledException) { }
             }
 
             // Keylogger for AFK Timer
@@ -1005,22 +984,19 @@ namespace ArcademiaGameLauncher
                         timeSinceLastButton = 0;
 
                         // Show the Home Menu
-                        if (Application.Current != null && Application.Current.Dispatcher != null)
+                        try
                         {
-                            try
+                            Application.Current?.Dispatcher?.Invoke(() =>
                             {
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    StartMenu.Visibility = Visibility.Collapsed;
-                                    HomeMenu.Visibility = Visibility.Visible;
-                                    SelectionMenu.Visibility = Visibility.Collapsed;
+                                StartMenu.Visibility = Visibility.Collapsed;
+                                HomeMenu.Visibility = Visibility.Visible;
+                                SelectionMenu.Visibility = Visibility.Collapsed;
 
-                                    currentlySelectedHomeIndex = 0;
-                                    HighlightCurrentHomeMenuOption();
-                                });
-                            }
-                            catch (TaskCanceledException) { }
+                                currentlySelectedHomeIndex = 0;
+                                HighlightCurrentHomeMenuOption();
+                            });
                         }
+                        catch (TaskCanceledException) { }
 
                         // Set the focus to the game launcher
                         SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
@@ -1048,19 +1024,16 @@ namespace ArcademiaGameLauncher
                     }
 
                     // Show the Start Menu
-                    if (Application.Current != null && Application.Current.Dispatcher != null)
+                    try
                     {
-                        try
+                        Application.Current?.Dispatcher?.Invoke(() =>
                         {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                StartMenu.Visibility = Visibility.Visible;
-                                HomeMenu.Visibility = Visibility.Collapsed;
-                                SelectionMenu.Visibility = Visibility.Collapsed;
-                            });
-                        }
-                        catch (TaskCanceledException) { }
+                            StartMenu.Visibility = Visibility.Visible;
+                            HomeMenu.Visibility = Visibility.Collapsed;
+                            SelectionMenu.Visibility = Visibility.Collapsed;
+                        });
                     }
+                    catch (TaskCanceledException) { }
 
                 }
                 else
@@ -1084,32 +1057,30 @@ namespace ArcademiaGameLauncher
                     selectionAnimationFrame = 0;
 
                 // Highlight the current menu option
-                if (HomeMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
+                if (HomeMenu.Visibility == Visibility.Visible)
                 {
-                    try { Application.Current.Dispatcher.Invoke(() => { HighlightCurrentHomeMenuOption(); }); }
+                    try { Application.Current?.Dispatcher?.Invoke(() => { HighlightCurrentHomeMenuOption(); }); }
                     catch (TaskCanceledException) { }
                 }
                 // Highlight the current game option
-                else if (SelectionMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
+                else if (SelectionMenu.Visibility == Visibility.Visible)
                 {
-                    try { Application.Current.Dispatcher.Invoke(() => { HighlightCurrentGameMenuOption(); }); }
+                    try { Application.Current?.Dispatcher?.Invoke(() => { HighlightCurrentGameMenuOption(); }); }
                     catch (TaskCanceledException) { }
                 }
             }
 
             // Update the Home/Selection Menu's current selection
-            if ((HomeMenu.Visibility == Visibility.Visible || SelectionMenu.Visibility == Visibility.Visible) &&
-                Application.Current != null &&
-                Application.Current.Dispatcher != null)
+            if (HomeMenu.Visibility == Visibility.Visible || SelectionMenu.Visibility == Visibility.Visible)
             {
-                try { Application.Current.Dispatcher.Invoke(() => { UpdateCurrentSelection(); }); }
+                try { Application.Current?.Dispatcher?.Invoke(() => { UpdateCurrentSelection(); }); }
                 catch (TaskCanceledException) { }
             }
 
             // Auto Scroll the Credits Panel
-            if (CreditsPanel.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
+            if (CreditsPanel.Visibility == Visibility.Visible)
             {
-                try { Application.Current.Dispatcher.Invoke(() => { AutoScrollCredits(); }); }
+                try { Application.Current?.Dispatcher?.Invoke(() => { AutoScrollCredits(); }); }
                 catch (TaskCanceledException) { }
             }
 
@@ -1123,11 +1094,11 @@ namespace ArcademiaGameLauncher
             }
 
             // Flash the Start Button if the Start Menu is visible
-            if (StartMenu.Visibility == Visibility.Visible && Application.Current != null && Application.Current.Dispatcher != null)
+            if (StartMenu.Visibility == Visibility.Visible)
             {
                 try
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
+                    Application.Current?.Dispatcher?.Invoke(() =>
                     {
                         if (timeSinceLastButton % 300 == 0)
                             PressStartText.Visibility = PressStartText.Visibility == Visibility.Visible ? Visibility.Hidden : Visibility.Visible;
@@ -1908,54 +1879,51 @@ namespace ArcademiaGameLauncher
         public void StyleStartButtonState(int _index) => StyleStartButtonState(gameTitleStates[_index]);
         private void StyleStartButtonState(GameState _gameState)
         {
-            if (Application.Current != null && Application.Current.Dispatcher != null)
+            try
             {
-                try
+                Application.Current?.Dispatcher?.Invoke(() =>
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
+                    // Style the StartButton
+                    switch (_gameState)
                     {
-                        // Style the StartButton
-                        switch (_gameState)
-                        {
-                            case GameState.checkingForUpdates:
-                                StartButton.IsChecked = false;
-                                StartButton.Content = "Checking for Updates...";
-                                break;
-                            case GameState.downloadingGame:
-                                StartButton.IsChecked = false;
-                                StartButton.Content = "Downloading Game...";
-                                break;
-                            case GameState.downloadingUpdate:
-                                StartButton.IsChecked = false;
-                                StartButton.Content = "Updating Game...";
-                                break;
-                            case GameState.failed:
-                                StartButton.IsChecked = false;
-                                StartButton.Content = "Failed";
-                                break;
-                            case GameState.loadingInfo:
-                                StartButton.IsChecked = false;
-                                StartButton.Content = "Loading Game Info...";
-                                break;
-                            case GameState.ready:
-                                StartButton.IsChecked = true;
-                                StartButton.Content = "Start";
-                                break;
-                            case GameState.launching:
-                                StartButton.IsChecked = false;
-                                StartButton.Content = "Launching Game...";
-                                break;
-                            case GameState.runningGame:
-                                StartButton.IsChecked = false;
-                                StartButton.Content = "Running Game...";
-                                break;
-                            default:
-                                break;
-                        }
-                    });
-                }
-                catch (TaskCanceledException) { }
+                        case GameState.checkingForUpdates:
+                            StartButton.IsChecked = false;
+                            StartButton.Content = "Checking for Updates...";
+                            break;
+                        case GameState.downloadingGame:
+                            StartButton.IsChecked = false;
+                            StartButton.Content = "Downloading Game...";
+                            break;
+                        case GameState.downloadingUpdate:
+                            StartButton.IsChecked = false;
+                            StartButton.Content = "Updating Game...";
+                            break;
+                        case GameState.failed:
+                            StartButton.IsChecked = false;
+                            StartButton.Content = "Failed";
+                            break;
+                        case GameState.loadingInfo:
+                            StartButton.IsChecked = false;
+                            StartButton.Content = "Loading Game Info...";
+                            break;
+                        case GameState.ready:
+                            StartButton.IsChecked = true;
+                            StartButton.Content = "Start";
+                            break;
+                        case GameState.launching:
+                            StartButton.IsChecked = false;
+                            StartButton.Content = "Launching Game...";
+                            break;
+                        case GameState.runningGame:
+                            StartButton.IsChecked = false;
+                            StartButton.Content = "Running Game...";
+                            break;
+                        default:
+                            break;
+                    }
+                });
             }
+            catch (TaskCanceledException) { }
         }
 
         // Reset Methods
@@ -2041,11 +2009,8 @@ namespace ArcademiaGameLauncher
             updateGameInfoDisplayDebounceTimer = new System.Timers.Timer(500);
             updateGameInfoDisplayDebounceTimer.Elapsed += (sender, e) =>
             {
-                if (Application.Current != null && Application.Current.Dispatcher != null)
-                {
-                    try { Application.Current.Dispatcher.Invoke(() => { UpdateGameInfoDisplay(); }); }
-                    catch (TaskCanceledException) { }
-                }
+                try { Application.Current?.Dispatcher?.Invoke(() => { UpdateGameInfoDisplay(); }); }
+                catch (TaskCanceledException) { }
             };
 
             // Set the Timer to AutoReset and Enabled
@@ -2073,6 +2038,19 @@ namespace ArcademiaGameLauncher
 
         // Audio File Methods
 
+        private void DeleteAllAudioFiles()
+        {
+            // Check if the Audio folder exists
+            if (!Directory.Exists(Path.Combine(rootPath, "Assets", "Audio")))
+                return;
+
+            // Delete all audio files
+            string[] audioFiles = Directory.GetFiles(Path.Combine(rootPath, "Assets", "Audio"));
+
+            foreach (string audioFile in audioFiles)
+                File.Delete(audioFile);
+        }
+
         public void DownloadAudioFiles()
         {
             try
@@ -2098,6 +2076,8 @@ namespace ArcademiaGameLauncher
                                 break;
 
                             }
+
+                            if (audioFiles[i]["URL"].ToString() == "Spacer") continue;
 
                             if (audioFiles[i]["FileName"].ToString() != ((JArray)audioFilesJson["AudioFiles"])[i]["FileName"].ToString())
                             {
