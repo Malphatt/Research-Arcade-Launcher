@@ -48,7 +48,7 @@ namespace ArcademiaGameLauncher
         [DllImport("User32.dll")]
         public static extern bool SetForegroundWindow(IntPtr hWnd);
 
-        private readonly string rootPath;
+        public readonly string RootPath;
         private readonly string gameDirectoryPath;
 
         private readonly string configPath;
@@ -129,17 +129,17 @@ namespace ArcademiaGameLauncher
             // Setup Directories
             if (Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "Launcher")))
             {
-                rootPath = Path.Combine(Directory.GetCurrentDirectory(), "Launcher");
+                RootPath = Path.Combine(Directory.GetCurrentDirectory(), "Launcher");
                 production = true;
             }
             else
             {
-                rootPath = Directory.GetCurrentDirectory();
+                RootPath = Directory.GetCurrentDirectory();
                 production = false;
             }
 
-            configPath = Path.Combine(rootPath, "Config.json");
-            gameDirectoryPath = Path.Combine(rootPath, "Games");
+            configPath = Path.Combine(RootPath, "Config.json");
+            gameDirectoryPath = Path.Combine(RootPath, "Games");
 
             localGameDatabasePath = Path.Combine(gameDirectoryPath, "GameDatabase.json");
 
@@ -232,7 +232,7 @@ namespace ArcademiaGameLauncher
                 joystick.Acquire();
 
                 // Create a new ControllerState object for the joystick
-                ControllerState controllerState = new ControllerState(joystick, controllerStates.Count);
+                ControllerState controllerState = new ControllerState(joystick, controllerStates.Count, this);
                 controllerStates.Add(controllerState);
             }
         }
@@ -575,7 +575,7 @@ namespace ArcademiaGameLauncher
 
                 // Asynchronously download the game zip file
                 webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(DownloadGameCompletedCallback);
-                webClient.DownloadFileAsync(new Uri(EncodeOneDriveLink(_onlineJson["LinkToGameZip"].ToString())), Path.Combine(rootPath, _onlineJson["FolderName"].ToString() + ".zip"), _onlineJson);
+                webClient.DownloadFileAsync(new Uri(EncodeOneDriveLink(_onlineJson["LinkToGameZip"].ToString())), Path.Combine(RootPath, _onlineJson["FolderName"].ToString() + ".zip"), _onlineJson);
             }
             catch (Exception ex)
             {
@@ -622,7 +622,7 @@ namespace ArcademiaGameLauncher
                 }
 
                 // Extract the downloaded zip file to the game directory
-                string pathToZip = Path.Combine(rootPath, onlineJson["FolderName"].ToString() + ".zip");
+                string pathToZip = Path.Combine(RootPath, onlineJson["FolderName"].ToString() + ".zip");
                 FastZip fastZip = new FastZip();
                 fastZip.ExtractZip(pathToZip, Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString()), null);
                 File.Delete(pathToZip);
@@ -1141,7 +1141,7 @@ namespace ArcademiaGameLauncher
         private void GenerateCredits()
         {
             // Read the Credits.json file
-            string creditsPath = Path.Combine(rootPath, "Credits.json");
+            string creditsPath = Path.Combine(RootPath, "Credits.json");
 
             if (File.Exists(creditsPath))
             {
@@ -2041,11 +2041,11 @@ namespace ArcademiaGameLauncher
         private void DeleteAllAudioFiles()
         {
             // Check if the Audio folder exists
-            if (!Directory.Exists(Path.Combine(rootPath, "Assets", "Audio")))
+            if (!Directory.Exists(Path.Combine(RootPath, "Assets", "Audio")))
                 return;
 
             // Delete all audio files
-            string[] audioFiles = Directory.GetFiles(Path.Combine(rootPath, "Assets", "Audio"));
+            string[] audioFiles = Directory.GetFiles(Path.Combine(RootPath, "Assets", "Audio"));
 
             foreach (string audioFile in audioFiles)
                 File.Delete(audioFile);
@@ -2114,8 +2114,8 @@ namespace ArcademiaGameLauncher
                     periodicAudioFiles[i] = int.Parse(periodicAudioFilesArray[i].ToString());
 
                 // Create the Audio folder if it doesn't exist
-                if (!Directory.Exists(Path.Combine(rootPath, "Assets", "Audio")))
-                    Directory.CreateDirectory(Path.Combine(rootPath, "Assets", "Audio"));
+                if (!Directory.Exists(Path.Combine(RootPath, "Assets", "Audio")))
+                    Directory.CreateDirectory(Path.Combine(RootPath, "Assets", "Audio"));
 
                 audioFileNames = new string[audioFiles.Count];
 
@@ -2133,7 +2133,7 @@ namespace ArcademiaGameLauncher
                     // Try to download the audio file
                     try
                     {
-                        webClient.DownloadFile(downloadURL, Path.Combine(rootPath, "Assets", "Audio", fileName + ".wav"));
+                        webClient.DownloadFile(downloadURL, Path.Combine(RootPath, "Assets", "Audio", fileName + ".wav"));
 
                         // If the download is successful, set the audio file name
                         audioFileNames[i] = fileName;
@@ -2146,7 +2146,7 @@ namespace ArcademiaGameLauncher
                 }
 
                 // Delete all audio files that are not in the online DB
-                string[] localAudioFiles = Directory.GetFiles(Path.Combine(rootPath, "Assets", "Audio"));
+                string[] localAudioFiles = Directory.GetFiles(Path.Combine(RootPath, "Assets", "Audio"));
 
                 foreach (string localAudioFile in localAudioFiles)
                     if (Array.IndexOf(audioFileNames, Path.GetFileNameWithoutExtension(localAudioFile)) == -1)
@@ -2192,7 +2192,7 @@ namespace ArcademiaGameLauncher
         private async Task PlayAudioFileAsync(string _audioFile)
         {
             // Find the audio file
-            _audioFile = Path.Combine(rootPath, "Assets", "Audio", _audioFile + ".wav");
+            _audioFile = Path.Combine(RootPath, "Assets", "Audio", _audioFile + ".wav");
 
             // If the audio file does not exist, return
             if (!File.Exists(_audioFile))
