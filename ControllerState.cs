@@ -1,7 +1,8 @@
-﻿using SharpDX.DirectInput;
-using System.Runtime.InteropServices;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
+using SharpDX.DirectInput;
+using System;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace ArcademiaGameLauncher
 {
@@ -17,6 +18,7 @@ namespace ArcademiaGameLauncher
         private readonly int index;
         private readonly bool[] buttonStates;
         private readonly bool[] buttonDownStates;
+        private readonly bool[] buttonUpStates;
         private int leftStickX;
         private int leftStickY;
         private readonly int[] direction;
@@ -28,17 +30,21 @@ namespace ArcademiaGameLauncher
         public Joystick joystick;
         public JoystickState state;
 
+        private MainWindow mainWindow;
+
         public ControllerState(Joystick _joystick, int _index, MainWindow mainWindow)
         {
-            // Set the index of the controller
-            index = _index;
             // Set the joystick
             joystick = _joystick;
+            // Set the index of the controller
+            index = _index;
+            // Set the main window
+            this.mainWindow = mainWindow;
             // Set the keymapping to true
             isKeymapping = true;
 
             // Set the keybinds for the player
-            JObject playerControls = JObject.Parse(Path.Combine(mainWindow.RootPath, "ButtonConfig.json"));
+            JObject playerControls = JObject.Parse(File.ReadAllText(Path.Combine(mainWindow.RootPath, "json", "ButtonConfig.json")));
             keybinds = new Keybinds(playerControls, index);
 
             direction = new int[2];
@@ -47,6 +53,7 @@ namespace ArcademiaGameLauncher
             state = new JoystickState();
             buttonStates = new bool[128];
             buttonDownStates = new bool[128];
+            buttonUpStates = new bool[128];
             state = joystick.GetCurrentState();
         }
 
@@ -141,40 +148,54 @@ namespace ArcademiaGameLauncher
             else
                 buttonDownStates[_button] = false;
 
-            buttonStates[_button] = _buttonState;
+            if (buttonStates[_button] && !_buttonState)
+                buttonUpStates[_button] = true;
+            else
+                buttonUpStates[_button] = false;
 
-            if (!isKeymapping) return;
-
-            // Send the key press if the button is pressed
-            switch (_button)
+            if ((buttonDownStates[_button] || buttonUpStates[_button]) && isKeymapping)
             {
-                case 0:
-                    SendKey(keybinds.Exit, _buttonState);
-                    break;
-                case 1:
-                    SendKey(keybinds.Start, _buttonState);
-                    break;
-                case 2:
-                    SendKey(keybinds.A, _buttonState);
-                    break;
-                case 3:
-                    SendKey(keybinds.B, _buttonState);
-                    break;
-                case 4:
-                    SendKey(keybinds.C, _buttonState);
-                    break;
-                case 5:
-                    SendKey(keybinds.D, _buttonState);
-                    break;
-                case 6:
-                    SendKey(keybinds.E, _buttonState);
-                    break;
-                case 7:
-                    SendKey(keybinds.F, _buttonState);
-                    break;
-                default:
-                    break;
+                // Send the key press if the button is pressed
+                switch (_button)
+                {
+                    case 0:
+                        if (_buttonState) mainWindow.Key_Pressed();
+                        SendKey(keybinds.Exit, _buttonState);
+                        break;
+                    case 1:
+                        if (_buttonState) mainWindow.Key_Pressed();
+                        SendKey(keybinds.Start, _buttonState);
+                        break;
+                    case 2:
+                        if (_buttonState) mainWindow.Key_Pressed();
+                        SendKey(keybinds.A, _buttonState);
+                        break;
+                    case 3:
+                        if (_buttonState) mainWindow.Key_Pressed();
+                        SendKey(keybinds.B, _buttonState);
+                        break;
+                    case 4:
+                        if (_buttonState) mainWindow.Key_Pressed();
+                        SendKey(keybinds.C, _buttonState);
+                        break;
+                    case 5:
+                        if (_buttonState) mainWindow.Key_Pressed();
+                        SendKey(keybinds.D, _buttonState);
+                        break;
+                    case 6:
+                        if (_buttonState) mainWindow.Key_Pressed();
+                        SendKey(keybinds.E, _buttonState);
+                        break;
+                    case 7:
+                        if (_buttonState) mainWindow.Key_Pressed();
+                        SendKey(keybinds.F, _buttonState);
+                        break;
+                    default:
+                        break;
+                }
             }
+
+            buttonStates[_button] = _buttonState;
         }
 
         // Toggle the keymapping

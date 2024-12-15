@@ -1,0 +1,10 @@
+{
+  "UpdaterURL": "",
+  "UpdaterVersionURL": "",
+  "GameDatabaseURL": "",
+  "AudioFilesURL": "",
+  "NoInputTimeout_ms": 180000,
+
+  "WS_IP": "",
+  "WS_Port": ""
+}
