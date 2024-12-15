@@ -14,7 +14,7 @@
         Title="Launcher"  Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
     <!-- Declare the Launcher Version, Global Font and ToggleButton style -->
     <Window.Resources>
-        <System:String x:Key="LauncherVersion">[v1.6.10-24 Release Build]</System:String>
+        <System:String x:Key="LauncherVersion">[v1.8.0-24 Release Build]</System:String>
         <System:String x:Key="YearStyle">yyyy</System:String>
         <Style x:Key="Early GameBoy">
             <Setter Property="TextElement.FontFamily" Value="/Fonts/#Press Start 2P"/>
@@ -154,8 +154,8 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="1*"/>
                     <RowDefinition Height="4*"/>
-                    <RowDefinition Height="2*"/>
-                    <RowDefinition Height="1*"/>
+                    <RowDefinition Height="2.5*"/>
+                    <RowDefinition Height="0.5*"/>
                     <RowDefinition Height="4*"/>
                     <RowDefinition Height="2*"/>
                     <RowDefinition Height="2.5*"/>
@@ -168,14 +168,18 @@
                         <RowDefinition Height="1*"/>
                         <RowDefinition Height="1*"/>
                         <RowDefinition Height="1*"/>
+                        <RowDefinition Height="1*"/>
                     </Grid.RowDefinitions>
                     <Grid Grid.Row="0" Margin="100,0">
                         <TextBlock x:Name="GameLibraryText" Text="Games Library" Style="{StaticResource Early GameBoy}" FontSize="18" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                     </Grid>
                     <Grid Grid.Row="1" Margin="100,0">
-                        <TextBlock x:Name="AboutText" Text="About" Style="{StaticResource Early GameBoy}" FontSize="18" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                        <TextBlock x:Name="InputMenuText" Text="Input Tester" Style="{StaticResource Early GameBoy}" FontSize="18" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                     </Grid>
                     <Grid Grid.Row="2" Margin="100,0">
+                        <TextBlock x:Name="AboutText" Text="About" Style="{StaticResource Early GameBoy}" FontSize="18" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                    </Grid>
+                    <Grid Grid.Row="3" Margin="100,0">
                         <TextBlock x:Name="ExitText" Text="Exit" Style="{StaticResource Early GameBoy}" FontSize="18" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                     </Grid>
                 </Grid>
@@ -369,6 +373,392 @@
             </Grid>
         </Grid>
 
+        <!-- Input Tester -->
+        <Grid x:Name="InputMenu" Visibility="Collapsed"  Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
+            <Grid.Background>
+                <SolidColorBrush Color="Black"/>
+            </Grid.Background>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="1*"/>
+                <RowDefinition Height="3*"/>
+            </Grid.RowDefinitions>
+            <Grid Grid.Row="0">
+                <TextBlock Text="Hold Exit to go back" Foreground="White" FontSize="20" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="20"/>
+                <TextBlock x:Name="InputMenu_HoldBackCountdownText" Text="" Foreground="Red" FontSize="20" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="20,50"/>
+                <TextBlock Text="Input Tester" Foreground="White" FontSize="40" Style="{StaticResource Early GameBoy}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+            </Grid>
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1*"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
+                <Grid Grid.Column="0" Margin="50">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="3*"/>
+                        <ColumnDefinition Width="4*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Column="0">
+                        <Ellipse x:Name="InputMenu_P1_Exit"
+                             Fill="#F00"
+                             Height="75"
+                             Width="75"
+                             StrokeThickness="5"
+                             Stroke="#B00"
+                             Margin="0,0,175,325"/>
+                        <TextBlock x:Name="InputMenu_P1_ExitText"
+                               Text="Exit"
+                               Foreground="White"
+                               FontSize="20"
+                               Style="{StaticResource Early GameBoy}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,175,450"/>
+                        <Ellipse x:Name="InputMenu_P1_Start"
+                             Fill="#F00"
+                             Height="75"
+                             Width="75"
+                             StrokeThickness="5"
+                             Stroke="#B00"
+                             Margin="175,0,0,325"/>
+                        <TextBlock x:Name="InputMenu_P1_StartText"
+                               Text="Start"
+                               Foreground="White"
+                               FontSize="20"
+                               Style="{StaticResource Early GameBoy}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="175,0,0,450"/>
+                        <Ellipse x:Name="InputMenu_P1_Joy"
+                             Fill="#F00"
+                             Height="100"
+                             Width="100"
+                             StrokeThickness="5"
+                             Stroke="#B00"
+                             Margin="0,0,0,0"/>
+                        <TextBlock x:Name="InputMenu_P1_Joy_UpText"
+                               Text=">"
+                               Foreground="White"
+                               FontSize="50"
+                               Style="{StaticResource Early GameBoy}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="5,0,0,200">
+                            <TextBlock.LayoutTransform>
+                                <RotateTransform Angle="-90"/>
+                            </TextBlock.LayoutTransform>
+                        </TextBlock>
+                        <TextBlock x:Name="InputMenu_P1_Joy_RightText"
+                               Text=">"
+                               Foreground="White"
+                               FontSize="50"
+                               Style="{StaticResource Early GameBoy}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="200,5,0,0"/>
+                        <TextBlock x:Name="InputMenu_P1_Joy_DownText"
+                               Text=">"
+                               Foreground="White"
+                               FontSize="50"
+                               Style="{StaticResource Early GameBoy}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="0,200,8,0">
+                            <TextBlock.LayoutTransform>
+                                <RotateTransform Angle="90"/>
+                            </TextBlock.LayoutTransform>
+                        </TextBlock>
+                        <TextBlock x:Name="InputMenu_P1_Joy_LeftText"
+                               Text=">"
+                               Foreground="White"
+                               FontSize="50"
+                               Style="{StaticResource Early GameBoy}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,200,8">
+                            <TextBlock.LayoutTransform>
+                                <RotateTransform Angle="180"/>
+                            </TextBlock.LayoutTransform>
+                        </TextBlock>
+                    </Grid>
+                    <Grid Grid.Column="1">
+                        <TextBlock Text="Player 1" Foreground="White" FontSize="28" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="20"/>
+                        <Ellipse x:Name="InputMenu_P1_A"
+                               Fill="#F00"
+                               Height="75"
+                               Width="75"
+                               StrokeThickness="5"
+                               Stroke="#B00"
+                               Margin="0,0,225,150"/>
+                        <TextBlock x:Name="InputMenu_P1_AText"
+                               Text="A"
+                               Foreground="White"
+                               FontSize="20"
+                               Style="{StaticResource Early GameBoy}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,225,275"/>
+                        <Ellipse x:Name="InputMenu_P1_B"
+                               Fill="#F00"
+                               Height="75"
+                               Width="75"
+                               StrokeThickness="5"
+                               Stroke="#B00"
+                               Margin="0,0,0,150"/>
+                        <TextBlock x:Name="InputMenu_P1_BText"
+                               Text="B"
+                               Foreground="White"
+                               FontSize="20"
+                               Style="{StaticResource Early GameBoy}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,275"/>
+                        <Ellipse x:Name="InputMenu_P1_C"
+                               Fill="#F00"
+                               Height="75"
+                               Width="75"
+                               StrokeThickness="5"
+                               Stroke="#B00"
+                               Margin="225,0,0,150"/>
+                        <TextBlock x:Name="InputMenu_P1_CText"
+                               Text="C"
+                               Foreground="White"
+                               FontSize="20"
+                               Style="{StaticResource Early GameBoy}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="225,0,0,275"/>
+                        <Ellipse x:Name="InputMenu_P1_D"
+                               Fill="#F00"
+                               Height="75"
+                               Width="75"
+                               StrokeThickness="5"
+                               Stroke="#B00"
+                               Margin="0,150,225,0"/>
+                        <TextBlock x:Name="InputMenu_P1_DText"
+                               Text="D"
+                               Foreground="White"
+                               FontSize="20"
+                               Style="{StaticResource Early GameBoy}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="0,25,225,0"/>
+                        <Ellipse x:Name="InputMenu_P1_E"
+                               Fill="#F00"
+                               Height="75"
+                               Width="75"
+                               StrokeThickness="5"
+                               Stroke="#B00"
+                               Margin="0,150,0,0"/>
+                        <TextBlock x:Name="InputMenu_P1_EText"
+                               Text="E"
+                               Foreground="White"
+                               FontSize="20"
+                               Style="{StaticResource Early GameBoy}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="0,25,0,0"/>
+                        <Ellipse x:Name="InputMenu_P1_F"
+                               Fill="#F00"
+                               Height="75"
+                               Width="75"
+                               StrokeThickness="5"
+                               Stroke="#B00"
+                               Margin="225,150,0,0"/>
+                        <TextBlock x:Name="InputMenu_P1_FText"
+                               Text="F"
+                               Foreground="White"
+                               FontSize="20"
+                               Style="{StaticResource Early GameBoy}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="225,25,0,0"/>
+                    </Grid>
+                </Grid>
+                <Grid Grid.Column="1" Margin="50">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*"/>
+                    <ColumnDefinition Width="4*"/>
+                </Grid.ColumnDefinitions>
+                <Grid Grid.Column="0">
+                    <Ellipse x:Name="InputMenu_P2_Exit"
+                         Fill="#F00"
+                         Height="75"
+                         Width="75"
+                         StrokeThickness="5"
+                         Stroke="#B00"
+                         Margin="0,0,175,325"/>
+                    <TextBlock x:Name="InputMenu_P2_ExitText"
+                           Text="Exit"
+                           Foreground="White"
+                           FontSize="20"
+                           Style="{StaticResource Early GameBoy}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,175,450"/>
+                    <Ellipse x:Name="InputMenu_P2_Start"
+                         Fill="#F00"
+                         Height="75"
+                         Width="75"
+                         StrokeThickness="5"
+                         Stroke="#B00"
+                         Margin="175,0,0,325"/>
+                    <TextBlock x:Name="InputMenu_P2_StartText"
+                           Text="Start"
+                           Foreground="White"
+                           FontSize="20"
+                           Style="{StaticResource Early GameBoy}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="175,0,0,450"/>
+                    <Ellipse x:Name="InputMenu_P2_Joy"
+                         Fill="#F00"
+                         Height="100"
+                         Width="100"
+                         StrokeThickness="5"
+                         Stroke="#B00"
+                         Margin="0,0,0,0"/>
+                    <TextBlock x:Name="InputMenu_P2_Joy_UpText"
+                           Text=">"
+                           Foreground="White"
+                           FontSize="50"
+                           Style="{StaticResource Early GameBoy}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="5,0,0,200">
+                        <TextBlock.LayoutTransform>
+                            <RotateTransform Angle="-90"/>
+                        </TextBlock.LayoutTransform>
+                    </TextBlock>
+                    <TextBlock x:Name="InputMenu_P2_Joy_RightText"
+                           Text=">"
+                           Foreground="White"
+                           FontSize="50"
+                           Style="{StaticResource Early GameBoy}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="200,5,0,0"/>
+                    <TextBlock x:Name="InputMenu_P2_Joy_DownText"
+                           Text=">"
+                           Foreground="White"
+                           FontSize="50"
+                           Style="{StaticResource Early GameBoy}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="0,200,8,0">
+                        <TextBlock.LayoutTransform>
+                            <RotateTransform Angle="90"/>
+                        </TextBlock.LayoutTransform>
+                    </TextBlock>
+                    <TextBlock x:Name="InputMenu_P2_Joy_LeftText"
+                           Text=">"
+                           Foreground="White"
+                           FontSize="50"
+                           Style="{StaticResource Early GameBoy}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,200,8">
+                        <TextBlock.LayoutTransform>
+                            <RotateTransform Angle="180"/>
+                        </TextBlock.LayoutTransform>
+                    </TextBlock>
+                </Grid>
+                    <Grid Grid.Column="1">
+                        <TextBlock Text="Player 2" Foreground="White" FontSize="28" Style="{StaticResource Early GameBoy}" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="20"/>
+                        <Ellipse x:Name="InputMenu_P2_A"
+                           Fill="#F00"
+                           Height="75"
+                           Width="75"
+                           StrokeThickness="5"
+                           Stroke="#B00"
+                           Margin="0,0,225,150"/>
+                    <TextBlock x:Name="InputMenu_P2_AText"
+                           Text="A"
+                           Foreground="White"
+                           FontSize="20"
+                           Style="{StaticResource Early GameBoy}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,225,275"/>
+                    <Ellipse x:Name="InputMenu_P2_B"
+                           Fill="#F00"
+                           Height="75"
+                           Width="75"
+                           StrokeThickness="5"
+                           Stroke="#B00"
+                           Margin="0,0,0,150"/>
+                    <TextBlock x:Name="InputMenu_P2_BText"
+                           Text="B"
+                           Foreground="White"
+                           FontSize="20"
+                           Style="{StaticResource Early GameBoy}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,275"/>
+                    <Ellipse x:Name="InputMenu_P2_C"
+                           Fill="#F00"
+                           Height="75"
+                           Width="75"
+                           StrokeThickness="5"
+                           Stroke="#B00"
+                           Margin="225,0,0,150"/>
+                    <TextBlock x:Name="InputMenu_P2_CText"
+                           Text="C"
+                           Foreground="White"
+                           FontSize="20"
+                           Style="{StaticResource Early GameBoy}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="225,0,0,275"/>
+                    <Ellipse x:Name="InputMenu_P2_D"
+                           Fill="#F00"
+                           Height="75"
+                           Width="75"
+                           StrokeThickness="5"
+                           Stroke="#B00"
+                           Margin="0,150,225,0"/>
+                    <TextBlock x:Name="InputMenu_P2_DText"
+                           Text="D"
+                           Foreground="White"
+                           FontSize="20"
+                           Style="{StaticResource Early GameBoy}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="0,25,225,0"/>
+                    <Ellipse x:Name="InputMenu_P2_E"
+                           Fill="#F00"
+                           Height="75"
+                           Width="75"
+                           StrokeThickness="5"
+                           Stroke="#B00"
+                           Margin="0,150,0,0"/>
+                    <TextBlock x:Name="InputMenu_P2_EText"
+                           Text="E"
+                           Foreground="White"
+                           FontSize="20"
+                           Style="{StaticResource Early GameBoy}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="0,25,0,0"/>
+                    <Ellipse x:Name="InputMenu_P2_F"
+                           Fill="#F00"
+                           Height="75"
+                           Width="75"
+                           StrokeThickness="5"
+                           Stroke="#B00"
+                           Margin="225,150,0,0"/>
+                    <TextBlock x:Name="InputMenu_P2_FText"
+                           Text="F"
+                           Foreground="White"
+                           FontSize="20"
+                           Style="{StaticResource Early GameBoy}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="225,25,0,0"/>
+                </Grid>
+                
+            </Grid>
+            </Grid>
+        </Grid>
         <!-- Selection Menu -->
         <Grid x:Name="SelectionMenu" Visibility="Collapsed" Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
             <Grid.Background>

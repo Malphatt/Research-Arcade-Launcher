@@ -107,11 +107,15 @@ namespace ArcademiaGameLauncher
         private DirectInput directInput;
         private readonly List<ControllerState> controllerStates = new List<ControllerState>();
 
+        private System.Windows.Shapes.Ellipse[] inputMenuJoysticks;
+        private System.Windows.Shapes.Ellipse[][] inputMenuButtons;
+
         private Process currentlyRunningProcess = null;
 
         private GameState[] gameTitleStates;
 
         private Socket socket;
+        private EmojiParser emojiParser;
 
         private JArray audioFiles;
         private string[] audioFileNames = new string[0];
@@ -126,6 +130,14 @@ namespace ArcademiaGameLauncher
 
             InitializeComponent();
 
+            // Setup Input Joysticks
+            inputMenuJoysticks = new System.Windows.Shapes.Ellipse[2] { InputMenu_P1_Joy, InputMenu_P2_Joy };
+
+            // Setup Input Buttons
+            inputMenuButtons = new System.Windows.Shapes.Ellipse[2][];
+            inputMenuButtons[0] = new System.Windows.Shapes.Ellipse[8] { InputMenu_P1_Exit, InputMenu_P1_Start, InputMenu_P1_A, InputMenu_P1_B, InputMenu_P1_C, InputMenu_P1_D, InputMenu_P1_E, InputMenu_P1_F };
+            inputMenuButtons[1] = new System.Windows.Shapes.Ellipse[8] { InputMenu_P2_Exit, InputMenu_P2_Start, InputMenu_P2_A, InputMenu_P2_B, InputMenu_P2_C, InputMenu_P2_D, InputMenu_P2_E, InputMenu_P2_F };
+
             // Setup Directories
             if (Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "Launcher")))
             {
@@ -138,7 +150,9 @@ namespace ArcademiaGameLauncher
                 production = false;
             }
 
-            configPath = Path.Combine(RootPath, "Config.json");
+            emojiParser = new EmojiParser(this);
+
+            configPath = Path.Combine(RootPath, "json", "Config.json");
             gameDirectoryPath = Path.Combine(RootPath, "Games");
 
             localGameDatabasePath = Path.Combine(gameDirectoryPath, "GameDatabase.json");
@@ -209,7 +223,7 @@ namespace ArcademiaGameLauncher
             // If no Joystick is found, throw an error
             if (joystickGuids.Count == 0)
             {
-                MessageBox.Show("No joystick or gamepad found.");
+                //MessageBox.Show("No joystick or gamepad found.");
                 //Application.Current?.Shutdown();
                 return;
             }
@@ -700,6 +714,7 @@ namespace ArcademiaGameLauncher
                     StartMenu.Visibility = Visibility.Collapsed;
                     HomeMenu.Visibility = Visibility.Collapsed;
                     SelectionMenu.Visibility = Visibility.Visible;
+                    InputMenu.Visibility = Visibility.Collapsed;
                 });
             }
             catch (TaskCanceledException) { }
@@ -712,6 +727,25 @@ namespace ArcademiaGameLauncher
             DebounceUpdateGameInfoDisplay();
         }
 
+        private void InputMenuButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Show the Input Menu
+            try
+            {
+                Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    StartMenu.Visibility = Visibility.Collapsed;
+                    HomeMenu.Visibility = Visibility.Collapsed;
+                    SelectionMenu.Visibility = Visibility.Collapsed;
+                    InputMenu.Visibility = Visibility.Visible;
+                });
+            }
+            catch (TaskCanceledException) { }
+
+            // Set the focus to the game launcher
+            SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+        }
+
         private void AboutButton_Click(object sender, RoutedEventArgs e)
         {
             // Show the About Menu
@@ -722,6 +756,7 @@ namespace ArcademiaGameLauncher
                     StartMenu.Visibility = Visibility.Collapsed;
                     HomeMenu.Visibility = Visibility.Visible;
                     SelectionMenu.Visibility = Visibility.Collapsed;
+                    InputMenu.Visibility = Visibility.Collapsed;
 
                     HomeImage.Opacity = 0.2;
                     CreditsPanel.Visibility = Visibility.Visible;
@@ -750,6 +785,7 @@ namespace ArcademiaGameLauncher
                     StartMenu.Visibility = Visibility.Visible;
                     HomeMenu.Visibility = Visibility.Collapsed;
                     SelectionMenu.Visibility = Visibility.Collapsed;
+                    InputMenu.Visibility = Visibility.Collapsed;
 
                     HomeImage.Opacity = 1;
                     CreditsPanel.Visibility = Visibility.Collapsed;
@@ -785,6 +821,7 @@ namespace ArcademiaGameLauncher
                     StartMenu.Visibility = Visibility.Collapsed;
                     HomeMenu.Visibility = Visibility.Visible;
                     SelectionMenu.Visibility = Visibility.Collapsed;
+                    InputMenu.Visibility = Visibility.Collapsed;
                 });
             }
             catch (TaskCanceledException) { }
@@ -848,13 +885,47 @@ namespace ArcademiaGameLauncher
 
         // Event Handlers
 
+        public void Key_Pressed()
+        {
+            // Keylogger for AFK Timer
+            if (afkTimerActive)
+            {
+                afkTimer = 0;
+            }
+            else
+            {
+                afkTimerActive = true;
+                afkTimer = 0;
+                timeSinceLastButton = 0;
+
+                // Show the Home Menu
+                try
+                {
+                    Application.Current?.Dispatcher?.Invoke(() =>
+                    {
+                        StartMenu.Visibility = Visibility.Collapsed;
+                        HomeMenu.Visibility = Visibility.Visible;
+                        SelectionMenu.Visibility = Visibility.Collapsed;
+                        InputMenu.Visibility = Visibility.Collapsed;
+
+                        currentlySelectedHomeIndex = 0;
+                        HighlightCurrentHomeMenuOption();
+                    });
+                }
+                catch (TaskCanceledException) { }
+
+                // Set the focus to the game launcher
+                SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+            }
+        }
+
         private void Window_ContentRendered(object sender, EventArgs e)
         {
             // Set the Copyright text
             Copyright.Text = "Copyright ©️ 2018 - " + DateTime.Now.Year + "\nUniversity of Lincoln,\nAll rights reserved.";
 
             // Initialize the TextBlock arrays
-            homeOptionsList = new TextBlock[3] { GameLibraryText, AboutText, ExitText };
+            homeOptionsList = new TextBlock[4] { GameLibraryText, InputMenuText, AboutText, ExitText };
             gameTitlesList = new TextBlock[10] { GameTitleText0, GameTitleText1, GameTitleText2, GameTitleText3, GameTitleText4, GameTitleText5, GameTitleText6, GameTitleText7, GameTitleText8, GameTitleText9 };
 
             // Generate the Credits from the Credits.json file
@@ -962,51 +1033,13 @@ namespace ArcademiaGameLauncher
                 catch (TaskCanceledException) { }
             }
 
-            // Keylogger for AFK Timer
-            if (afkTimerActive)
-            {
-                // Check for any key press and reset the timer if any key is pressed
-                for (int i = 8; i < 91; i++)
-                    if (GetAsyncKeyState(i) != 0)
-                    {
-                        afkTimer = 0;
-                        break;
-                    }
-            }
-            else
-            {
-                // Check for any key press and start the timer if any key is pressed
-                for (int i = 8; i < 91; i++)
-                    if (GetAsyncKeyState(i) != 0)
-                    {
-                        afkTimerActive = true;
-                        afkTimer = 0;
-                        timeSinceLastButton = 0;
+            // Update Controller Input
+            for (int i = 0; i < controllerStates.Count; i++)
+                if (controllerStates.Count > 0)
+                    controllerStates[i].UpdateButtonStates();
 
-                        // Show the Home Menu
-                        try
-                        {
-                            Application.Current?.Dispatcher?.Invoke(() =>
-                            {
-                                StartMenu.Visibility = Visibility.Collapsed;
-                                HomeMenu.Visibility = Visibility.Visible;
-                                SelectionMenu.Visibility = Visibility.Collapsed;
-
-                                currentlySelectedHomeIndex = 0;
-                                HighlightCurrentHomeMenuOption();
-                            });
-                        }
-                        catch (TaskCanceledException) { }
-
-                        // Set the focus to the game launcher
-                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-
-                        break;
-                    }
-            }
-
-            // If the user is AFK for 3 minutes, Warn them and then close the currently running application
-            if (afkTimer >= noInputTimeout)
+                // If the user is AFK for 3 minutes, Warn them and then close the currently running application
+                if (afkTimer >= noInputTimeout)
             {
                 // If the user is AFK for 5 seconds after the warning, close the currently running application and show the Start Menu
                 if (afkTimer >= noInputTimeout + 5000)
@@ -1031,6 +1064,7 @@ namespace ArcademiaGameLauncher
                             StartMenu.Visibility = Visibility.Visible;
                             HomeMenu.Visibility = Visibility.Collapsed;
                             SelectionMenu.Visibility = Visibility.Collapsed;
+                            InputMenu.Visibility = Visibility.Collapsed;
                         });
                     }
                     catch (TaskCanceledException) { }
@@ -1068,6 +1102,13 @@ namespace ArcademiaGameLauncher
                     try { Application.Current?.Dispatcher?.Invoke(() => { HighlightCurrentGameMenuOption(); }); }
                     catch (TaskCanceledException) { }
                 }
+            }
+
+            // Update the input menu feedback
+            if (InputMenu.Visibility == Visibility.Visible)
+            {
+                try { Application.Current?.Dispatcher?.Invoke(() => { UpdateInputMenuFeedback(); }); }
+                catch (TaskCanceledException) { }
             }
 
             // Update the Home/Selection Menu's current selection
@@ -1141,7 +1182,7 @@ namespace ArcademiaGameLauncher
         private void GenerateCredits()
         {
             // Read the Credits.json file
-            string creditsPath = Path.Combine(RootPath, "Credits.json");
+            string creditsPath = Path.Combine(RootPath, "json", "Credits.json");
 
             if (File.Exists(creditsPath))
             {
@@ -1572,10 +1613,6 @@ namespace ArcademiaGameLauncher
             // For each Controller State
             for (int i = 0; i < controllerStates.Count; i++)
             {
-                // Update Controller Input
-                if (controllerStates.Count > 0)
-                    controllerStates[i].UpdateButtonStates();
-
                 // If theres a game running, don't listen for inputs
                 if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
                 {
@@ -1642,8 +1679,8 @@ namespace ArcademiaGameLauncher
                         if (HomeMenu.Visibility == Visibility.Visible)
                         {
                             currentlySelectedHomeIndex += 1;
-                            if (currentlySelectedHomeIndex > 2)
-                                currentlySelectedHomeIndex = 2;
+                            if (currentlySelectedHomeIndex > homeOptionsList.Length - 1)
+                                currentlySelectedHomeIndex = homeOptionsList.Length - 1;
 
                             // Highlight the current Home Menu Option
                             HighlightCurrentHomeMenuOption();
@@ -1674,19 +1711,24 @@ namespace ArcademiaGameLauncher
                     if (HomeMenu.Visibility == Visibility.Visible)
                     {
                         // If the Game Library option is selected
-                        if (currentlySelectedHomeIndex == 0)
+                        if (homeOptionsList[currentlySelectedHomeIndex] == GameLibraryText)
                         {
                             // Show the Selection Menu
                             GameLibraryButton_Click(null, null);
                         }
                         // If the About option is selected
-                        else if (currentlySelectedHomeIndex == 1)
+                        else if (homeOptionsList[currentlySelectedHomeIndex] == AboutText)
                         {
                             // Show the Credits
                             AboutButton_Click(null, null);
                         }
+                        else if (homeOptionsList[currentlySelectedHomeIndex] == InputMenuText)
+                        {
+                            // Show the Input Menu
+                            InputMenuButton_Click(null, null);
+                        }
                         // If the Exit option is selected
-                        else if (currentlySelectedHomeIndex == 2)
+                        else if (homeOptionsList[currentlySelectedHomeIndex] == ExitText)
                         {
                             // Go back to the Start Menu
                             ExitButton_Click(null, null);
@@ -1783,6 +1825,63 @@ namespace ArcademiaGameLauncher
             }
         }
 
+        private void UpdateInputMenuFeedback()
+        {
+            SolidColorBrush activeFillColour = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0xFF, 0x00));
+            SolidColorBrush activeBorderColour = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0xBB, 0x00));
+
+            SolidColorBrush inactiveFillColour = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0x00, 0x00));
+            SolidColorBrush inactiveBorderColour = new SolidColorBrush(Color.FromArgb(0xFF, 0xBB, 0x00, 0x00));
+
+            int exitHeldMilliseconds = 1500;
+
+            // For each Controller State
+            for (int i = 0; i < controllerStates.Count; i++)
+            {
+                // Update the held countdown text
+                if (controllerStates[i].GetButtonState(0))
+                    InputMenu_HoldBackCountdownText.Text = ((double)(exitHeldMilliseconds - timeSinceLastButton) / 1000).ToString("0.0");
+                else
+                {
+                    InputMenu_HoldBackCountdownText.Text = "";
+                    timeSinceLastButton = 0;
+                }
+
+                // Check if the exit button has been held for 1.5 seconds
+                if (controllerStates[i].GetButtonState(0) && timeSinceLastButton > exitHeldMilliseconds)
+                {
+                    // Reset the time since the last button press
+                    timeSinceLastButton = 0;
+
+                    // Go back to the Start Menu
+                    ExitButton_Click(null, null);
+                }
+
+                // Joystick Input
+                int[] leftStickDirection = controllerStates[i].GetLeftStickDirection();
+                inputMenuJoysticks[i].Margin = new Thickness(leftStickDirection[0] * 50, leftStickDirection[1] * 50, 0, 0);
+
+                // For each button in the Input Menu
+                for (int j = 0; j < inputMenuButtons[i].Length; j++)
+                {
+                    if (inputMenuButtons[i][j] == null)
+                        continue;
+
+                    // If the user is pressing the button, highlight the button
+                    if (controllerStates[i].GetButtonState(j))
+                    {
+                        inputMenuButtons[i][j].Fill = activeFillColour;
+                        inputMenuButtons[i][j].Stroke = activeBorderColour;
+                    }
+                    else
+                    {
+                        inputMenuButtons[i][j].Fill = inactiveFillColour;
+                        inputMenuButtons[i][j].Stroke = inactiveBorderColour;
+                    }
+                }
+            }
+        }
+
         private void ChangePage(int _pageIndex)
         {
             // Check if the page index is within the bounds of the game info files list
@@ -1831,11 +1930,22 @@ namespace ArcademiaGameLauncher
                 StartButton.IsChecked = true;
 
                 // Set the Game Thumbnail
-                NonGif_GameThumbnail.Source = new BitmapImage(new Uri(Path.Combine(gameDirectoryPath, gameInfoFilesList[currentlySelectedGameIndex]["FolderName"].ToString(), gameInfoFilesList[currentlySelectedGameIndex]["GameThumbnail"].ToString()), UriKind.Absolute));
-                AnimationBehavior.SetSourceUri(Gif_GameThumbnail, new Uri(Path.Combine(gameDirectoryPath, gameInfoFilesList[currentlySelectedGameIndex]["FolderName"].ToString(), gameInfoFilesList[currentlySelectedGameIndex]["GameThumbnail"].ToString()), UriKind.Absolute));
+                if (gameInfoFilesList[currentlySelectedGameIndex]["GameThumbnail"].ToString().StartsWith("http"))
+                {
+                    NonGif_GameThumbnail.Source = new BitmapImage(new Uri(gameInfoFilesList[currentlySelectedGameIndex]["GameThumbnail"].ToString(), UriKind.Absolute));
+                    AnimationBehavior.SetSourceUri(Gif_GameThumbnail, new Uri(gameInfoFilesList[currentlySelectedGameIndex]["GameThumbnail"].ToString(), UriKind.Absolute));
+                }
+                else
+                {
+                    if (File.Exists(Path.Combine(gameDirectoryPath, gameInfoFilesList[currentlySelectedGameIndex]["FolderName"].ToString(), gameInfoFilesList[currentlySelectedGameIndex]["GameThumbnail"].ToString())))
+                    {
+                        NonGif_GameThumbnail.Source = new BitmapImage(new Uri(Path.Combine(gameDirectoryPath, gameInfoFilesList[currentlySelectedGameIndex]["FolderName"].ToString(), gameInfoFilesList[currentlySelectedGameIndex]["GameThumbnail"].ToString()), UriKind.Absolute));
+                        AnimationBehavior.SetSourceUri(Gif_GameThumbnail, new Uri(Path.Combine(gameDirectoryPath, gameInfoFilesList[currentlySelectedGameIndex]["FolderName"].ToString(), gameInfoFilesList[currentlySelectedGameIndex]["GameThumbnail"].ToString()), UriKind.Absolute));
+                    }
+                }
 
                 // Set the Game Info and Authors
-                GameTitle.Text = gameInfoFilesList[currentlySelectedGameIndex]["GameName"].ToString();
+                GameTitle.Text = emojiParser.ReplaceColonNames(gameInfoFilesList[currentlySelectedGameIndex]["GameName"].ToString());
                 GameAuthors.Text = string.Join(", ", gameInfoFilesList[currentlySelectedGameIndex]["GameAuthors"].ToObject<string[]>());
 
                 // Fetch the Game Tag Elements (Borders and TextBlocks)
@@ -1850,7 +1960,7 @@ namespace ArcademiaGameLauncher
                     GameTagBorder[j].Visibility = Visibility.Visible;
 
                     // Change Text Content
-                    GameTag[j].Text = tags[j]["Name"].ToString();
+                    GameTag[j].Text = emojiParser.ReplaceColonNames(tags[j]["Name"].ToString());
 
                     // Change Border and Text Colour
                     string colour = "#FF777777";
@@ -1865,7 +1975,7 @@ namespace ArcademiaGameLauncher
                 }
 
                 // Set the Game Description and Version
-                GameDescription.Text = gameInfoFilesList[currentlySelectedGameIndex]["GameDescription"].ToString();
+                GameDescription.Text = emojiParser.ReplaceColonNames(gameInfoFilesList[currentlySelectedGameIndex]["GameDescription"].ToString());
                 VersionText.Text = "v" + gameInfoFilesList[currentlySelectedGameIndex]["GameVersion"].ToString();
 
                 showingDebouncedGame = true;

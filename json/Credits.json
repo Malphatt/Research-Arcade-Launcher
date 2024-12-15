@@ -28,16 +28,6 @@
     },
     {
       "Type": "Heading",
-      "Value": "Artists",
-      "Subheadings": [
-        {
-          "Value": "Amelia Wilson",
-          "Colour": "#F5ACD8"
-        }
-      ]
-    },
-    {
-      "Type": "Heading",
       "Value": "Updated Cabinet Design",
       "Subheadings": [
         {
@@ -45,12 +35,12 @@
           "Colour": "#9FD29F"
         },
         {
-          "Value": "Matthew Freeman",
-          "Colour": "#BBAEE7"
-        },
-        {
           "Value": "Alex Dickinson",
           "Colour": "#AEDBE7"
+        },
+        {
+          "Value": "Matthew Freeman",
+          "Colour": "#BBAEE7"
         },
         {
           "Value": "Mike Lowen",
