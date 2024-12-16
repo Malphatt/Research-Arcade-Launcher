@@ -1835,28 +1835,27 @@ namespace ArcademiaGameLauncher
 
             int exitHeldMilliseconds = 1500;
 
+            // Update the held countdown text
+            if (controllerStates[0].GetButtonState(0) || controllerStates[1].GetButtonState(0))
+                InputMenu_HoldBackCountdownText.Text = ((double)(exitHeldMilliseconds - timeSinceLastButton) / 1000).ToString("0.0");
+            else
+            {
+                InputMenu_HoldBackCountdownText.Text = "";
+                timeSinceLastButton = 0;
+            }
+            // Check if the exit button has been held for 1.5 seconds
+            if ((controllerStates[0].GetButtonState(0) || controllerStates[1].GetButtonState(0)) && timeSinceLastButton > exitHeldMilliseconds)
+            {
+                // Reset the time since the last button press
+                timeSinceLastButton = 0;
+
+                // Go back to the Start Menu
+                ExitButton_Click(null, null);
+            }
+
             // For each Controller State
             for (int i = 0; i < controllerStates.Count; i++)
             {
-                // Update the held countdown text
-                if (controllerStates[i].GetButtonState(0))
-                    InputMenu_HoldBackCountdownText.Text = ((double)(exitHeldMilliseconds - timeSinceLastButton) / 1000).ToString("0.0");
-                else
-                {
-                    InputMenu_HoldBackCountdownText.Text = "";
-                    timeSinceLastButton = 0;
-                }
-
-                // Check if the exit button has been held for 1.5 seconds
-                if (controllerStates[i].GetButtonState(0) && timeSinceLastButton > exitHeldMilliseconds)
-                {
-                    // Reset the time since the last button press
-                    timeSinceLastButton = 0;
-
-                    // Go back to the Start Menu
-                    ExitButton_Click(null, null);
-                }
-
                 // Joystick Input
                 int[] leftStickDirection = controllerStates[i].GetLeftStickDirection();
                 inputMenuJoysticks[i].Margin = new Thickness(leftStickDirection[0] * 50, leftStickDirection[1] * 50, 0, 0);
