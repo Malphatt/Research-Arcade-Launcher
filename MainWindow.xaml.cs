@@ -157,6 +157,16 @@ namespace ArcademiaGameLauncher
 
             localGameDatabasePath = Path.Combine(gameDirectoryPath, "GameDatabase.json");
 
+            // Get the ID of the arcade machine
+            arcadeMachineID = 0;
+
+            // Read the ArcadeMachineID.txt file to get the ID of the arcade machine
+            if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")))
+                arcadeMachineID = int.Parse(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")));
+            // Write the ID of the arcade machine to the ArcadeMachineID.txt file if it doesn't exist
+            else
+                File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt"), arcadeMachineID.ToString());
+
             // Create the games directory if it doesn't exist
             if (!Directory.Exists(gameDirectoryPath))
                 Directory.CreateDirectory(gameDirectoryPath);
@@ -379,16 +389,6 @@ namespace ArcademiaGameLauncher
 
                 // Save the FolderName property of each local game and write it to the new game database file
                 JObject localGameDatabaseFile = JObject.Parse(File.ReadAllText(localGameDatabasePath));
-
-                // Get the ID of the arcade machine
-                arcadeMachineID = 0;
-
-                // Read the ArcadeMachineID.txt file to get the ID of the arcade machine
-                if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")))
-                    arcadeMachineID = int.Parse(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt")));
-                // Write the ID of the arcade machine to the ArcadeMachineID.txt file if it doesn't exist
-                else
-                    File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "ArcadeMachineID.txt"), arcadeMachineID.ToString());
 
                 // Check if the ID of the arcade machine is valid
                 if (arcadeMachineID >= ((JArray)gameDatabaseFile["Cabinets"]).Count || arcadeMachineID < 0)
@@ -1002,6 +1002,9 @@ namespace ArcademiaGameLauncher
 
                 if (!production) arcadeMachineName = "Arcade Machine (Test)";
 
+                // Disable if not in production
+                if (!production) return;
+
                 socket = new Socket(config["WS_IP"].ToString(), config["WS_Port"].ToString(), arcadeMachineName, this);
 
                 // Every (between 30 mins and an hour), play a random audio file
@@ -1197,7 +1200,20 @@ namespace ArcademiaGameLauncher
                 // Create a new TextBlock for each credit
                 for (int i = 0; i < creditsArray.Count; i++)
                 {
-                    switch (creditsArray[i]["Type"].ToString())
+                    JObject creditsObject = null;
+
+                    // Check if creditsArray[i] is an array
+                    if (creditsArray[i].Type == JTokenType.Array)
+                    {
+                        creditsObject = (JObject)((JArray)creditsArray[i])[arcadeMachineID];
+
+
+                        Console.WriteLine(creditsObject["Subheadings"]);
+                    }
+                    else
+                        creditsObject = (JObject)creditsArray[i];
+
+                    switch (creditsObject["Type"].ToString())
                     {
                         case "Title":
                             // Create a new RowDefinition
@@ -1231,7 +1247,7 @@ namespace ArcademiaGameLauncher
                             // Create a new TextBlock (Title)
                             TextBlock titleText = new TextBlock
                             {
-                                Text = creditsArray[i]["Value"].ToString(),
+                                Text = creditsObject["Value"].ToString(),
                                 Style = (Style)FindResource("Early GameBoy"),
                                 FontSize = 24,
                                 Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xD9, 0x66)),
@@ -1244,11 +1260,11 @@ namespace ArcademiaGameLauncher
                             titleGrid.Children.Add(titleText);
 
                             // Create a new TextBlock (Subtitle)
-                            if (creditsArray[i]["Subtitle"] != null)
+                            if (creditsObject["Subtitle"] != null)
                             {
                                 TextBlock subtitleText = new TextBlock
                                 {
-                                    Text = creditsArray[i]["Subtitle"].ToString(),
+                                    Text = creditsObject["Subtitle"].ToString(),
                                     Style = (Style)FindResource("Early GameBoy"),
                                     FontSize = 16,
                                     Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)),
@@ -1267,7 +1283,7 @@ namespace ArcademiaGameLauncher
                             break;
                         case "Heading":
                             // Check the Subheadings property
-                            JArray subheadingsArray = (JArray)creditsArray[i]["Subheadings"];
+                            JArray subheadingsArray = (JArray)creditsObject["Subheadings"];
 
                             // Create a new RowDefinition
                             RowDefinition headingRow = new RowDefinition
@@ -1336,7 +1352,7 @@ namespace ArcademiaGameLauncher
                             // Create a new TextBlock (Title)
                             TextBlock headingText = new TextBlock
                             {
-                                Text = creditsArray[i]["Value"].ToString(),
+                                Text = creditsObject["Value"].ToString(),
                                 Style = (Style)FindResource("Early GameBoy"),
                                 FontSize = 16,
                                 Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x85, 0x8E, 0xFF)),
@@ -1392,7 +1408,7 @@ namespace ArcademiaGameLauncher
 
                             break;
                         case "Note":
-                            int noteHeight = 20 + (creditsArray[i]["Value"].ToString().Length / 80 * 20);
+                            int noteHeight = 20 + (creditsObject["Value"].ToString().Length / 80 * 20);
 
                             // Create a new RowDefinition
                             RowDefinition noteRow = new RowDefinition
@@ -1413,7 +1429,7 @@ namespace ArcademiaGameLauncher
                             // Create a new TextBlock
                             TextBlock noteText = new TextBlock
                             {
-                                Text = creditsArray[i]["Value"].ToString(),
+                                Text = creditsObject["Value"].ToString(),
                                 Style = (Style)FindResource("Early GameBoy"),
                                 FontSize = 11,
                                 Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)),
@@ -1465,8 +1481,8 @@ namespace ArcademiaGameLauncher
 
                             break;
                         case "Image":
-                            double overrideHeight = creditsArray[i]["HeightOverride"] != null ? double.Parse(creditsArray[i]["HeightOverride"].ToString()) : 100;
-                            string stretch = creditsArray[i]["Stretch"] != null ? creditsArray[i]["Stretch"].ToString() : "Uniform";
+                            double overrideHeight = creditsObject["HeightOverride"] != null ? double.Parse(creditsObject["HeightOverride"].ToString()) : 100;
+                            string stretch = creditsObject["Stretch"] != null ? creditsObject["Stretch"].ToString() : "Uniform";
 
                             // Create a new RowDefinition
                             RowDefinition imageRow = new RowDefinition
@@ -1483,7 +1499,7 @@ namespace ArcademiaGameLauncher
                             };
                             Grid.SetRow(imageGrid, 2 * i);
 
-                            string imagePath = creditsArray[i]["Path"].ToString();
+                            string imagePath = creditsObject["Path"].ToString();
 
                             // Create a new Image (Static)
                             Image imageStatic = new Image
