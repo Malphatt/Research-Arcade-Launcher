@@ -26,28 +26,44 @@
         }
       ]
     },
-    {
-      "Type": "Heading",
-      "Value": "Updated Cabinet Design",
-      "Subheadings": [
-        {
-          "Value": "Amelia Wilson",
-          "Colour": "#9FD29F"
-        },
-        {
-          "Value": "Alex Dickinson",
-          "Colour": "#AEDBE7"
-        },
-        {
-          "Value": "Matthew Freeman",
-          "Colour": "#BBAEE7"
-        },
-        {
-          "Value": "Mike Lowen",
-          "Colour": "#DB9797"
-        }
-      ]
-    },
+    [
+      {
+        "Type": "Heading",
+        "Value": "Updated Cabinet Design",
+        "Subheadings": [
+          {
+            "Value": "Alex Dickinson",
+            "Colour": "#AEDBE7"
+          },
+          {
+            "Value": "Matthew Freeman",
+            "Colour": "#BBAEE7"
+          },
+          {
+            "Value": "Amelia Wilson",
+            "Colour": "#9FD29F"
+          },
+          {
+            "Value": "Mike Lowen",
+            "Colour": "#DB9797"
+          }
+        ]
+      },
+      {
+        "Type": "Heading",
+        "Value": "Updated Cabinet Design",
+        "Subheadings": [
+          {
+            "Value": "Alex Dickinson",
+            "Colour": "#AEDBE7"
+          },
+          {
+            "Value": "Matthew Freeman",
+            "Colour": "#BBAEE7"
+          }
+        ]
+      }
+    ],
     {
       "Type": "Heading",
       "Value": "Tech Support",
@@ -87,21 +103,6 @@
         {
           "Value": "Matthew \"Malphatt\" Freeman",
           "Colour": "Gold"
-        }
-      ]
-    },
-    {
-      "Type": "Heading",
-      "Value": "Game Developers - \"The Last Dance\"",
-      "Subheadings": [
-        {
-          "Value": "Amelia Wilson"
-        },
-        {
-          "Value": "Luke Davies"
-        },
-        {
-          "Value": "Logan Kirby"
         }
       ]
     },
