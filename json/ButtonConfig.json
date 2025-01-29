@@ -1,15 +1,15 @@
 {
-  "Up": ["UP_ARROW", "W"],
-  "Left": ["LEFT_ARROW", "A"],
-  "Down": ["DOWN_ARROW", "S"],
-  "Right": ["RIGHT_ARROW", "D"],
+  "Up": ["UP", "KEY_W"],
+  "Left": ["LEFT", "KEY_A"],
+  "Down": ["DOWN", "KEY_S"],
+  "Right": ["RIGHT", "KEY_D"],
 
-  "Exit": ["ESC", "Q"],
-  "Start": ["ENTER", "BACKSPACE"],
-  "A": ["Z", "F"],
-  "B": ["X", "G"],
-  "C": ["C", "H"],
-  "D": ["V", "J"],
-  "E": ["B", "K"],
-  "F": ["N", "L"]
+  "Exit": ["ESCAPE", "KEY_Q"],
+  "Start": ["RETURN", "BACK"],
+  "A": ["KEY_Z", "KEY_F"],
+  "B": ["KEY_X", "KEY_G"],
+  "C": ["KEY_C", "KEY_H"],
+  "D": ["KEY_V", "KEY_J"],
+  "E": ["KEY_B", "KEY_K"],
+  "F": ["KEY_N", "KEY_L"]
 }

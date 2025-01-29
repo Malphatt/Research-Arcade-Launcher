@@ -106,6 +106,7 @@ namespace ArcademiaGameLauncher
 
         private DirectInput directInput;
         private readonly List<ControllerState> controllerStates = new List<ControllerState>();
+        float exitButtonHeldFor = 0;
 
         private System.Windows.Shapes.Ellipse[] inputMenuJoysticks;
         private System.Windows.Shapes.Ellipse[][] inputMenuButtons;
@@ -1038,11 +1039,18 @@ namespace ArcademiaGameLauncher
 
             // Update Controller Input
             for (int i = 0; i < controllerStates.Count; i++)
-                if (controllerStates.Count > 0)
-                    controllerStates[i].UpdateButtonStates();
+            {
+                controllerStates[i].UpdateButtonStates();
 
-                // If the user is AFK for 3 minutes, Warn them and then close the currently running application
-                if (afkTimer >= noInputTimeout)
+                // Update exitButtonHeldFor
+                if (controllerStates[i].GetButtonState(0))
+                    exitButtonHeldFor += 10;
+                else
+                    exitButtonHeldFor = 0;
+            }
+
+            // If the user is AFK for 3 minutes, Warn them and then close the currently running application
+            if (afkTimer >= noInputTimeout)
             {
                 // If the user is AFK for 5 seconds after the warning, close the currently running application and show the Start Menu
                 if (afkTimer >= noInputTimeout + 5000)
@@ -1632,6 +1640,14 @@ namespace ArcademiaGameLauncher
                 // If theres a game running, don't listen for inputs
                 if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
                 {
+                    // If the user has held the exit button for 3 seconds, close the currently running application
+                    if (controllerStates[i].GetExitButtonHeldFor() >= 3000)
+                    {
+                        currentlyRunningProcess.Kill();
+                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+                    }
+                    else return;
+
                     // If the user hits the exit button (Button 0) close the application
                     if (controllerStates[i].GetButtonState(0))
                     {
@@ -1852,19 +1868,24 @@ namespace ArcademiaGameLauncher
             int exitHeldMilliseconds = 1500;
 
             // Update the held countdown text
-            if (controllerStates[0].GetButtonState(0) || controllerStates[1].GetButtonState(0))
-                InputMenu_HoldBackCountdownText.Text = ((double)(exitHeldMilliseconds - timeSinceLastButton) / 1000).ToString("0.0");
-            else
-            {
-                InputMenu_HoldBackCountdownText.Text = "";
-                timeSinceLastButton = 0;
-            }
-            // Check if the exit button has been held for 1.5 seconds
-            if ((controllerStates[0].GetButtonState(0) || controllerStates[1].GetButtonState(0)) && timeSinceLastButton > exitHeldMilliseconds)
-            {
-                // Reset the time since the last button press
-                timeSinceLastButton = 0;
+            bool exitHeld = false;
+            int maxExitHeldFor = 0;
+            foreach (ControllerState controllerState in controllerStates)
+                if (controllerState.GetButtonState(0))
+                {
+                    exitHeld = true;
+                    maxExitHeldFor = Math.Max(maxExitHeldFor, controllerState.GetExitButtonHeldFor());
+                }
 
+
+            if (exitHeld)
+                InputMenu_HoldBackCountdownText.Text = ((double)(exitHeldMilliseconds - maxExitHeldFor) / 1000).ToString("0.0");
+            else
+                InputMenu_HoldBackCountdownText.Text = "";
+
+            // Check if the exit button has been held for 1.5 seconds
+            if (exitHeld && maxExitHeldFor >= exitHeldMilliseconds)
+            {
                 // Go back to the Start Menu
                 ExitButton_Click(null, null);
             }

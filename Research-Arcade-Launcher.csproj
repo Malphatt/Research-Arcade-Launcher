@@ -149,6 +149,7 @@
     </ApplicationDefinition>
     <Compile Include="ControllerState.cs" />
     <Compile Include="EmojiParser.cs" />
+    <Compile Include="Keyboard.cs" />
     <Compile Include="Socket.cs" />
     <Compile Include="Version.cs" />
     <Page Include="MainWindow.xaml">

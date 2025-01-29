@@ -8,9 +8,9 @@ namespace ArcademiaGameLauncher
 {
     internal class ControllerState
     {
-        // Send a key press
-        [DllImport("User32.dll")]
-        public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+        // Import GetKeyState from user32.dll for checking the state of the numlock key
+        [DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true, CallingConvention = CallingConvention.Winapi)]
+        public static extern short GetKeyState(int keyCode);
 
         private Keybinds keybinds;
         private bool isKeymapping;
@@ -22,6 +22,7 @@ namespace ArcademiaGameLauncher
         private int leftStickX;
         private int leftStickY;
         private readonly int[] direction;
+        private int exitButtonHeldFor;
 
         // Deadzone and Midpoint values for the joystick
         readonly int joystickDeadzone = 7700;
@@ -31,6 +32,7 @@ namespace ArcademiaGameLauncher
         public JoystickState state;
 
         private MainWindow mainWindow;
+        private Keyboard keyboard;
 
         public ControllerState(Joystick _joystick, int _index, MainWindow mainWindow)
         {
@@ -40,6 +42,8 @@ namespace ArcademiaGameLauncher
             index = _index;
             // Set the main window
             this.mainWindow = mainWindow;
+            // Set the keyboard
+            this.keyboard = new Keyboard();
             // Set the keymapping to true
             isKeymapping = true;
 
@@ -70,6 +74,12 @@ namespace ArcademiaGameLauncher
             // Update the button states
             for (int i = 0; i < buttonStates.Length; i++)
                 SetButtonState(i, state.Buttons[i]);
+
+            // Update the exit button held for time
+            if (buttonStates[0])
+                exitButtonHeldFor += 10;
+            else
+                exitButtonHeldFor = 0;
         }
 
         // Getter and Setter for the joystick direction
@@ -198,6 +208,8 @@ namespace ArcademiaGameLauncher
             buttonStates[_button] = _buttonState;
         }
 
+        public int GetExitButtonHeldFor() => exitButtonHeldFor;
+
         // Toggle the keymapping
         public void ToggleKeymapping() => isKeymapping = !isKeymapping;
 
@@ -207,50 +219,19 @@ namespace ArcademiaGameLauncher
         // Send a key press (Keymapping)
         private void SendKey(string key, bool state)
         {
-            switch (key)
+            // send numlock key press
+            if ((((ushort)GetKeyState(0x90)) & 0xffff) != 0)
             {
-                // For Non-ASCII keys
-                case "UP_ARROW":
-                    if (state) keybd_event(38, 72, 0, 0);
-                    else keybd_event(38, 72, 2, 0);
-                    break;
-                case "LEFT_ARROW":
-                    if (state) keybd_event(37, 75, 0, 0);
-                    else keybd_event(37, 75, 2, 0);
-                    break;
-                case "DOWN_ARROW":
-                    if (state) keybd_event(40, 80, 0, 0);
-                    else keybd_event(40, 80, 2, 0);
-                    break;
-                case "RIGHT_ARROW":
-                    if (state) keybd_event(39, 77, 0, 0);
-                    else keybd_event(39, 77, 2, 0);
-                    break;
-                case "ESC":
-                    if (state) keybd_event(33, 0, 0, 0);
-                    else keybd_event(33, 0, 2, 0);
-                    break;
-                case "ENTER":
-                    if (state) keybd_event(13, 0, 0, 0);
-                    else keybd_event(13, 0, 2, 0);
-                    break;
-                case "RETURN":
-                    if (state) keybd_event(13, 0, 0, 0);
-                    else keybd_event(13, 0, 2, 0);
-                    break;
-                case "BACKSPACE":
-                    if (state) keybd_event(10, 0, 0, 0);
-                    else keybd_event(10, 0, 2, 0);
-                    break;
-
-                // For ASCII keys
-                default:
-                    byte asciiValue = (byte)key.ToUpper()[0];
-
-                    if (state) keybd_event(asciiValue, 0, 0, 0);
-                    else keybd_event(asciiValue, 0, 2, 0);
-                    break;
+                keyboard.Send(Keyboard.ScanCodeShort.NUMLOCK);
+                keyboard.Release(Keyboard.ScanCodeShort.NUMLOCK);
             }
+
+            // map the string to the key
+            Keyboard.ScanCodeShort keyCode = (Keyboard.ScanCodeShort)Enum.Parse(typeof(Keyboard.ScanCodeShort), key);
+
+            // send the key press
+            if (state) keyboard.Send(keyCode);
+            else keyboard.Release(keyCode);
         }
     }
 
