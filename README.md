@@ -11,8 +11,8 @@
   
     "WS_Enabled": false,
     "WS_IP": "",
-    "WS_Port": ""
-    "AudioFilesURL": "",
+    "WS_Port": "",
+    "AudioFilesURL": ""
   }
   ```
   If you leave it this way, it will probably crash, I didn't test it because I'm a professional.
