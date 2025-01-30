@@ -5,6 +5,7 @@
   "AudioFilesURL": "",
   "NoInputTimeout_ms": 180000,
 
+  "WS_Enabled": false,
   "WS_IP": "",
   "WS_Port": ""
 }

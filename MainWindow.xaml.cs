@@ -115,8 +115,7 @@ namespace ArcademiaGameLauncher
 
         private GameState[] gameTitleStates;
 
-        private Socket socket;
-        private EmojiParser emojiParser;
+        private readonly EmojiParser emojiParser;
 
         private JArray audioFiles;
         private string[] audioFileNames = new string[0];
@@ -985,7 +984,7 @@ namespace ArcademiaGameLauncher
 
             // Initialize the updateTimer
             InitializeUpdateTimer();
-
+            
             Task.Run(() =>
             {
                 // Delete all the audio files
@@ -1006,7 +1005,10 @@ namespace ArcademiaGameLauncher
                 // Disable if not in production
                 if (!production) return;
 
-                socket = new Socket(config["WS_IP"].ToString(), config["WS_Port"].ToString(), arcadeMachineName, this);
+                // Disable if WS is disabled
+                if (!(bool)config["WS_Enabled"]) return;
+
+                new Socket(config["WS_IP"].ToString(), config["WS_Port"].ToString(), arcadeMachineName, this);
 
                 // Every (between 30 mins and an hour), play a random audio file
                 Task.Run(async () =>
@@ -1212,12 +1214,7 @@ namespace ArcademiaGameLauncher
 
                     // Check if creditsArray[i] is an array
                     if (creditsArray[i].Type == JTokenType.Array)
-                    {
                         creditsObject = (JObject)((JArray)creditsArray[i])[arcadeMachineID];
-
-
-                        Console.WriteLine(creditsObject["Subheadings"]);
-                    }
                     else
                         creditsObject = (JObject)creditsArray[i];
 
