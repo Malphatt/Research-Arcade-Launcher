@@ -658,6 +658,10 @@ namespace ArcademiaGameLauncher
                         // Set the game database variable to the updated game database
                         gameDatabaseFile = gameDatabase;
 
+                        // Check if the folder exists, if not create it
+                        if (!Directory.Exists(Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString())))
+                            Directory.CreateDirectory(Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString()));
+
                         // Write the GameInfo.json file to the game directory
                         File.WriteAllText(Path.Combine(gameDirectoryPath, onlineJson["FolderName"].ToString(), "GameInfo.json"), onlineJson.ToString());
 
