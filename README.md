@@ -19,5 +19,5 @@
   Everything in the lower half is not required so long as `WS_Enabled` is equal to `false`
 ## Information
   To run this system on an arcade machine you will need to launch this program using the [Research-Arcade-Updater](https://github.com/Malphatt/Research-Arcade-Updater "GitHub.com").
-  For further information, please refer to the docs.
+  For further information, please refer to the [Docs](https://github.com/Malphatt/Arcademia-Dev-Guide/wiki)
   
