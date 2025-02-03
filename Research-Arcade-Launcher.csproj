@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{CD0CD7EA-876C-45BD-A52E-F978A6CACEFC}</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <RootNamespace>Research_Arcade_Launcher</RootNamespace>
-    <AssemblyName>Research-Arcade-Launcher</AssemblyName>
+    <RootNamespace>ArcademiaGameLauncher</RootNamespace>
+    <AssemblyName>ArcademiaGameLauncher</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
@@ -149,9 +149,16 @@
     </ApplicationDefinition>
     <Compile Include="ControllerState.cs" />
     <Compile Include="EmojiParser.cs" />
+    <Compile Include="InfoWindow.xaml.cs">
+      <DependentUpon>InfoWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Keyboard.cs" />
     <Compile Include="Socket.cs" />
     <Compile Include="Version.cs" />
+    <Page Include="InfoWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

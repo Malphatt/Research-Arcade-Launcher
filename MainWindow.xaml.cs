@@ -22,6 +22,7 @@ using Newtonsoft.Json.Linq;
 using SharpDX.DirectInput;
 using XamlAnimatedGif;
 using NAudio.Wave;
+using Research_Arcade_Launcher;
 
 namespace ArcademiaGameLauncher
 {
@@ -106,7 +107,6 @@ namespace ArcademiaGameLauncher
 
         private DirectInput directInput;
         private readonly List<ControllerState> controllerStates = new List<ControllerState>();
-        float exitButtonHeldFor = 0;
 
         private System.Windows.Shapes.Ellipse[] inputMenuJoysticks;
         private System.Windows.Shapes.Ellipse[][] inputMenuButtons;
@@ -115,6 +115,7 @@ namespace ArcademiaGameLauncher
 
         private GameState[] gameTitleStates;
 
+        private readonly InfoWindow infoWindow;
         private readonly EmojiParser emojiParser;
 
         private JArray audioFiles;
@@ -127,6 +128,9 @@ namespace ArcademiaGameLauncher
         {
             // Setup closing event
             Closing += Window_Closing;
+
+            // Load the info window
+            infoWindow = new InfoWindow();
 
             InitializeComponent();
 
@@ -876,7 +880,8 @@ namespace ArcademiaGameLauncher
                 // After 3 seconds, set the focus to the currently running process
                 Task.Delay(3000).ContinueWith(t =>
                 {
-                    SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
+                    if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
+                        SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
 
                     SetGameTitleState(currentlySelectedGameIndex, GameState.runningGame);
                     StyleStartButtonState(currentlySelectedGameIndex);
@@ -1045,25 +1050,71 @@ namespace ArcademiaGameLauncher
 
             // Update Controller Input
             for (int i = 0; i < controllerStates.Count; i++)
-            {
                 controllerStates[i].UpdateButtonStates();
 
-                // Update exitButtonHeldFor
-                if (controllerStates[i].GetButtonState(0))
-                    exitButtonHeldFor += 10;
+            // If exit is held, close the current process
+            if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
+            {
+                int maxExitHeldFor = 0;
+                for (int i = 0; i < controllerStates.Count; i++)
+                    if (controllerStates[i].GetExitButtonHeldFor() > maxExitHeldFor)
+                        maxExitHeldFor = controllerStates[i].GetExitButtonHeldFor();
+
+                Console.WriteLine(maxExitHeldFor);
+
+                // If the user has held the exit button for longer than 1 second, show the ForceExitMenu within the infoWindow
+                if (maxExitHeldFor >= 1000)
+                {
+                    infoWindow?.SetCloseGameName(gameInfoFilesList[currentlySelectedGameIndex]["GameName"].ToString());
+                    infoWindow?.ShowWindow(InfoWindowType.ForceExit);
+                    infoWindow?.UpdateCountdown(3000 - maxExitHeldFor);
+                }
+                // Hide the infoWindow and set the focus back if the user has released the exit button
                 else
-                    exitButtonHeldFor = 0;
+                {
+                    if (infoWindow.Visibility == Visibility.Visible && infoWindow.ForceExitMenu.Visibility == Visibility.Visible)
+                    {
+                        infoWindow?.HideWindow();
+                        SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
+                    }
+                }
+
+                // If the user has held the exit button for 3 seconds, close the currently running application
+                if (maxExitHeldFor >= 3000)
+                {
+                    Application.Current?.Dispatcher?.Invoke(() =>
+                    {
+                        currentlyRunningProcess.Kill();
+                        timeSinceLastButton = 0;
+                        infoWindow?.HideWindow();
+                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+                    });
+                }
             }
 
-            // If the user is AFK for 3 minutes, Warn them and then close the currently running application
+
+            // If the user is AFK for the specified time (Default: 2 minutes), Warn them and then close the currently running application
             if (afkTimer >= noInputTimeout)
             {
+                infoWindow?.ShowWindow(InfoWindowType.Idle);
+                infoWindow?.UpdateCountdown(noInputTimeout + 5000 - afkTimer);
+
+                if (currentlyRunningProcess != null)
+                    infoWindow?.SetCloseGameName(gameInfoFilesList[currentlySelectedGameIndex]["GameName"].ToString());
+                else
+                    infoWindow?.SetCloseGameName(null);
+
                 // If the user is AFK for 5 seconds after the warning, close the currently running application and show the Start Menu
                 if (afkTimer >= noInputTimeout + 5000)
                 {
+                    infoWindow?.UpdateCountdown(0);
+
                     // Reset the timer
                     afkTimerActive = false;
                     afkTimer = 0;
+
+                    // Hide the Window
+                    infoWindow?.HideWindow();
 
                     // Close the currently running application
                     if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
@@ -1087,16 +1138,19 @@ namespace ArcademiaGameLauncher
                     catch (TaskCanceledException) { }
 
                 }
-                else
-                {
-                    // Warn the user (Optional: To Be Implemented)
-
-                }
             }
             else
             {
-                // Hide the warning (Optional: To Be Implemented)
+                // Hide the Window
+                if (infoWindow.Visibility == Visibility.Visible && infoWindow.IdleMenu.Visibility == Visibility.Visible)
+                {
+                    infoWindow?.HideWindow();
+                    timeSinceLastButton = 0;
 
+                    // Set the focus to currently running process
+                    if (currentlyRunningProcess != null)
+                        SetForegroundWindow(currentlyRunningProcess.MainWindowHandle);
+                }
             }
 
             // Increment the selection animation frame
@@ -1638,25 +1692,13 @@ namespace ArcademiaGameLauncher
             // For each Controller State
             for (int i = 0; i < controllerStates.Count; i++)
             {
+                // If the infoWindow is visible, don't listen for inputs
+                if (infoWindow.Visibility == Visibility.Visible)
+                    return;
+
                 // If theres a game running, don't listen for inputs
                 if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
-                {
-                    // If the user has held the exit button for 3 seconds, close the currently running application
-                    if (controllerStates[i].GetExitButtonHeldFor() >= 3000)
-                    {
-                        currentlyRunningProcess.Kill();
-                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-                    }
-                    else return;
-
-                    // If the user hits the exit button (Button 0) close the application
-                    if (controllerStates[i].GetButtonState(0))
-                    {
-                        currentlyRunningProcess.Kill();
-                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-                    }
-                    else return;
-                }
+                    return;
 
                 // Use a multiplier to speed up the selection update when the stick is held in either direction
                 double multiplier = 1.00;
