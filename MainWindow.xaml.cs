@@ -468,6 +468,8 @@ namespace ArcademiaGameLauncher
 
                 if (File.Exists(localGameDatabasePath))
                     gameDatabaseFile = JObject.Parse(File.ReadAllText(localGameDatabasePath));
+                else return false;
+                    
 
                 arcadeMachineID = 0;
 
@@ -2183,6 +2185,12 @@ namespace ArcademiaGameLauncher
 
         private void DebounceUpdateGameInfoDisplay()
         {
+            if (gameInfoFilesList == null)
+            {
+                currentlySelectedGameIndex = -1;
+                return;
+            }
+
             if (currentlySelectedGameIndex >= 0 && currentlySelectedGameIndex < gameInfoFilesList.Length)
                 StyleStartButtonState(GameState.loadingInfo);
 
