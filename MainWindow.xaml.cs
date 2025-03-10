@@ -1062,8 +1062,6 @@ namespace ArcademiaGameLauncher
                     if (controllerStates[i].GetExitButtonHeldFor() > maxExitHeldFor)
                         maxExitHeldFor = controllerStates[i].GetExitButtonHeldFor();
 
-                Console.WriteLine(maxExitHeldFor);
-
                 // If the user has held the exit button for longer than 1 second, show the ForceExitMenu within the infoWindow
                 if (maxExitHeldFor >= 1000)
                 {
@@ -1092,6 +1090,12 @@ namespace ArcademiaGameLauncher
                         SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
                     });
                 }
+            }
+            else
+            {
+                // Hide the infoWindow if the currently running process has exited
+                if (infoWindow.Visibility == Visibility.Visible && infoWindow.ForceExitMenu.Visibility == Visibility.Visible)
+                    infoWindow?.HideWindow();
             }
 
 
