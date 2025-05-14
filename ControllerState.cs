@@ -31,8 +31,20 @@ namespace ArcademiaGameLauncher
         public Joystick joystick;
         public JoystickState state;
 
-        private MainWindow mainWindow;
-        private Keyboard keyboard;
+        private readonly MainWindow mainWindow;
+        private readonly Keyboard keyboard;
+
+        public enum ControllerButtons
+        {
+            Exit = 0,
+            Start = 1,
+            A = 2,
+            B = 3,
+            C = 4,
+            D = 5,
+            E = 6,
+            F = 7
+        }
 
         public ControllerState(Joystick _joystick, int _index, MainWindow mainWindow)
         {
@@ -148,8 +160,9 @@ namespace ArcademiaGameLauncher
         }
 
         // Getter and Setter for the button states
-        public bool GetButtonState(int _button) => buttonStates[_button];
-        public bool GetButtonDownState(int _button) => buttonDownStates[_button];
+        public bool GetButtonState(int _button) => GetButtonDownState((ControllerButtons)_button);
+        public bool GetButtonState(ControllerButtons _button) => buttonStates[((int)_button)];
+        public bool GetButtonDownState(ControllerButtons _button) => buttonDownStates[((int)_button)];
 
         public void SetButtonState(int _button, bool _buttonState)
         {
@@ -206,6 +219,14 @@ namespace ArcademiaGameLauncher
             }
 
             buttonStates[_button] = _buttonState;
+        }
+
+        public void ReleaseButtons()
+        {
+            // Release all buttons
+            for (int i = 0; i < buttonStates.Length; i++)
+                if (buttonStates[i])
+                    SetButtonState(i, false);
         }
 
         public int GetExitButtonHeldFor() => exitButtonHeldFor;

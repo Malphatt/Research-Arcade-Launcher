@@ -23,6 +23,7 @@ using SharpDX.DirectInput;
 using XamlAnimatedGif;
 using NAudio.Wave;
 using Research_Arcade_Launcher;
+using static ArcademiaGameLauncher.ControllerState;
 
 namespace ArcademiaGameLauncher
 {
@@ -930,6 +931,14 @@ namespace ArcademiaGameLauncher
             }
         }
 
+        private void ResetControllerStates()
+        {
+            timeSinceLastButton = 0;
+            // Reset the controller states
+            for (int i = 0; i < controllerStates.Count; i++)
+                controllerStates[i].ReleaseButtons();
+        }
+
         private void Window_ContentRendered(object sender, EventArgs e)
         {
             // Set the Copyright text
@@ -1079,13 +1088,14 @@ namespace ArcademiaGameLauncher
                     }
                 }
 
+                // GAME EXIT
                 // If the user has held the exit button for 3 seconds, close the currently running application
                 if (maxExitHeldFor >= 3000)
                 {
                     Application.Current?.Dispatcher?.Invoke(() =>
                     {
+                        ResetControllerStates();
                         currentlyRunningProcess.Kill();
-                        timeSinceLastButton = 0;
                         infoWindow?.HideWindow();
                         SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
                     });
@@ -1122,9 +1132,11 @@ namespace ArcademiaGameLauncher
                     // Hide the Window
                     infoWindow?.HideWindow();
 
+                    // GAME EXIT
                     // Close the currently running application
                     if (currentlyRunningProcess != null && !currentlyRunningProcess.HasExited)
                     {
+                        ResetControllerStates();
                         currentlyRunningProcess.Kill();
                         SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
                         currentlyRunningProcess = null;
@@ -1202,9 +1214,11 @@ namespace ArcademiaGameLauncher
                 catch (TaskCanceledException) { }
             }
 
+            // GAME EXIT
             // Check if the currently running process has exited, and set the focus back to the launcher
             if (currentlyRunningProcess != null && currentlyRunningProcess.HasExited)
             {
+                ResetControllerStates();
                 SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
                 currentlyRunningProcess = null;
 
@@ -1783,7 +1797,7 @@ namespace ArcademiaGameLauncher
                 }
 
                 // Check if the Start/A button is pressed
-                if (timeSinceLastButton > 250 && (controllerStates[i].GetButtonState(1) || controllerStates[i].GetButtonState(2)))
+                if (timeSinceLastButton > 250 && (controllerStates[i].GetButtonDownState(ControllerState.ControllerButtons.Start) || controllerStates[i].GetButtonDownState(ControllerState.ControllerButtons.A)))
                 {
                     // Reset the time since the last button press
                     timeSinceLastButton = 0;
@@ -1826,7 +1840,7 @@ namespace ArcademiaGameLauncher
                 }
 
                 // Check if the Exit/B button is pressed
-                if (timeSinceLastButton > 250 && (controllerStates[i].GetButtonState(0) || controllerStates[i].GetButtonState(3)))
+                if (timeSinceLastButton > 250 && (controllerStates[i].GetButtonDownState(ControllerState.ControllerButtons.Exit) || controllerStates[i].GetButtonDownState(ControllerState.ControllerButtons.B)))
                 {
                     // Reset the time since the last button press
                     timeSinceLastButton = 0;
