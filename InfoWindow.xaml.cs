@@ -13,8 +13,6 @@ namespace ArcademiaGameLauncher
 {
     public partial class InfoWindow : Window
     {
-        private bool visible = false;
-
         [DllImport("User32.dll")]
         public static extern bool SetForegroundWindow(IntPtr hWnd);
 
@@ -43,16 +41,13 @@ namespace ArcademiaGameLauncher
 
                 SetForegroundWindow(new WindowInteropHelper(this).Handle);
             });
-
-            visible = true;
         }
 
         public void HideWindow()
         {
             if (Application.Current == null || Application.Current.Dispatcher == null) return;
-            Application.Current?.Dispatcher?.Invoke(() => Hide());
 
-            visible = false;
+            Application.Current?.Dispatcher?.Invoke(() => Hide());
         }
 
         public void SetCloseGameName(string gameName)
@@ -93,7 +88,6 @@ namespace ArcademiaGameLauncher
                 if (IdleMenu.Visibility == Visibility.Visible)
                     IdleCountdown.Text = timeString;
             });
-
         }
     }
 }
