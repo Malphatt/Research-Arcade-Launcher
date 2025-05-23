@@ -15,7 +15,7 @@
         Title="Launcher"  Width="{DynamicResource {x:Static SystemParameters.PrimaryScreenWidthKey}}" Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
     <!-- Declare the Launcher Version, Global Font and ToggleButton style -->
     <Window.Resources>
-        <System:String x:Key="LauncherVersion">[v1.9.5-25 Release Build]</System:String>
+        <System:String x:Key="LauncherVersion">[v1.9.6-25 Release Build]</System:String>
         <System:String x:Key="YearStyle">yyyy</System:String>
         <System:Double x:Key="LogicalSizeWidth">1920</System:Double>
         <System:Double x:Key="LogicalSizeHeight">1080</System:Double>
@@ -116,7 +116,7 @@
                     <Rectangle x:Name="StartMenu_Rect"
                            Fill="#000"
                            Width="800"
-                           Height="{StaticResource LogicalSizeHeight}"
+                           Height="{StaticResource LogicalSizeWidth}"
                            HorizontalAlignment="Left"
                            VerticalAlignment="Top">
                         <Rectangle.RenderTransform>

@@ -160,7 +160,6 @@ namespace ArcademiaGameLauncher
         }
 
         // Getter and Setter for the button states
-        public bool GetButtonState(int _button) => GetButtonDownState((ControllerButtons)_button);
         public bool GetButtonState(ControllerButtons _button) => buttonStates[((int)_button)];
         public bool GetButtonDownState(ControllerButtons _button) => buttonDownStates[((int)_button)];
 
