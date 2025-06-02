@@ -154,6 +154,7 @@
     </Compile>
     <Compile Include="Keyboard.cs" />
     <Compile Include="Socket.cs" />
+    <Compile Include="TextBlockExtensions.cs" />
     <Compile Include="Version.cs" />
     <Page Include="InfoWindow.xaml">
       <SubType>Designer</SubType>

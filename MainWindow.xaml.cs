@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using System.Net;
 using System.Xml;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Markup;
@@ -22,7 +23,6 @@ using Newtonsoft.Json.Linq;
 using SharpDX.DirectInput;
 using XamlAnimatedGif;
 using NAudio.Wave;
-using Research_Arcade_Launcher;
 using static ArcademiaGameLauncher.ControllerState;
 
 namespace ArcademiaGameLauncher
@@ -301,7 +301,7 @@ namespace ArcademiaGameLauncher
                 Version currentVersion = new Version(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "Updater_Version.txt")));
 
                 // Get the online version of the Updater
-                Version latestVersion = new Version(webClient.DownloadString(EncodeOneDriveLink(config["UpdaterVersionURL"].ToString())));
+                Version latestVersion = new Version(webClient.DownloadString(EncodeLink(config["UpdaterVersionURL"].ToString())));
 
                 // Check if the updater is up to date
                 if (currentVersion.IsDifferentVersion(latestVersion))
@@ -368,7 +368,7 @@ namespace ArcademiaGameLauncher
             {
                 // Download the updater
                 WebClient webClient = new WebClient();
-                webClient.DownloadFile(EncodeOneDriveLink(config["UpdaterURL"].ToString()), Path.Combine(Directory.GetCurrentDirectory(), "Updater.zip"));
+                webClient.DownloadFile(EncodeLink(config["UpdaterURL"].ToString()), Path.Combine(Directory.GetCurrentDirectory(), "Updater.zip"));
 
                 // Extract the updater
                 FastZip fastZip = new FastZip();
@@ -389,7 +389,7 @@ namespace ArcademiaGameLauncher
                 // Get the game database file from the online URL
                 WebClient webClient = new WebClient();
                 //gameDatabaseFile = JObject.Parse(File.ReadAllText(localGameDatabasePath)); // For Testing
-                gameDatabaseFile = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(gameDatabaseURL)));
+                gameDatabaseFile = JObject.Parse(webClient.DownloadString(EncodeLink(gameDatabaseURL)));
 
                 // If the local game database file does not exist, create it and write the game database to it
                 if (!File.Exists(localGameDatabasePath))
@@ -559,7 +559,7 @@ namespace ArcademiaGameLauncher
                 {
                     // Get the online version of the game
                     WebClient webClient = new WebClient();
-                    JObject onlineJson = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString())));
+                    JObject onlineJson = JObject.Parse(webClient.DownloadString(EncodeLink(gameDatabaseFile["Cabinets"][arcadeMachineID]["Games"][updateIndexOfGame]["LinkToGameInfo"].ToString())));
                     Version onlineVersion = new Version(onlineJson["GameVersion"].ToString());
 
                     // Compare the local version with the online version to see if an update is needed
@@ -594,12 +594,12 @@ namespace ArcademiaGameLauncher
                     SetGameTitleState(updateIndexOfGame, GameState.downloadingGame);
 
                     // Set _onlineJson to the online JSON object
-                    _onlineJson = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(_downloadURL)));
+                    _onlineJson = JObject.Parse(webClient.DownloadString(EncodeLink(_downloadURL)));
                 }
 
                 // Asynchronously download the game zip file
                 webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(DownloadGameCompletedCallback);
-                webClient.DownloadFileAsync(new Uri(EncodeOneDriveLink(_onlineJson["LinkToGameZip"].ToString())), Path.Combine(RootPath, _onlineJson["FolderName"].ToString() + ".zip"), _onlineJson);
+                webClient.DownloadFileAsync(new Uri(EncodeLink(_onlineJson["LinkToGameZip"].ToString())), Path.Combine(RootPath, _onlineJson["FolderName"].ToString() + ".zip"), _onlineJson);
             }
             catch (Exception ex)
             {
@@ -631,7 +631,7 @@ namespace ArcademiaGameLauncher
                 // Find the index of the game being updated from the game database
                 for (int i = 0; i < games.Count; i++)
                 {
-                    if (JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(games[i]["LinkToGameInfo"].ToString())))["LinkToGameZip"].ToString() == onlineJson["LinkToGameZip"].ToString())
+                    if (JObject.Parse(webClient.DownloadString(EncodeLink(games[i]["LinkToGameInfo"].ToString())))["LinkToGameZip"].ToString() == onlineJson["LinkToGameZip"].ToString())
                     {
                         currentUpdateIndexOfGame = i;
                         break;
@@ -2045,8 +2045,20 @@ namespace ArcademiaGameLauncher
                 }
 
                 // Set the Game Info and Authors
-                GameTitle.Text = emojiParser.ReplaceColonNames(gameInfoFilesList[currentlySelectedGameIndex]["GameName"].ToString());
-                GameAuthors.Text = string.Join(", ", gameInfoFilesList[currentlySelectedGameIndex]["GameAuthors"].ToObject<string[]>());
+                GameTitle.FitTextToTextBlock(
+                    desiredText: emojiParser.ReplaceColonNames(gameInfoFilesList[currentlySelectedGameIndex]["GameName"].ToString()),
+                    targetFontSize: 32,
+                    maxLines: 1,
+                    minFontSize: 8,
+                    precision: 0.1
+                );
+                GameAuthors.FitTextToTextBlock(
+                    desiredText: string.Join(", ", gameInfoFilesList[currentlySelectedGameIndex]["GameAuthors"].ToObject<string[]>()),
+                    targetFontSize: 14,
+                    maxLines: 2,
+                    minFontSize: 8,
+                    precision: 0.1
+                );
 
                 // Fetch the Game Tag Elements (Borders and TextBlocks)
                 Border[] GameTagBorder = new Border[9] { GameTagBorder0, GameTagBorder1, GameTagBorder2, GameTagBorder3, GameTagBorder4, GameTagBorder5, GameTagBorder6, GameTagBorder7, GameTagBorder8 };
@@ -2075,7 +2087,13 @@ namespace ArcademiaGameLauncher
                 }
 
                 // Set the Game Description and Version
-                GameDescription.Text = emojiParser.ReplaceColonNames(gameInfoFilesList[currentlySelectedGameIndex]["GameDescription"].ToString());
+                GameDescription.FitTextToTextBlock(
+                    desiredText: emojiParser.ReplaceColonNames(gameInfoFilesList[currentlySelectedGameIndex]["GameDescription"].ToString()),
+                    targetFontSize: 14,
+                    maxLines: 100,
+                    minFontSize: 8,
+                    precision: 0.1
+                );
                 VersionText.Text = "v" + gameInfoFilesList[currentlySelectedGameIndex]["GameVersion"].ToString();
 
                 showingDebouncedGame = true;
@@ -2243,8 +2261,12 @@ namespace ArcademiaGameLauncher
             return (T)XamlReader.Load(xmlReader);
         }
     
-        private string EncodeOneDriveLink(string _link)
+        private string EncodeLink(string _link)
         {
+            // If the link is not a OneDrive link, return it as is
+            if (!_link.Contains("1drv.ms") && !_link.Contains("onedrive.live.com"))
+                return _link;
+
             // Encode the OneDrive link
             string base64Value = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(_link));
             string encodedUrl = "u!" + base64Value.TrimEnd('=').Replace('/', '_').Replace('+', '-');
@@ -2273,7 +2295,7 @@ namespace ArcademiaGameLauncher
             {
                 // Get the audio files from the online DB
                 WebClient webClient = new WebClient();
-                JObject audioFilesJson = JObject.Parse(webClient.DownloadString(EncodeOneDriveLink(config["AudioFilesURL"].ToString())));
+                JObject audioFilesJson = JObject.Parse(webClient.DownloadString(EncodeLink(config["AudioFilesURL"].ToString())));
 
                 // Check if audioFiles is unchanged, if so, return
                 if (audioFiles != null)
@@ -2343,7 +2365,7 @@ namespace ArcademiaGameLauncher
                         continue;
                     }
 
-                    string downloadURL = EncodeOneDriveLink(((JObject)audioFiles[i])["URL"].ToString());
+                    string downloadURL = EncodeLink(((JObject)audioFiles[i])["URL"].ToString());
                     string fileName = ((JObject)audioFiles[i])["FileName"].ToString();
 
                     // Try to download the audio file
