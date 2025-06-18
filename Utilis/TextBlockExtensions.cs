@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
-namespace ArcademiaGameLauncher
+namespace ArcademiaGameLauncher.Utilis
 {
     public static class TextBlockExtensions
     {
@@ -34,7 +34,8 @@ namespace ArcademiaGameLauncher
                 int maxLines,
                 double targetSize,
                 double minSize,
-                double precision)
+                double precision
+            )
             {
                 Text = text;
                 Width = width;
@@ -50,9 +51,11 @@ namespace ArcademiaGameLauncher
             }
 
             public override bool Equals(object obj) => Equals(obj as FitKey);
+
             public bool Equals(FitKey other)
             {
-                if (other == null) return false;
+                if (other == null)
+                    return false;
                 return Text == other.Text
                     && Width == other.Width
                     && Height == other.Height
@@ -71,16 +74,16 @@ namespace ArcademiaGameLauncher
                 unchecked
                 {
                     int hash = Text?.GetHashCode() ?? 0;
-                    hash = (hash * 397) ^ Width.GetHashCode();
-                    hash = (hash * 397) ^ Height.GetHashCode();
-                    hash = (hash * 397) ^ (Family?.GetHashCode() ?? 0);
-                    hash = (hash * 397) ^ Style.GetHashCode();
-                    hash = (hash * 397) ^ Weight.GetHashCode();
-                    hash = (hash * 397) ^ Stretch.GetHashCode();
-                    hash = (hash * 397) ^ MaxLines;
-                    hash = (hash * 397) ^ TargetSize.GetHashCode();
-                    hash = (hash * 397) ^ MinSize.GetHashCode();
-                    hash = (hash * 397) ^ Precision.GetHashCode();
+                    hash = hash * 397 ^ Width.GetHashCode();
+                    hash = hash * 397 ^ Height.GetHashCode();
+                    hash = hash * 397 ^ (Family?.GetHashCode() ?? 0);
+                    hash = hash * 397 ^ Style.GetHashCode();
+                    hash = hash * 397 ^ Weight.GetHashCode();
+                    hash = hash * 397 ^ Stretch.GetHashCode();
+                    hash = hash * 397 ^ MaxLines;
+                    hash = hash * 397 ^ TargetSize.GetHashCode();
+                    hash = hash * 397 ^ MinSize.GetHashCode();
+                    hash = hash * 397 ^ Precision.GetHashCode();
                     return hash;
                 }
             }
@@ -91,7 +94,7 @@ namespace ArcademiaGameLauncher
         private static double _lastFittedSize;
 
         /// <summary>
-        /// Adjusts the FontSize of <paramref name="textBlock"/> so that 
+        /// Adjusts the FontSize of <paramref name="textBlock"/> so that
         /// <paramref name="desiredText"/> fits within its ActualWidth/ActualHeight,
         /// wrapping into at most <paramref name="maxLines"/> lines.
         /// </summary>
@@ -118,7 +121,12 @@ namespace ArcademiaGameLauncher
                     {
                         textBlock.SizeChanged -= Handler;
                         textBlock.FitTextToTextBlock(
-                            desiredText, targetFontSize, maxLines, minFontSize, precision);
+                            desiredText,
+                            targetFontSize,
+                            maxLines,
+                            minFontSize,
+                            precision
+                        );
                     }
                 }
                 textBlock.SizeChanged += Handler;
@@ -137,7 +145,8 @@ namespace ArcademiaGameLauncher
                 maxLines,
                 targetFontSize,
                 minFontSize,
-                precision);
+                precision
+            );
 
             // If nothing changed, just re‐apply the cached size:
             if (_lastKey != null && _lastKey.Equals(key))
@@ -157,7 +166,8 @@ namespace ArcademiaGameLauncher
                 textBlock.FontFamily,
                 textBlock.FontStyle,
                 textBlock.FontWeight,
-                textBlock.FontStretch);
+                textBlock.FontStretch
+            );
 
             if (!typeface.TryGetGlyphTypeface(out GlyphTypeface glyph))
             {
@@ -172,9 +182,9 @@ namespace ArcademiaGameLauncher
             {
                 // GlyphTypeface.Height is "cell height relative to em size" – multiply by fontSize → device‐units/px.
                 if (glyph != null)
-                    return glyph.Height * fontSize;  // :contentReference[oaicite:0]{index=0}
+                    return glyph.Height * fontSize; // :contentReference[oaicite:0]{index=0}
                 else
-                    return fontSize;                 // fallback
+                    return fontSize; // fallback
             }
 
             // Utility: measure how many lines and total height this text uses at a given fontSize:
@@ -189,11 +199,12 @@ namespace ArcademiaGameLauncher
                     typeface,
                     fontSize,
                     Brushes.Black,
-                    dpiFactor)
+                    dpiFactor
+                )
                 {
                     MaxTextWidth = availableWidth,
                     Trimming = TextTrimming.None,
-                    TextAlignment = textBlock.TextAlignment
+                    TextAlignment = textBlock.TextAlignment,
                 };
 
                 double totalHeight = ft.Height;
@@ -227,11 +238,11 @@ namespace ArcademiaGameLauncher
                     if (TextFits(mid))
                     {
                         bestSize = mid;
-                        low = mid;   // try a larger size next
+                        low = mid; // try a larger size next
                     }
                     else
                     {
-                        high = mid;  // mid didn’t fit, try smaller
+                        high = mid; // mid didn’t fit, try smaller
                     }
                 }
             }

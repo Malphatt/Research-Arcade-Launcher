@@ -1,15 +1,21 @@
-﻿using Newtonsoft.Json.Linq;
-using SharpDX.DirectInput;
-using System;
+﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using ArcademiaGameLauncher.Windows;
+using Newtonsoft.Json.Linq;
+using SharpDX.DirectInput;
 
-namespace ArcademiaGameLauncher
+namespace ArcademiaGameLauncher.Utilis
 {
     internal class ControllerState
     {
         // Import GetKeyState from user32.dll for checking the state of the numlock key
-        [DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true, CallingConvention = CallingConvention.Winapi)]
+        [DllImport(
+            "user32.dll",
+            CharSet = CharSet.Auto,
+            ExactSpelling = true,
+            CallingConvention = CallingConvention.Winapi
+        )]
         public static extern short GetKeyState(int keyCode);
 
         private Keybinds keybinds;
@@ -43,7 +49,7 @@ namespace ArcademiaGameLauncher
             C = 4,
             D = 5,
             E = 6,
-            F = 7
+            F = 7,
         }
 
         public ControllerState(Joystick _joystick, int _index, MainWindow mainWindow)
@@ -55,12 +61,16 @@ namespace ArcademiaGameLauncher
             // Set the main window
             this.mainWindow = mainWindow;
             // Set the keyboard
-            this.keyboard = new Keyboard();
+            keyboard = new Keyboard();
             // Set the keymapping to true
             isKeymapping = true;
 
             // Set the keybinds for the player
-            JObject playerControls = JObject.Parse(File.ReadAllText(Path.Combine(mainWindow.RootPath, "json", "ButtonConfig.json")));
+            JObject playerControls = JObject.Parse(
+                File.ReadAllText(
+                    Path.Combine(mainWindow._applicationPath, "Assets", "json", "ButtonConfig.json")
+                )
+            );
             keybinds = new Keybinds(playerControls, index);
 
             direction = new int[2];
@@ -79,7 +89,6 @@ namespace ArcademiaGameLauncher
             joystick.Poll();
             state = joystick.GetCurrentState();
 
-
             // Update the joystick states
             SetLeftStickDirection(state.X, state.Y);
 
@@ -96,7 +105,7 @@ namespace ArcademiaGameLauncher
 
         // Getter and Setter for the joystick direction
         public int[] GetLeftStickDirection() => direction;
-        
+
         private void SetLeftStickDirection(int _x, int _y)
         {
             leftStickX = _x;
@@ -106,7 +115,10 @@ namespace ArcademiaGameLauncher
             {
                 direction[0] = 1;
 
-                if (!isKeymapping) return;
+                if (!isKeymapping)
+                    return;
+
+                mainWindow.Key_Pressed();
 
                 SendKey(keybinds.Left, false);
                 SendKey(keybinds.Right, true);
@@ -115,7 +127,10 @@ namespace ArcademiaGameLauncher
             {
                 direction[0] = -1;
 
-                if (!isKeymapping) return;
+                if (!isKeymapping)
+                    return;
+
+                mainWindow.Key_Pressed();
 
                 SendKey(keybinds.Right, false);
                 SendKey(keybinds.Left, true);
@@ -124,7 +139,8 @@ namespace ArcademiaGameLauncher
             {
                 direction[0] = 0;
 
-                if (!isKeymapping) return;
+                if (!isKeymapping)
+                    return;
 
                 SendKey(keybinds.Left, false);
                 SendKey(keybinds.Right, false);
@@ -134,7 +150,10 @@ namespace ArcademiaGameLauncher
             {
                 direction[1] = 1;
 
-                if (!isKeymapping) return;
+                if (!isKeymapping)
+                    return;
+
+                mainWindow.Key_Pressed();
 
                 SendKey(keybinds.Up, false);
                 SendKey(keybinds.Down, true);
@@ -143,7 +162,10 @@ namespace ArcademiaGameLauncher
             {
                 direction[1] = -1;
 
-                if (!isKeymapping) return;
+                if (!isKeymapping)
+                    return;
+
+                mainWindow.Key_Pressed();
 
                 SendKey(keybinds.Down, false);
                 SendKey(keybinds.Up, true);
@@ -152,7 +174,8 @@ namespace ArcademiaGameLauncher
             {
                 direction[1] = 0;
 
-                if (!isKeymapping) return;
+                if (!isKeymapping)
+                    return;
 
                 SendKey(keybinds.Up, false);
                 SendKey(keybinds.Down, false);
@@ -160,8 +183,9 @@ namespace ArcademiaGameLauncher
         }
 
         // Getter and Setter for the button states
-        public bool GetButtonState(ControllerButtons _button) => buttonStates[((int)_button)];
-        public bool GetButtonDownState(ControllerButtons _button) => buttonDownStates[((int)_button)];
+        public bool GetButtonState(ControllerButtons _button) => buttonStates[(int)_button];
+
+        public bool GetButtonDownState(ControllerButtons _button) => buttonDownStates[(int)_button];
 
         public void SetButtonState(int _button, bool _buttonState)
         {
@@ -181,35 +205,43 @@ namespace ArcademiaGameLauncher
                 switch (_button)
                 {
                     case 0:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.Exit, _buttonState);
                         break;
                     case 1:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.Start, _buttonState);
                         break;
                     case 2:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.A, _buttonState);
                         break;
                     case 3:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.B, _buttonState);
                         break;
                     case 4:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.C, _buttonState);
                         break;
                     case 5:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.D, _buttonState);
                         break;
                     case 6:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.E, _buttonState);
                         break;
                     case 7:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.F, _buttonState);
                         break;
                     default:
@@ -240,18 +272,21 @@ namespace ArcademiaGameLauncher
         private void SendKey(string key, bool state)
         {
             // send numlock key press
-            if ((((ushort)GetKeyState(0x90)) & 0xffff) != 0)
+            if (((ushort)GetKeyState(0x90) & 0xffff) != 0)
             {
                 keyboard.Send(Keyboard.ScanCodeShort.NUMLOCK);
                 keyboard.Release(Keyboard.ScanCodeShort.NUMLOCK);
             }
 
             // map the string to the key
-            Keyboard.ScanCodeShort keyCode = (Keyboard.ScanCodeShort)Enum.Parse(typeof(Keyboard.ScanCodeShort), key);
+            Keyboard.ScanCodeShort keyCode = (Keyboard.ScanCodeShort)
+                Enum.Parse(typeof(Keyboard.ScanCodeShort), key);
 
             // send the key press
-            if (state) keyboard.Send(keyCode);
-            else keyboard.Release(keyCode);
+            if (state)
+                keyboard.Send(keyCode);
+            else
+                keyboard.Release(keyCode);
         }
     }
 
@@ -289,5 +324,4 @@ namespace ArcademiaGameLauncher
             F = _playerControls["F"][_index].ToString();
         }
     }
-
 }

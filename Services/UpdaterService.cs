@@ -1,0 +1,299 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using ArcademiaGameLauncher.Models;
+using ICSharpCode.SharpZipLib.Zip;
+using Microsoft.Extensions.Logging;
+
+namespace ArcademiaGameLauncher.Services
+{
+    public interface IUpdaterService
+    {
+        event EventHandler<GameStateChangedEventArgs> GameStateChanged;
+        event EventHandler<GameDatabaseFetchedEventArgs> GameDatabaseFetched;
+        event EventHandler<GameUpdateCompletedEventArgs> GameUpdateCompleted;
+        event EventHandler CloseGameAndUpdater;
+        event EventHandler RelaunchUpdater;
+
+        Task CheckUpdaterAndUpdateAsync(CancellationToken cancellationToken);
+        Task CheckGamesAndUpdateAsync(CancellationToken cancellationToken);
+    }
+
+    public class GameStateChangedEventArgs(GameState newState, string gameName)
+    {
+        public GameState NewState { get; } = newState;
+        public string GameName { get; } = gameName;
+    }
+
+    public class GameDatabaseFetchedEventArgs(IEnumerable<GameInfo> games)
+    {
+        public SimplifiedGameInfo[] Games { get; } =
+            games.Select(game => new SimplifiedGameInfo(game)).ToArray();
+    }
+
+    public class GameUpdateCompletedEventArgs(string gameName)
+    {
+        public string GameName { get; } = gameName;
+    }
+
+    public class SimplifiedGameInfo(GameInfo game)
+    {
+        public string VersionNumber { get; } = game.VersionNumber;
+        public string Name { get; } = game.Name;
+        public string Description { get; } = game.Description;
+        public string? ThumbnailUrl { get; } = game.ThumbnailUrl;
+        public string[] Authors { get; } =
+            game.Authors?.Select(author => author.Name).ToArray() ?? [];
+        public Tag[] Tags { get; } = game.Tags?.ToArray() ?? [];
+        public string NameOfExecutable { get; } = game.NameOfExecutable;
+        public string FolderName { get; } = game.FolderName;
+    }
+
+    public class UpdaterService : IUpdaterService
+    {
+        public event EventHandler<GameStateChangedEventArgs> GameStateChanged;
+
+        protected void OnStateChanged(GameState newState, string gameName) =>
+            GameStateChanged?.Invoke(this, new GameStateChangedEventArgs(newState, gameName));
+
+        public event EventHandler<GameDatabaseFetchedEventArgs> GameDatabaseFetched;
+
+        protected void OnGameDatabaseFetched(IEnumerable<GameInfo> games) =>
+            GameDatabaseFetched?.Invoke(this, new GameDatabaseFetchedEventArgs(games));
+
+        public event EventHandler<GameUpdateCompletedEventArgs> GameUpdateCompleted;
+
+        protected void OnGameUpdateCompleted(string gameName) =>
+            GameUpdateCompleted?.Invoke(this, new GameUpdateCompletedEventArgs(gameName));
+
+        public event EventHandler CloseGameAndUpdater;
+
+        protected void OnCloseGameAndUpdater() =>
+            CloseGameAndUpdater?.Invoke(this, EventArgs.Empty);
+
+        public event EventHandler RelaunchUpdater;
+
+        protected void OnRelaunchUpdater() => RelaunchUpdater?.Invoke(this, EventArgs.Empty);
+
+        private readonly IApiClient _apiClient;
+        private readonly ILogger<UpdaterService> _logger;
+        private readonly string _applicationPath;
+        private readonly string _updaterDir;
+        private readonly string _gamesDir;
+
+        public UpdaterService(
+            IApiClient apiClient,
+            ILogger<UpdaterService> logger,
+            string applicationPath
+        )
+        {
+            _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _applicationPath =
+                applicationPath ?? throw new ArgumentNullException(nameof(applicationPath));
+            _updaterDir = Directory.GetCurrentDirectory();
+            _gamesDir = Path.Combine(_applicationPath, "Games");
+        }
+
+        public async Task CheckUpdaterAndUpdateAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Checking for updater updates...");
+            try
+            {
+                var info = await _apiClient.GetUpdaterInfoAsync(_logger);
+
+                // Close the updater if it's running and allow time for it to close
+                OnCloseGameAndUpdater();
+                await Task.Delay(1000, cancellationToken);
+
+                await DownloadLauncherAndExtractAsync(info, cancellationToken);
+
+                try
+                {
+                    bool updateResult = await _apiClient.UpdateRemoteUpdaterVersionAsync(
+                        info.VersionNumber,
+                        _logger
+                    );
+
+                    if (updateResult)
+                    {
+                        _logger.LogInformation(
+                            "Successfully updated updater version to {VersionNumber}.",
+                            info.VersionNumber
+                        );
+                        OnRelaunchUpdater();
+                    }
+                    else
+                        _logger.LogWarning(
+                            "Failed to update updater version to {VersionNumber}.",
+                            info.VersionNumber
+                        );
+                }
+                catch (Exception) { }
+            }
+            catch (Exception) { }
+        }
+
+        public async Task CheckGamesAndUpdateAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Checking for game updates...");
+            try
+            {
+                var games = await _apiClient.GetMachineGamesAsync(_logger);
+
+                // If no games are found, log a warning and return
+                if (games is null || !games.Any())
+                {
+                    _logger.LogWarning("No games found for this machine.");
+                    return;
+                }
+
+                // Callback to notify that the game database has been fetched
+                OnGameDatabaseFetched(games);
+
+                // Update each game
+                foreach (var game in games)
+                {
+                    OnStateChanged(GameState.checkingForUpdates, game.Name);
+                    _logger.LogInformation("Checking for updates for {GameName}...", game.Name);
+
+                    await DownloadGameAndExtractAsync(game, cancellationToken);
+
+                    try
+                    {
+                        bool updateResult = await _apiClient.UpdateRemoteGameVersionAsync(
+                            game.Id,
+                            game.VersionNumber,
+                            _logger
+                        );
+
+                        if (updateResult)
+                        {
+                            _logger.LogInformation(
+                                "Successfully updated {GameName} to version {VersionNumber}.",
+                                game.Name,
+                                game.VersionNumber
+                            );
+                            OnGameUpdateCompleted(game.Name);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "Failed to update {GameName} to version {VersionNumber}.",
+                                game.Name,
+                                game.VersionNumber
+                            );
+                            OnStateChanged(GameState.failed, game.Name);
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        OnGameUpdateCompleted(game.Name);
+                    }
+                }
+            }
+            catch (Exception) { }
+        }
+
+        private async Task DownloadLauncherAndExtractAsync(
+            UpdaterInfo info,
+            CancellationToken cancellationToken
+        )
+        {
+            _logger.LogInformation(
+                "Downloading updater version: {VersionNumber}",
+                info.VersionNumber
+            );
+
+            // Delete the old updater files (except the Launcher folder and Config.json)
+            foreach (string file in Directory.GetFiles(_updaterDir))
+                if (Path.GetFileName(file) != "Launcher" && Path.GetFileName(file) != "Config.json")
+                    File.Delete(file);
+
+            // Download the launcher using HttpClient
+            using HttpClient httpClient = new();
+            var response = await httpClient.GetAsync(info.FileUrl, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var zipFilePath = Path.Combine(_updaterDir, "Updater.zip");
+            await using (
+                var fileStream = new FileStream(
+                    zipFilePath,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None
+                )
+            )
+            {
+                await response.Content.CopyToAsync(fileStream, cancellationToken);
+            }
+
+            _logger.LogInformation(
+                "Updater downloaded successfully: {VersionNumber}",
+                info.VersionNumber
+            );
+
+            // Extract the zip file
+            FastZip fastZip = new();
+            fastZip.ExtractZip(zipFilePath, _updaterDir, null);
+
+            // Delete the zip file
+            File.Delete(zipFilePath);
+        }
+
+        private async Task DownloadGameAndExtractAsync(
+            GameInfo game,
+            CancellationToken cancellationToken
+        )
+        {
+            _logger.LogInformation(
+                "Downloading {GameName} v{VersionNumber}...",
+                game.Name,
+                game.VersionNumber
+            );
+            OnStateChanged(GameState.downloadingGame, game.Name);
+
+            var gameDir = Path.Combine(_gamesDir, game.FolderName);
+
+            // Ensure the game directory exists
+            if (!Directory.Exists(gameDir))
+                Directory.CreateDirectory(gameDir);
+            else // Clear the game directory if it already exists
+                foreach (string file in Directory.GetFiles(gameDir))
+                    File.Delete(file);
+
+            // Download the game using HttpClient
+            using HttpClient httpClient = new();
+            var response = await httpClient.GetAsync(game.FileUrl, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var zipFilePath = Path.Combine(gameDir, $"{game.FolderName}.zip");
+            await using (
+                var fileStream = new FileStream(
+                    zipFilePath,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None
+                )
+            )
+            {
+                await response.Content.CopyToAsync(fileStream, cancellationToken);
+            }
+
+            _logger.LogInformation("Game downloaded successfully: {GameName}", game.Name);
+
+            OnStateChanged(GameState.downloadingUpdate, game.Name);
+
+            // Extract the zip file
+            FastZip fastZip = new();
+            fastZip.ExtractZip(zipFilePath, gameDir, null);
+
+            // Delete the zip file
+            File.Delete(zipFilePath);
+        }
+    }
+}

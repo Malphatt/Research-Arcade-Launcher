@@ -1,15 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace ArcademiaGameLauncher
+namespace ArcademiaGameLauncher.Classes
 {
-    struct Version
+    struct Version : IComparable<Version>, IComparable
     {
         // Zero value for the Version struct
-        internal static Version zero = new Version(0, 0, 0);
+        internal static Version zero = new(0, 0, 0);
 
         public int major;
         public int minor;
@@ -42,7 +38,7 @@ namespace ArcademiaGameLauncher
             subMinor = int.Parse(parts[2]);
         }
 
-        internal bool IsDifferentVersion(Version _otherVersion)
+        internal readonly bool IsDifferentVersion(Version _otherVersion)
         {
             // Compare each part of the version number
             if (major != _otherVersion.major)
@@ -51,13 +47,32 @@ namespace ArcademiaGameLauncher
                 return true;
             else if (subMinor != _otherVersion.subMinor)
                 return true;
-            else return false;
+            else
+                return false;
         }
 
-        public override string ToString()
+        public override readonly string ToString()
         {
             // Return the version number as a string
             return $"{major}.{minor}.{subMinor}";
+        }
+
+        public readonly int CompareTo(Version other)
+        {
+            var c = major.CompareTo(other.major);
+            if (c != 0)
+                return c;
+            c = minor.CompareTo(other.minor);
+            if (c != 0)
+                return c;
+            return subMinor.CompareTo(other.subMinor);
+        }
+
+        readonly int IComparable.CompareTo(object? obj)
+        {
+            if (obj is not Version)
+                throw new ArgumentException("Can only compare to another Version");
+            return CompareTo((Version)obj);
         }
     }
 }

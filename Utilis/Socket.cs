@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Runtime.InteropServices;
+using ArcademiaGameLauncher.Windows;
 using SocketIOClient;
 
-
-namespace ArcademiaGameLauncher
+namespace ArcademiaGameLauncher.Utilis
 {
     internal class Socket
     {
@@ -16,13 +15,16 @@ namespace ArcademiaGameLauncher
             Console.WriteLine("[Socket] Connecting to " + ip + ":" + port);
 
             this.mainWindow = mainWindow;
-            client = new SocketIOClient.SocketIO("ws://" + ip + ":" + port, new SocketIOOptions()
-            {
-                Reconnection = true,
-                ReconnectionDelay = 3000,
-                ReconnectionDelayMax = 5000,
-                ConnectionTimeout = TimeSpan.FromSeconds(5)
-            });
+            client = new SocketIOClient.SocketIO(
+                "ws://" + ip + ":" + port,
+                new SocketIOOptions()
+                {
+                    Reconnection = true,
+                    ReconnectionDelay = 3000,
+                    ReconnectionDelayMax = 5000,
+                    ConnectionTimeout = TimeSpan.FromSeconds(5),
+                }
+            );
             this.clientName = clientName;
 
             HandleEmits();
@@ -97,7 +99,11 @@ namespace ArcademiaGameLauncher
                 return;
             }
 
-            Console.WriteLine("[Socket] Playing audio file " + mainWindow.GetAudioFileNames()[response.GetValue<int>()] + ".wav");
+            Console.WriteLine(
+                "[Socket] Playing audio file "
+                    + mainWindow.GetAudioFileNames()[response.GetValue<int>()]
+                    + ".wav"
+            );
 
             mainWindow.PlayAudioFile(mainWindow.GetAudioFileNames()[response.GetValue<int>()]);
         }
@@ -113,7 +119,7 @@ namespace ArcademiaGameLauncher
         {
             Console.WriteLine("[Socket] Restarting launcher");
 
-            mainWindow.RestartLauncher();
+            MainWindow.RestartLauncher();
         }
 
         private void Socket_UpdateGames(SocketIOResponse response)
