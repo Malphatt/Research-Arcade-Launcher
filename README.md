@@ -1,20 +1,8 @@
 # Research-Arcade-Launcher
  A WPF App for the University of Lincoln Research Arcade Machines.
 ## Setup
-  Edit the Config.json file to your liking, the template file looks like this:
-  ```
-  {
-    "UpdaterURL": "",
-    "UpdaterVersionURL": "",
-    "GameDatabaseURL": "",
-    "NoInputTimeout_ms": 180000,
-  
-    "WS_Enabled": false,
-    "WS_IP": "",
-    "WS_Port": "",
-    "AudioFilesURL": ""
-  }
-  ```
+  No `Config.json` file required but the [Research-Arcade-Updater](https://github.com/Malphatt/Research-Arcade-Updater "GitHub.com") is required which you will contain the `Config.json` but you can configure the button mapping json here
+
   If you leave it this way, it will probably crash, I didn't test it because I'm a professional.
   Everything in the lower half is not required so long as `WS_Enabled` is equal to `false`
 ### [Latest Release](https://github.com/Malphatt/Research-Arcade-Launcher/releases/latest "GitHub.com")
