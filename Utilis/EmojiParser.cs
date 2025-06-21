@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using ArcademiaGameLauncher.Windows;
@@ -14,14 +15,21 @@ namespace ArcademiaGameLauncher.Utilis
         readonly Dictionary<string, string> _colonedEmojis;
         readonly Regex _colonedRegex;
 
-        public EmojiParser(MainWindow mainWindow)
+        public EmojiParser()
         {
-            // load mentioned json from somewhere
-            var data = JArray.Parse(
-                File.ReadAllText(
-                    Path.Combine(mainWindow._applicationPath, "Assets", "json", "emojis.json")
-                )
-            );
+            var assembly = Assembly.GetExecutingAssembly();
+            const string resourceName = "ArcademiaGameLauncher.Assets.json.emojis.json";
+
+            // read embedded JSON resource from assembly
+            using Stream stream =
+                assembly.GetManifestResourceStream(resourceName)
+                ?? throw new FileNotFoundException("Embedded resource not found.", resourceName);
+            using StreamReader reader = new(stream, Encoding.UTF8);
+            string json = reader.ReadToEnd();
+
+            // parse JSON into JArray (array of JSON objects)
+            JArray data = JArray.Parse(json);
+
             _colonedEmojis = data.OfType<JObject>()
                 .ToDictionary(
                     // key dictionary by coloned short names

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -66,7 +65,7 @@ namespace ArcademiaGameLauncher.Windows
 
         private int _globalCounter = 0;
 
-        private readonly int _selectionUpdateInterval = 150;
+        private readonly int _selectionUpdateInterval = 250;
         private int _selectionUpdateIntervalCounter = 0;
         private readonly int _selectionUpdateIntervalCounterMax = 10;
         private int _selectionUpdateCounter = 0;
@@ -112,7 +111,7 @@ namespace ArcademiaGameLauncher.Windows
             Closing += Window_Closing;
 
             // Load the info window
-            _infoWindow = new InfoWindow();
+            _infoWindow = new();
 
             InitializeComponent();
 
@@ -156,7 +155,7 @@ namespace ArcademiaGameLauncher.Windows
                 production = false;
             }
 
-            _emojiParser = new EmojiParser(this);
+            _emojiParser = new();
 
             // Load the Config.json file
             if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "Config.json")))
@@ -199,9 +198,11 @@ namespace ArcademiaGameLauncher.Windows
 
                         services.AddHttpClient<IApiClient, ApiClient>(client =>
                         {
-                            client.BaseAddress = new Uri(host);
-                            client.DefaultRequestHeaders.Authorization =
-                                new AuthenticationHeaderValue("ArcadeMachine", creds);
+                            client.BaseAddress = new(host);
+                            client.DefaultRequestHeaders.Authorization = new(
+                                "ArcadeMachine",
+                                creds
+                            );
                         });
 
                         services.AddSingleton<string>(_applicationPath);
@@ -323,11 +324,7 @@ namespace ArcademiaGameLauncher.Windows
                 joystick.Acquire();
 
                 // Create a new ControllerState object for the joystick
-                ControllerState controllerState = new ControllerState(
-                    joystick,
-                    _controllerStates.Count,
-                    this
-                );
+                ControllerState controllerState = new(joystick, _controllerStates.Count, this);
                 _controllerStates.Add(controllerState);
             }
         }
@@ -354,28 +351,31 @@ namespace ArcademiaGameLauncher.Windows
             if (File.Exists(gameDatabasePath))
             {
                 JArray gameInfoArray = JArray.Parse(File.ReadAllText(gameDatabasePath));
-                
+
                 _gameInfoList = new JObject[gameInfoArray.Count];
                 for (int i = 0; i < gameInfoArray.Count; i++)
                     _gameInfoList[i] = gameInfoArray[i].ToObject<JObject>();
 
                 _gameTitleStates = new GameState[_gameInfoList.Length];
                 for (int i = 0; i < _gameTitleStates.Length; i++)
-                    _gameTitleStates[i] = GameState.ready;
+                    _gameTitleStates[i] = GameState.fetchingInfo;
 
                 // Load the game titles into the TextBlocks
                 try
                 {
                     Application.Current?.Dispatcher?.Invoke(() =>
                     {
-                        for (int i = _previousPageIndex * 10; i < (_previousPageIndex + 1) * 10; i++)
+                        for (
+                            int i = _previousPageIndex * 10;
+                            i < (_previousPageIndex + 1) * 10;
+                            i++
+                        )
                         {
                             if (i < _gameInfoList.Length)
                             {
-                                _gameTitlesList[i % 10].Text = 
-                                    _emojiParser.ReplaceColonNames(
-                                        _gameInfoList[i]["Name"].ToString()
-                                    );
+                                _gameTitlesList[i % 10].Text = _emojiParser.ReplaceColonNames(
+                                    _gameInfoList[i]["Name"].ToString()
+                                );
                                 _gameTitlesList[i % 10].Visibility = Visibility.Visible;
                             }
                             else
@@ -401,7 +401,7 @@ namespace ArcademiaGameLauncher.Windows
         {
             try
             {
-                await _updater.CheckGamesAndUpdateAsync(CancellationToken.None);
+                await _updater.CheckGamesAndUpdateAsync(_gameInfoList, CancellationToken.None);
                 return true;
             }
             catch (Exception)
@@ -450,6 +450,9 @@ namespace ArcademiaGameLauncher.Windows
                     HomeMenu.Visibility = Visibility.Collapsed;
                     SelectionMenu.Visibility = Visibility.Visible;
                     InputMenu.Visibility = Visibility.Collapsed;
+
+                    // Set the page to 0
+                    ChangePage(0);
                 });
             }
             catch (TaskCanceledException) { }
@@ -1109,7 +1112,7 @@ namespace ArcademiaGameLauncher.Windows
 
             _gameTitleStates = new GameState[_gameInfoList.Length];
             for (int i = 0; i < _gameInfoList.Length; i++)
-                _gameTitleStates[i] = GameState.loadingInfo;
+                _gameTitleStates[i] = GameState.fetchingInfo;
 
             // Show the game titles as "Loading..." until the game database is updated
             try
@@ -1130,6 +1133,9 @@ namespace ArcademiaGameLauncher.Windows
                 });
             }
             catch (TaskCanceledException) { }
+
+            // Update the game info display if the currently selected game is in the new game database
+            DebounceUpdateGameInfoDisplay();
         }
 
         private void Updater_GameUpdateCompleted(object sender, GameUpdateCompletedEventArgs e)
@@ -1160,14 +1166,13 @@ namespace ArcademiaGameLauncher.Windows
                     && gameIndex < (_previousPageIndex + 1) * 10
                 )
                 {
-                    _gameTitlesList[gameIndex % 10].Text = 
-                        _emojiParser.ReplaceColonNames(
-                            _gameInfoList[gameIndex]["Name"].ToString()
-                        );
+                    _gameTitlesList[gameIndex % 10].Text = _emojiParser.ReplaceColonNames(
+                        _gameInfoList[gameIndex]["Name"].ToString()
+                    );
                     _gameTitlesList[gameIndex % 10].Visibility = Visibility.Visible;
                 }
 
-                SetGameTitleState(gameIndex, GameState.loadingInfo);
+                SetGameTitleState(gameIndex, GameState.ready);
             });
 
             if (_currentlySelectedGameIndex == gameIndex)
@@ -1238,7 +1243,7 @@ namespace ArcademiaGameLauncher.Windows
         private void GenerateCredits()
         {
             // Read the Credits.json file
-            string creditsPath = Path.Combine(_applicationPath, "Assets", "json", "Credits.json");
+            string creditsPath = Path.Combine(_applicationPath, "Configuration", "Credits.json");
 
             if (File.Exists(creditsPath))
             {
@@ -1259,10 +1264,7 @@ namespace ArcademiaGameLauncher.Windows
                     {
                         case "Title":
                             // Create a new RowDefinition
-                            RowDefinition titleRow = new()
-                            {
-                                Height = new GridLength(60, GridUnitType.Pixel),
-                            };
+                            RowDefinition titleRow = new() { Height = new(60, GridUnitType.Pixel) };
                             CreditsPanel.RowDefinitions.Add(titleRow);
 
                             // Create a new Grid
@@ -1282,7 +1284,7 @@ namespace ArcademiaGameLauncher.Windows
 
                             RowDefinition titleGridSubtitleRow = new()
                             {
-                                Height = new GridLength(20, GridUnitType.Pixel),
+                                Height = new(20, GridUnitType.Pixel),
                             };
                             titleGrid.RowDefinitions.Add(titleGridSubtitleRow);
 
@@ -1342,7 +1344,7 @@ namespace ArcademiaGameLauncher.Windows
                             CreditsPanel.RowDefinitions.Add(headingRow);
 
                             // Create a new Grid
-                            Grid headingGrid = new Grid
+                            Grid headingGrid = new()
                             {
                                 HorizontalAlignment = HorizontalAlignment.Left,
                                 VerticalAlignment = VerticalAlignment.Center,
@@ -1352,13 +1354,13 @@ namespace ArcademiaGameLauncher.Windows
                             // Create 2 new ColumnDefinitions
                             ColumnDefinition headingGridBorderColumn = new()
                             {
-                                Width = new GridLength(3, GridUnitType.Pixel),
+                                Width = new(3, GridUnitType.Pixel),
                             };
                             headingGrid.ColumnDefinitions.Add(headingGridBorderColumn);
 
                             ColumnDefinition headingGridContentColumn = new()
                             {
-                                Width = new GridLength(1, GridUnitType.Star),
+                                Width = new(1, GridUnitType.Star),
                             };
                             headingGrid.ColumnDefinitions.Add(headingGridContentColumn);
 
@@ -1368,7 +1370,7 @@ namespace ArcademiaGameLauncher.Windows
                                 Background = new SolidColorBrush(
                                     Color.FromArgb(0xFF, 0x33, 0x33, 0x33)
                                 ),
-                                Margin = new Thickness(0, 10, 0, 10),
+                                Margin = new(0, 10, 0, 10),
                             };
 
                             // Add the Grid to the Grid
@@ -1380,7 +1382,7 @@ namespace ArcademiaGameLauncher.Windows
                             {
                                 HorizontalAlignment = HorizontalAlignment.Left,
                                 VerticalAlignment = VerticalAlignment.Center,
-                                Margin = new Thickness(25, 0, 0, 0),
+                                Margin = new(25, 0, 0, 0),
                             };
 
                             // Add the Grid to the Grid
@@ -1390,16 +1392,13 @@ namespace ArcademiaGameLauncher.Windows
                             // Create 2 new RowDefinitions
                             RowDefinition headingGridTitleRow = new()
                             {
-                                Height = new GridLength(30, GridUnitType.Pixel),
+                                Height = new(30, GridUnitType.Pixel),
                             };
                             headingContentGrid.RowDefinitions.Add(headingGridTitleRow);
 
                             RowDefinition headingGridSubheadingsRow = new()
                             {
-                                Height = new GridLength(
-                                    subheadingsArray.Count * 25,
-                                    GridUnitType.Pixel
-                                ),
+                                Height = new(subheadingsArray.Count * 25, GridUnitType.Pixel),
                             };
                             headingContentGrid.RowDefinitions.Add(headingGridSubheadingsRow);
 
@@ -1434,7 +1433,7 @@ namespace ArcademiaGameLauncher.Windows
                                 // Create new RowDefinitions & for each Subheading
                                 RowDefinition subheadingRow = new()
                                 {
-                                    Height = new GridLength(25, GridUnitType.Pixel),
+                                    Height = new(25, GridUnitType.Pixel),
                                 };
                                 subheadingsGrid.RowDefinitions.Add(subheadingRow);
 
@@ -1475,7 +1474,7 @@ namespace ArcademiaGameLauncher.Windows
                             // Create a new RowDefinition
                             RowDefinition noteRow = new()
                             {
-                                Height = new GridLength(noteHeight, GridUnitType.Pixel),
+                                Height = new(noteHeight, GridUnitType.Pixel),
                             };
                             CreditsPanel.RowDefinitions.Add(noteRow);
 
@@ -1484,7 +1483,7 @@ namespace ArcademiaGameLauncher.Windows
                             {
                                 HorizontalAlignment = HorizontalAlignment.Left,
                                 VerticalAlignment = VerticalAlignment.Center,
-                                Margin = new Thickness(0, 0, 100, 0),
+                                Margin = new(0, 0, 100, 0),
                             };
                             Grid.SetRow(noteGrid, 2 * i);
 
@@ -1512,10 +1511,7 @@ namespace ArcademiaGameLauncher.Windows
                             break;
                         case "Break":
                             // Create a new RowDefinition
-                            RowDefinition breakRow = new()
-                            {
-                                Height = new GridLength(10, GridUnitType.Pixel),
-                            };
+                            RowDefinition breakRow = new() { Height = new(10, GridUnitType.Pixel) };
                             CreditsPanel.RowDefinitions.Add(breakRow);
 
                             // Create a new Grid
@@ -1559,7 +1555,7 @@ namespace ArcademiaGameLauncher.Windows
                             // Create a new RowDefinition
                             RowDefinition imageRow = new()
                             {
-                                Height = new GridLength(overrideHeight, GridUnitType.Pixel),
+                                Height = new(overrideHeight, GridUnitType.Pixel),
                             };
                             CreditsPanel.RowDefinitions.Add(imageRow);
 
@@ -1611,7 +1607,7 @@ namespace ArcademiaGameLauncher.Windows
                                 );
                                 AnimationBehavior.SetSourceUri(
                                     imageGif,
-                                    new Uri(imagePath, UriKind.Relative)
+                                    new(imagePath, UriKind.Relative)
                                 );
 
                                 // Set Image Stretch
@@ -1656,10 +1652,7 @@ namespace ArcademiaGameLauncher.Windows
                     if (i < creditsArray.Count - 1)
                     {
                         // Create a new RowDefinition
-                        RowDefinition spaceRow = new()
-                        {
-                            Height = new GridLength(40, GridUnitType.Pixel),
-                        };
+                        RowDefinition spaceRow = new() { Height = new(40, GridUnitType.Pixel) };
                         CreditsPanel.RowDefinitions.Add(spaceRow);
                     }
                 }
@@ -1705,6 +1698,8 @@ namespace ArcademiaGameLauncher.Windows
 
         private void UpdateCurrentSelection()
         {
+            bool updatedIntervalCounter = false;
+
             // For each Controller State
             for (int i = 0; i < _controllerStates.Count; i++)
             {
@@ -1736,8 +1731,14 @@ namespace ArcademiaGameLauncher.Windows
                     {
                         // Reset the selection update counter and increment the selection update interval counter
                         _selectionUpdateCounter = 0;
-                        if (_selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax)
+                        if (
+                            _selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax
+                            && !updatedIntervalCounter
+                        )
+                        {
                             _selectionUpdateIntervalCounter++;
+                            updatedIntervalCounter = true;
+                        }
 
                         // If the Home Menu is visible, decrement the currently selected Home Index
                         if (HomeMenu.Visibility == Visibility.Visible)
@@ -1771,8 +1772,14 @@ namespace ArcademiaGameLauncher.Windows
                     {
                         // Reset the selection update counter and increment the selection update interval counter
                         _selectionUpdateCounter = 0;
-                        if (_selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax)
+                        if (
+                            _selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax
+                            && !updatedIntervalCounter
+                        )
+                        {
                             _selectionUpdateIntervalCounter++;
+                            updatedIntervalCounter = true;
+                        }
 
                         // If the Home Menu is visible, increment the currently selected Home Index
                         if (HomeMenu.Visibility == Visibility.Visible)
@@ -1801,6 +1808,8 @@ namespace ArcademiaGameLauncher.Windows
                             }
                         }
                     }
+                    else
+                        _selectionUpdateIntervalCounter = 0;
                 }
 
                 // Check if the Start/A button is pressed
@@ -1982,7 +1991,7 @@ namespace ArcademiaGameLauncher.Windows
             {
                 // Joystick Input
                 int[] leftStickDirection = _controllerStates[i].GetLeftStickDirection();
-                _inputMenuJoysticks[i].Margin = new Thickness(
+                _inputMenuJoysticks[i].Margin = new(
                     leftStickDirection[0] * 50,
                     leftStickDirection[1] * 50,
                     0,
@@ -2039,12 +2048,21 @@ namespace ArcademiaGameLauncher.Windows
                 else
                 {
                     // Set the text to the game title and make it visible
-                    _gameTitlesList[i].Text = _gameInfoList[i + _pageIndex * 10]
-                        ["Name"]
-                        .ToString();
+                    _gameTitlesList[i].Text = _gameInfoList[i + _pageIndex * 10]["Name"].ToString();
                     _gameTitlesList[i].Visibility = Visibility.Visible;
                 }
             }
+
+            // Show the up scroll arrow if there is a previous page and the down scroll arrow if there is a next page
+            if (_pageIndex > 0)
+                ScrollArrow_Up.Visibility = Visibility.Visible;
+            else
+                ScrollArrow_Up.Visibility = Visibility.Collapsed;
+
+            if (_gameInfoList.Length > (_pageIndex + 1) * 10)
+                ScrollArrow_Down.Visibility = Visibility.Visible;
+            else
+                ScrollArrow_Down.Visibility = Visibility.Collapsed;
         }
 
         private void UpdateGameInfoDisplay()
@@ -2071,14 +2089,14 @@ namespace ArcademiaGameLauncher.Windows
                 )
                 {
                     NonGif_GameThumbnail.Source = new BitmapImage(
-                        new Uri(
+                        new(
                             _gameInfoList[_currentlySelectedGameIndex]["ThumbnailUrl"].ToString(),
                             UriKind.Absolute
                         )
                     );
                     AnimationBehavior.SetSourceUri(
                         Gif_GameThumbnail,
-                        new Uri(
+                        new(
                             _gameInfoList[_currentlySelectedGameIndex]["ThumbnailUrl"].ToString(),
                             UriKind.Absolute
                         )
@@ -2099,7 +2117,7 @@ namespace ArcademiaGameLauncher.Windows
                     )
                     {
                         NonGif_GameThumbnail.Source = new BitmapImage(
-                            new Uri(
+                            new(
                                 Path.Combine(
                                     _gameDirectoryPath,
                                     _gameInfoList[_currentlySelectedGameIndex]
@@ -2114,7 +2132,7 @@ namespace ArcademiaGameLauncher.Windows
                         );
                         AnimationBehavior.SetSourceUri(
                             Gif_GameThumbnail,
-                            new Uri(
+                            new(
                                 Path.Combine(
                                     _gameDirectoryPath,
                                     _gameInfoList[_currentlySelectedGameIndex]
@@ -2143,9 +2161,7 @@ namespace ArcademiaGameLauncher.Windows
                 GameAuthors.FitTextToTextBlock(
                     desiredText: string.Join(
                         ", ",
-                        _gameInfoList[_currentlySelectedGameIndex]
-                            ["Authors"]
-                            .ToObject<string[]>()
+                        _gameInfoList[_currentlySelectedGameIndex]["Authors"].ToObject<string[]>()
                     ),
                     targetFontSize: 14,
                     maxLines: 2,
@@ -2209,10 +2225,10 @@ namespace ArcademiaGameLauncher.Windows
                 GameDescription.FitTextToTextBlock(
                     desiredText: _emojiParser.ReplaceColonNames(
                         // Make sure to replace \n with an actual newline character in the description
-                        _gameInfoList[_currentlySelectedGameIndex]["Description"].ToString().Replace(
-                            "\\n",
-                            "\n"
-                        )
+                        _gameInfoList[_currentlySelectedGameIndex]
+                            ["Description"]
+                            .ToString()
+                            .Replace("\\n", "\n")
                     ),
                     targetFontSize: 14,
                     maxLines: 100,
@@ -2223,7 +2239,6 @@ namespace ArcademiaGameLauncher.Windows
                     "v" + _gameInfoList[_currentlySelectedGameIndex]["VersionNumber"].ToString();
 
                 _showingDebouncedGame = true;
-                SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
             }
 
             if (_currentlySelectedGameIndex >= 0)
@@ -2242,6 +2257,10 @@ namespace ArcademiaGameLauncher.Windows
                     // Style the StartButton
                     switch (_gameState)
                     {
+                        case GameState.fetchingInfo:
+                            StartButton.IsChecked = false;
+                            StartButton.Content = "Fetching Game Info...";
+                            break;
                         case GameState.checkingForUpdates:
                             StartButton.IsChecked = false;
                             StartButton.Content = "Checking for Updates...";
@@ -2295,11 +2314,11 @@ namespace ArcademiaGameLauncher.Windows
         {
             // Reset the Thumbnail
             NonGif_GameThumbnail.Source = new BitmapImage(
-                new Uri("Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
+                new("Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
             );
             AnimationBehavior.SetSourceUri(
                 Gif_GameThumbnail,
-                new Uri("Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
+                new("Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
             );
 
             // Reset the Text Content of each element
@@ -2417,7 +2436,7 @@ namespace ArcademiaGameLauncher.Windows
         {
             // Clone the XAML element and return it
             string xaml = XamlWriter.Save(element);
-            StringReader stringReader = new StringReader(xaml);
+            StringReader stringReader = new(xaml);
             XmlReader xmlReader = XmlReader.Create(stringReader);
             return (T)XamlReader.Load(xmlReader);
         }
@@ -2573,7 +2592,8 @@ namespace ArcademiaGameLauncher.Windows
             //PlayAudioFile(_audioFileNames[_periodicAudioFiles[_index]]);
         }
 
-        public void PlayAudioFile(string _audioFile) => Task.Run(() => PlayAudioFileAsync(_audioFile));
+        public void PlayAudioFile(string _audioFile) =>
+            Task.Run(() => PlayAudioFileAsync(_audioFile));
 
         private async Task PlayAudioFileAsync(string _audioFile)
         {

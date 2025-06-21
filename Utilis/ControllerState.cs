@@ -68,7 +68,7 @@ namespace ArcademiaGameLauncher.Utilis
             // Set the keybinds for the player
             JObject playerControls = JObject.Parse(
                 File.ReadAllText(
-                    Path.Combine(mainWindow._applicationPath, "Assets", "json", "ButtonConfig.json")
+                    Path.Combine(mainWindow._applicationPath, "Configuration", "ButtonConfig.json")
                 )
             );
             keybinds = new Keybinds(playerControls, index);

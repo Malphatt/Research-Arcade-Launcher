@@ -9,18 +9,24 @@
         WindowState="Normal"
         WindowStyle="None"
         ResizeMode="NoResize"
-        Title="InfoWindow" Height="600" Width="1000">
+        Title="InfoWindow"
+        Height="600"
+        Width="1000">
 
     <!-- Declare the Launcher Version, Global Font and ToggleButton style -->
     <Window.Resources>
         <Style x:Key="Early GameBoy">
-            <Setter Property="TextElement.FontFamily" Value="/Fonts/#Press Start 2P"/>
+            <Setter Property="TextElement.FontFamily"
+                    Value="/Fonts/#Press Start 2P"/>
         </Style>
     </Window.Resources>
     <StackPanel Background="Black">
 
         <!-- Force Exit Menu -->
-        <Grid x:Name="ForceExitMenu" Visibility="Collapsed" Width="1000" Height="600">
+        <Grid x:Name="ForceExitMenu"
+                Visibility="Collapsed"
+                Width="1000"
+                Height="600">
             <Grid.RowDefinitions>
                 <RowDefinition Height="3*"/>
                 <RowDefinition Height="1*"/>
@@ -29,13 +35,36 @@
                 <RowDefinition Height="3*"/>
                 <RowDefinition Height="3*"/>
             </Grid.RowDefinitions>
-            <TextBlock Grid.Row="1" x:Name="ForceExitTitle" Text="Closing GameName..." Style="{StaticResource Early GameBoy}" FontSize="28" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-            <TextBlock Grid.Row="3" Text="Release To Cancel" Style="{StaticResource Early GameBoy}" FontSize="36" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-            <TextBlock Grid.Row="4" x:Name="ForceExitCountdown" Text="0.0" Style="{StaticResource Early GameBoy}" FontSize="64" Foreground="Red" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+            <TextBlock Grid.Row="1"
+                    x:Name="ForceExitTitle"
+                    Text="Closing GameName..."
+                    Style="{StaticResource Early GameBoy}"
+                    FontSize="28"
+                    Foreground="White"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"/>
+            <TextBlock Grid.Row="3"
+                    Text="Release To Cancel"
+                    Style="{StaticResource Early GameBoy}"
+                    FontSize="36"
+                    Foreground="White"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"/>
+            <TextBlock Grid.Row="4"
+                    x:Name="ForceExitCountdown"
+                    Text="0.0"
+                    Style="{StaticResource Early GameBoy}"
+                    FontSize="64"
+                    Foreground="Red"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"/>
         </Grid>
 
         <!-- Idle Menu -->
-        <Grid x:Name="IdleMenu" Visibility="Collapsed" Width="1000" Height="600">
+        <Grid x:Name="IdleMenu"
+                Visibility="Collapsed"
+                Width="1000"
+                Height="600">
             <Grid.RowDefinitions>
                 <RowDefinition Height="3*"/>
                 <RowDefinition Height="1*"/>
@@ -45,10 +74,36 @@
                 <RowDefinition Height="3*"/>
                 <RowDefinition Height="3*"/>
             </Grid.RowDefinitions>
-            <TextBlock Grid.Row="1" Text="No Recent Input Detected" Style="{StaticResource Early GameBoy}" FontSize="28" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-            <TextBlock Grid.Row="2" x:Name="IdleTitle" Text="Closing GameName..." Style="{StaticResource Early GameBoy}" FontSize="28" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-            <TextBlock Grid.Row="4" Text="Press Any Key To Abort" Style="{StaticResource Early GameBoy}" FontSize="36" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-            <TextBlock Grid.Row="5" x:Name="IdleCountdown" Text="0.0" Style="{StaticResource Early GameBoy}" FontSize="64" Foreground="Red" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+            <TextBlock Grid.Row="1"
+                    Text="No Recent Input Detected"
+                    Style="{StaticResource Early GameBoy}"
+                    FontSize="28"
+                    Foreground="White"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"/>
+            <TextBlock Grid.Row="2"
+                    x:Name="IdleTitle"
+                    Text="Closing GameName..."
+                    Style="{StaticResource Early GameBoy}"
+                    FontSize="28"
+                    Foreground="White"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"/>
+            <TextBlock Grid.Row="4"
+                    Text="Press Any Key To Abort"
+                    Style="{StaticResource Early GameBoy}"
+                    FontSize="36"
+                    Foreground="White"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"/>
+            <TextBlock Grid.Row="5"
+                    x:Name="IdleCountdown"
+                    Text="0.0"
+                    Style="{StaticResource Early GameBoy}"
+                    FontSize="64"
+                    Foreground="Red"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"/>
         </Grid>
     </StackPanel>
 </Window>

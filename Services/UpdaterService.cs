@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using ArcademiaGameLauncher.Models;
 using ICSharpCode.SharpZipLib.Zip;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 
 namespace ArcademiaGameLauncher.Services
 {
@@ -20,7 +21,7 @@ namespace ArcademiaGameLauncher.Services
         event EventHandler RelaunchUpdater;
 
         Task CheckUpdaterAndUpdateAsync(CancellationToken cancellationToken);
-        Task CheckGamesAndUpdateAsync(CancellationToken cancellationToken);
+        Task CheckGamesAndUpdateAsync(JObject[] gameinfoList, CancellationToken cancellationToken);
     }
 
     public class GameStateChangedEventArgs(GameState newState, string gameName)
@@ -138,7 +139,10 @@ namespace ArcademiaGameLauncher.Services
             catch (Exception) { }
         }
 
-        public async Task CheckGamesAndUpdateAsync(CancellationToken cancellationToken)
+        public async Task CheckGamesAndUpdateAsync(
+            JObject[] gameinfoList,
+            CancellationToken cancellationToken
+        )
         {
             _logger.LogInformation("Checking for game updates...");
             try
@@ -160,6 +164,25 @@ namespace ArcademiaGameLauncher.Services
                 {
                     OnStateChanged(GameState.checkingForUpdates, game.Name);
                     _logger.LogInformation("Checking for updates for {GameName}...", game.Name);
+
+                    // If the local version matches the remote version, skip the update
+                    if (
+                        gameinfoList.Any(g =>
+                            g["Name"].ToString() == game.Name
+                            && g["VersionNumber"].ToString() == game.VersionNumber
+                        )
+                    )
+                    {
+                        _logger.LogInformation(
+                            "{GameName} is already up to date (v{VersionNumber}). Skipping update.",
+                            game.Name,
+                            game.VersionNumber
+                        );
+
+                        OnGameUpdateCompleted(game.Name);
+
+                        continue;
+                    }
 
                     await DownloadGameAndExtractAsync(game, cancellationToken);
 

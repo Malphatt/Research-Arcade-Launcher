@@ -2,6 +2,7 @@
 {
     public enum GameState
     {
+        fetchingInfo,
         checkingForUpdates,
         downloadingGame,
         downloadingUpdate,
