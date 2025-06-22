@@ -33,7 +33,7 @@ namespace ArcademiaGameLauncher.Services
     public class GameDatabaseFetchedEventArgs(IEnumerable<GameInfo> games)
     {
         public SimplifiedGameInfo[] Games { get; } =
-            games.Select(game => new SimplifiedGameInfo(game)).ToArray();
+            [.. games.Select(game => new SimplifiedGameInfo(game))];
     }
 
     public class GameUpdateCompletedEventArgs(string gameName)
@@ -162,61 +162,64 @@ namespace ArcademiaGameLauncher.Services
                 // Update each game
                 foreach (var game in games)
                 {
-                    OnStateChanged(GameState.checkingForUpdates, game.Name);
-                    _logger.LogInformation("Checking for updates for {GameName}...", game.Name);
+                    _ = Task.Run(async () =>
+                    {
+                        OnStateChanged(GameState.checkingForUpdates, game.Name);
+                        _logger.LogInformation("Checking for updates for {GameName}...", game.Name);
 
-                    // If the local version matches the remote version, skip the update
-                    if (
-                        gameinfoList.Any(g =>
-                            g["Name"].ToString() == game.Name
-                            && g["VersionNumber"].ToString() == game.VersionNumber
+                        // If the local version matches the remote version, skip the update
+                        if (
+                            gameinfoList.Any(g =>
+                                g["Name"].ToString() == game.Name
+                                && g["VersionNumber"].ToString() == game.VersionNumber
+                            )
                         )
-                    )
-                    {
-                        _logger.LogInformation(
-                            "{GameName} is already up to date (v{VersionNumber}). Skipping update.",
-                            game.Name,
-                            game.VersionNumber
-                        );
-
-                        OnGameUpdateCompleted(game.Name);
-
-                        continue;
-                    }
-
-                    await DownloadGameAndExtractAsync(game, cancellationToken);
-
-                    try
-                    {
-                        bool updateResult = await _apiClient.UpdateRemoteGameVersionAsync(
-                            game.Id,
-                            game.VersionNumber,
-                            _logger
-                        );
-
-                        if (updateResult)
                         {
                             _logger.LogInformation(
-                                "Successfully updated {GameName} to version {VersionNumber}.",
+                                "{GameName} is already up to date (v{VersionNumber}). Skipping update.",
                                 game.Name,
                                 game.VersionNumber
                             );
+
+                            OnGameUpdateCompleted(game.Name);
+
+                            return;
+                        }
+
+                        await DownloadGameAndExtractAsync(game, cancellationToken);
+
+                        try
+                        {
+                            bool updateResult = await _apiClient.UpdateRemoteGameVersionAsync(
+                                game.Id,
+                                game.VersionNumber,
+                                _logger
+                            );
+
+                            if (updateResult)
+                            {
+                                _logger.LogInformation(
+                                    "Successfully updated {GameName} to version {VersionNumber}.",
+                                    game.Name,
+                                    game.VersionNumber
+                                );
+                                OnGameUpdateCompleted(game.Name);
+                            }
+                            else
+                            {
+                                _logger.LogWarning(
+                                    "Failed to update {GameName} to version {VersionNumber}.",
+                                    game.Name,
+                                    game.VersionNumber
+                                );
+                                OnStateChanged(GameState.failed, game.Name);
+                            }
+                        }
+                        catch (Exception)
+                        {
                             OnGameUpdateCompleted(game.Name);
                         }
-                        else
-                        {
-                            _logger.LogWarning(
-                                "Failed to update {GameName} to version {VersionNumber}.",
-                                game.Name,
-                                game.VersionNumber
-                            );
-                            OnStateChanged(GameState.failed, game.Name);
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        OnGameUpdateCompleted(game.Name);
-                    }
+                    }, cancellationToken);
                 }
             }
             catch (Exception) { }

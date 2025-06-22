@@ -743,9 +743,6 @@ namespace ArcademiaGameLauncher.Windows
                 // Connect to the WebSocket Server
                 string arcadeMachineName = "Arcade Machine (" + _config["ApiUser"] + ")";
 
-                if (!production)
-                    arcadeMachineName = "Arcade Machine (Test)";
-
                 // Disable if not in production
                 if (!production)
                     return;
