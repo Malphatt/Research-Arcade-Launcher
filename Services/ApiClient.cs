@@ -1,10 +1,12 @@
-﻿using System;
+﻿using ArcademiaGameLauncher.Models;
+using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
-using ArcademiaGameLauncher.Models;
-using Microsoft.Extensions.Logging;
 
 namespace ArcademiaGameLauncher.Services
 {
@@ -16,6 +18,7 @@ namespace ArcademiaGameLauncher.Services
             ILogger<UpdaterService> _logger
         );
         Task<IEnumerable<GameInfo>> GetMachineGamesAsync(ILogger<UpdaterService> _logger);
+        Task<Stream> GetGameDownloadAsync(int gameId, string versionNumber, CancellationToken cancellationToken);
         Task<bool> UpdateRemoteGameVersionAsync(
             int gameId,
             string newVersion,
@@ -120,6 +123,21 @@ namespace ArcademiaGameLauncher.Services
             );
             return games ?? [];
         }
+
+        public async Task<Stream> GetGameDownloadAsync(int gameId, string versionNumber, CancellationToken cancellationToken)
+        {
+            var response = await _http.GetAsync($"/api/GameAssignments/{gameId}/Download?versionNumber={versionNumber}", cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new Exception($"Failed to download game: {response.StatusCode} - {error}");
+            }
+
+            return await response.Content.ReadAsStreamAsync(cancellationToken);
+        }
+
+
 
         public async Task<bool> UpdateRemoteGameVersionAsync(
             int gameId,

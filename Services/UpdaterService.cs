@@ -292,27 +292,13 @@ namespace ArcademiaGameLauncher.Services
                 foreach (string file in Directory.GetFiles(gameDir))
                     File.Delete(file);
 
-            // Download the game using HttpClient
-            using HttpClient httpClient = new();
-            var response = await httpClient.GetAsync(game.FileUrl, cancellationToken);
-            response.EnsureSuccessStatusCode();
-
+            await using var zipStream = await _apiClient.GetGameDownloadAsync(game.Id, game.VersionNumber, cancellationToken);
             var zipFilePath = Path.Combine(gameDir, $"{game.FolderName}.zip");
-            await using (
-                var fileStream = new FileStream(
-                    zipFilePath,
-                    FileMode.Create,
-                    FileAccess.Write,
-                    FileShare.None
-                )
-            )
-            {
-                await response.Content.CopyToAsync(fileStream, cancellationToken);
-            }
+
+            await using (var fileStream = new FileStream(zipFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
+                await zipStream.CopyToAsync(fileStream, cancellationToken);
 
             _logger.LogInformation("Game downloaded successfully: {GameName}", game.Name);
-
-            OnStateChanged(GameState.downloadingUpdate, game.Name);
 
             // Extract the zip file
             FastZip fastZip = new();
