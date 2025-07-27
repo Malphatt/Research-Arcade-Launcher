@@ -12,10 +12,14 @@ namespace ArcademiaGameLauncher.Services
 {
     public interface IApiClient
     {
-        Task<UpdaterInfo> GetUpdaterInfoAsync(ILogger<UpdaterService> _logger);
+        Task<string> GetLatestUpdaterVersionAsync(ILogger<UpdaterService> _logger);
         Task<bool> UpdateRemoteUpdaterVersionAsync(
             string newVersion,
             ILogger<UpdaterService> _logger
+        );
+        Task<Stream> GetUpdaterDownloadAsync(
+            string versionNumber,
+            CancellationToken cancellationToken
         );
         Task<IEnumerable<GameInfo>> GetMachineGamesAsync(ILogger<UpdaterService> _logger);
         Task<Stream> GetGameDownloadAsync(int gameId, string versionNumber, CancellationToken cancellationToken);
@@ -30,7 +34,7 @@ namespace ArcademiaGameLauncher.Services
     {
         private readonly HttpClient _http = http;
 
-        public async Task<UpdaterInfo> GetUpdaterInfoAsync(ILogger<UpdaterService> _logger)
+        public async Task<string> GetLatestUpdaterVersionAsync(ILogger<UpdaterService> _logger)
         {
             var response = await _http.GetAsync("/api/UpdaterVersions/Latest");
 
@@ -50,13 +54,29 @@ namespace ArcademiaGameLauncher.Services
             }
             response.EnsureSuccessStatusCode();
 
-            await using var stream = await response.Content.ReadAsStreamAsync();
+            _logger.LogInformation("Successfully retrieved UpdaterInfo.");
+            _logger.LogDebug("Response content: {content}", await response.Content.ReadAsStringAsync());
 
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            return await response.Content.ReadAsStringAsync();
+        }
 
-            var updaterInfo = await JsonSerializer.DeserializeAsync<UpdaterInfo>(stream, options);
-            return updaterInfo
-                ?? throw new InvalidOperationException("Failed to deserialize UpdaterInfo.");
+        public async Task<Stream> GetUpdaterDownloadAsync(
+            string versionNumber,
+            CancellationToken cancellationToken
+        )
+        {
+            var response = await _http.GetAsync(
+                $"/api/UpdaterVersions/Download?versionNumber={versionNumber}",
+                cancellationToken
+            );
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new Exception($"Failed to download updater: {response.StatusCode} - {error}");
+            }
+
+            return await response.Content.ReadAsStreamAsync(cancellationToken);
         }
 
         public async Task<bool> UpdateRemoteUpdaterVersionAsync(
@@ -70,7 +90,7 @@ namespace ArcademiaGameLauncher.Services
                 "application/json"
             );
             var response = await _http.PutAsync(
-                "/api/MachineUpdaterAssignments/UpdateVersion",
+                "/api/UpdaterVersions/UpdateVersion",
                 content
             );
 
@@ -126,7 +146,10 @@ namespace ArcademiaGameLauncher.Services
 
         public async Task<Stream> GetGameDownloadAsync(int gameId, string versionNumber, CancellationToken cancellationToken)
         {
-            var response = await _http.GetAsync($"/api/GameAssignments/{gameId}/Download?versionNumber={versionNumber}", cancellationToken);
+            var response = await _http.GetAsync(
+                $"/api/GameAssignments/{gameId}/Download?versionNumber={versionNumber}",
+                cancellationToken
+            );
 
             if (!response.IsSuccessStatusCode)
             {
@@ -136,8 +159,6 @@ namespace ArcademiaGameLauncher.Services
 
             return await response.Content.ReadAsStreamAsync(cancellationToken);
         }
-
-
 
         public async Task<bool> UpdateRemoteGameVersionAsync(
             int gameId,

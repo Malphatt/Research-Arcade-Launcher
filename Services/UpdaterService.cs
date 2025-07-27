@@ -105,18 +105,18 @@ namespace ArcademiaGameLauncher.Services
             _logger.LogInformation("Checking for updater updates...");
             try
             {
-                var info = await _apiClient.GetUpdaterInfoAsync(_logger);
+                Version latestVersion = new(await _apiClient.GetLatestUpdaterVersionAsync(_logger));
 
                 // Close the updater if it's running and allow time for it to close
                 OnCloseGameAndUpdater();
                 await Task.Delay(1000, cancellationToken);
 
-                await DownloadLauncherAndExtractAsync(info, cancellationToken);
+                await DownloadUpdaterAndExtractAsync(latestVersion, cancellationToken);
 
                 try
                 {
                     bool updateResult = await _apiClient.UpdateRemoteUpdaterVersionAsync(
-                        info.VersionNumber,
+                        latestVersion.ToString(),
                         _logger
                     );
 
@@ -124,14 +124,14 @@ namespace ArcademiaGameLauncher.Services
                     {
                         _logger.LogInformation(
                             "Successfully updated updater version to {VersionNumber}.",
-                            info.VersionNumber
+                            latestVersion
                         );
                         OnRelaunchUpdater();
                     }
                     else
                         _logger.LogWarning(
                             "Failed to update updater version to {VersionNumber}.",
-                            info.VersionNumber
+                            latestVersion
                         );
                 }
                 catch (Exception) { }
@@ -225,14 +225,14 @@ namespace ArcademiaGameLauncher.Services
             catch (Exception) { }
         }
 
-        private async Task DownloadLauncherAndExtractAsync(
-            UpdaterInfo info,
+        private async Task DownloadUpdaterAndExtractAsync(
+            Version versionNumber,
             CancellationToken cancellationToken
         )
         {
             _logger.LogInformation(
                 "Downloading updater version: {VersionNumber}",
-                info.VersionNumber
+                versionNumber
             );
 
             // Delete the old updater files (except the Launcher folder and Config.json)
@@ -240,27 +240,16 @@ namespace ArcademiaGameLauncher.Services
                 if (Path.GetFileName(file) != "Launcher" && Path.GetFileName(file) != "Config.json")
                     File.Delete(file);
 
-            // Download the launcher using HttpClient
-            using HttpClient httpClient = new();
-            var response = await httpClient.GetAsync(info.FileUrl, cancellationToken);
-            response.EnsureSuccessStatusCode();
+            // Download the updater zip file
+            await using var zipStream = await _apiClient.GetUpdaterDownloadAsync(versionNumber.ToString(), cancellationToken);
+            var zipFilePath = Path.Combine(_updaterDir, $"{versionNumber}.zip");
 
-            var zipFilePath = Path.Combine(_updaterDir, "Updater.zip");
-            await using (
-                var fileStream = new FileStream(
-                    zipFilePath,
-                    FileMode.Create,
-                    FileAccess.Write,
-                    FileShare.None
-                )
-            )
-            {
-                await response.Content.CopyToAsync(fileStream, cancellationToken);
-            }
+            await using (var fileStream = new FileStream(zipFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
+                await zipStream.CopyToAsync(fileStream, cancellationToken);
 
             _logger.LogInformation(
                 "Updater downloaded successfully: {VersionNumber}",
-                info.VersionNumber
+                versionNumber
             );
 
             // Extract the zip file
@@ -292,6 +281,7 @@ namespace ArcademiaGameLauncher.Services
                 foreach (string file in Directory.GetFiles(gameDir))
                     File.Delete(file);
 
+            // Download the game zip file
             await using var zipStream = await _apiClient.GetGameDownloadAsync(game.Id, game.VersionNumber, cancellationToken);
             var zipFilePath = Path.Combine(gameDir, $"{game.FolderName}.zip");
 
