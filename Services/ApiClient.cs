@@ -13,13 +13,13 @@ namespace ArcademiaGameLauncher.Services
     public interface IApiClient
     {
         Task<string> GetLatestUpdaterVersionAsync(ILogger<UpdaterService> _logger);
-        Task<bool> UpdateRemoteUpdaterVersionAsync(
-            string newVersion,
-            ILogger<UpdaterService> _logger
-        );
         Task<Stream> GetUpdaterDownloadAsync(
             string versionNumber,
             CancellationToken cancellationToken
+        );
+        Task<bool> UpdateRemoteUpdaterVersionAsync(
+            string newVersion,
+            ILogger<UpdaterService> _logger
         );
         Task<IEnumerable<GameInfo>> GetMachineGamesAsync(ILogger<UpdaterService> _logger);
         Task<Stream> GetGameDownloadAsync(int gameId, string versionNumber, CancellationToken cancellationToken);
@@ -53,9 +53,6 @@ namespace ArcademiaGameLauncher.Services
                 throw new InvalidOperationException("Failed to retrieve UpdaterInfo.");
             }
             response.EnsureSuccessStatusCode();
-
-            _logger.LogInformation("Successfully retrieved UpdaterInfo.");
-            _logger.LogDebug("Response content: {content}", await response.Content.ReadAsStringAsync());
 
             return await response.Content.ReadAsStringAsync();
         }
