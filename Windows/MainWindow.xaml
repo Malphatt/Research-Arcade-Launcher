@@ -249,7 +249,7 @@
                     </Grid.RowDefinitions>
                     <Grid Grid.Row="1"
                             Margin="100,0">
-                        <Image Source="/Assets/Images/Arcademia_Logo.png"/>
+                        <Image x:Name="HomeMenu_ArcademiaLogo" Source="/Assets/Images/Arcademia_Logo.png"/>
                     </Grid>
                     <Grid Grid.Row="2">
                         <Grid.RowDefinitions>

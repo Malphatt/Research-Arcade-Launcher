@@ -12,6 +12,7 @@ namespace ArcademiaGameLauncher.Services
 {
     public interface IApiClient
     {
+        Task<Stream> GetSiteLogoAsync(CancellationToken cancellationToken);
         Task<string> GetLatestUpdaterVersionAsync(ILogger<UpdaterService> _logger);
         Task<Stream> GetUpdaterDownloadAsync(
             string versionNumber,
@@ -33,6 +34,17 @@ namespace ArcademiaGameLauncher.Services
     public class ApiClient(HttpClient http) : IApiClient
     {
         private readonly HttpClient _http = http;
+
+        public async Task<Stream> GetSiteLogoAsync(CancellationToken cancellationToken)
+        {
+            var response = await _http.GetAsync("/api/Assets/Logo", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new Exception($"Failed to download site logo: {response.StatusCode} - {error}");
+            }
+            return await response.Content.ReadAsStreamAsync(cancellationToken);
+        }
 
         public async Task<string> GetLatestUpdaterVersionAsync(ILogger<UpdaterService> _logger)
         {

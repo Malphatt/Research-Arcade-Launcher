@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using ArcademiaGameLauncher.Models;
@@ -14,12 +13,14 @@ namespace ArcademiaGameLauncher.Services
 {
     public interface IUpdaterService
     {
+        event EventHandler LogoDownloaded;
         event EventHandler<GameStateChangedEventArgs> GameStateChanged;
         event EventHandler<GameDatabaseFetchedEventArgs> GameDatabaseFetched;
         event EventHandler<GameUpdateCompletedEventArgs> GameUpdateCompleted;
         event EventHandler CloseGameAndUpdater;
         event EventHandler RelaunchUpdater;
 
+        Task DownloadSiteLogo();
         Task CheckUpdaterAndUpdateAsync(CancellationToken cancellationToken);
         Task CheckGamesAndUpdateAsync(JObject[] gameinfoList, CancellationToken cancellationToken);
     }
@@ -56,6 +57,10 @@ namespace ArcademiaGameLauncher.Services
 
     public class UpdaterService : IUpdaterService
     {
+        public event EventHandler LogoDownloaded;
+
+        protected void OnLogoDownloaded() => LogoDownloaded?.Invoke(this, EventArgs.Empty);
+
         public event EventHandler<GameStateChangedEventArgs> GameStateChanged;
 
         protected void OnStateChanged(GameState newState, string gameName) =>
@@ -98,6 +103,29 @@ namespace ArcademiaGameLauncher.Services
                 applicationPath ?? throw new ArgumentNullException(nameof(applicationPath));
             _updaterDir = Directory.GetCurrentDirectory();
             _gamesDir = Path.Combine(_applicationPath, "Games");
+        }
+
+        public async Task DownloadSiteLogo()
+        {
+            _logger.LogInformation("Downloading site icon...");
+
+            try
+            {
+                var logoPath = Path.Combine(_applicationPath, "Arcademia_Logo.png");
+
+                await using var logoStream = await _apiClient.GetSiteLogoAsync(CancellationToken.None);
+
+                await using (var fileStream = new FileStream(logoPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    await logoStream.CopyToAsync(fileStream);
+
+                _logger.LogInformation("Site icon downloaded successfully.");
+
+                OnLogoDownloaded();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to download site icon.");
+            }
         }
 
         public async Task CheckUpdaterAndUpdateAsync(CancellationToken cancellationToken)

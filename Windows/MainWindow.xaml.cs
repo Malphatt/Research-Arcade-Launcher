@@ -212,11 +212,26 @@ namespace ArcademiaGameLauncher.Windows
                 .Build();
 
             _updater = _host.Services.GetRequiredService<IUpdaterService>();
+
+            _updater.LogoDownloaded += Updater_LogoDownloaded;
             _updater.GameStateChanged += Updater_GameStateChanged;
             _updater.GameDatabaseFetched += Updater_GameDatabaseFetched;
             _updater.GameUpdateCompleted += Updater_GameUpdateCompleted;
             _updater.CloseGameAndUpdater += Updater_CloseGameAndUpdater;
             _updater.RelaunchUpdater += Updater_RelaunchUpdater;
+
+            // Check if site logo exists
+            if (File.Exists(Path.Combine(_applicationPath, "Arcademia_Logo.png")))
+            {
+                StartMenu_ArcademiaLogo.Source = new BitmapImage(
+                    new Uri(Path.Combine(_applicationPath, "Arcademia_Logo.png"))
+                );
+                HomeMenu_ArcademiaLogo.Source = new BitmapImage(
+                    new Uri(Path.Combine(_applicationPath, "Arcademia_Logo.png"))
+                );
+            }
+
+            _updater.DownloadSiteLogo();
 
             // Set the locations of each item on the start menu
             string logicalScreenWidth_str = TryFindResource("LogicalSizeWidth").ToString();
@@ -1036,6 +1051,23 @@ namespace ArcademiaGameLauncher.Windows
 
             // Increment the global counter
             _globalCounter += 10;
+        }
+
+        private void Updater_LogoDownloaded(object sender, EventArgs e)
+        {
+            try
+            {
+                Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    StartMenu_ArcademiaLogo.Source = new BitmapImage(
+                        new Uri(Path.Combine(_applicationPath, "Arcademia_Logo.png"))
+                    );
+                    HomeMenu_ArcademiaLogo.Source = new BitmapImage(
+                        new Uri(Path.Combine(_applicationPath, "Arcademia_Logo.png"))
+                    );
+                });
+            }
+            catch (TaskCanceledException) { }
         }
 
         private void Updater_GameStateChanged(object sender, GameStateChangedEventArgs e)
