@@ -396,6 +396,25 @@ namespace ArcademiaGameLauncher.Windows
                             else
                                 _gameTitlesList[i % 10].Visibility = Visibility.Hidden;
                         }
+
+                        for (
+                            int i = 0;
+                            i < _gameInfoList.Length;
+                            i++
+                        )
+                        {
+                            // If the game's exe exists set the title state to ready
+                            if (File.Exists(
+                                Path.Combine(
+                                    _gameDirectoryPath,
+                                    _gameInfoList[i]["FolderName"].ToString(),
+                                    _gameInfoList[i]["NameOfExecutable"].ToString()
+                                )
+                            ))
+                                SetGameTitleState(i, GameState.ready);
+                            else
+                                SetGameTitleState(i, GameState.failed);
+                        }
                     });
                 }
                 catch (TaskCanceledException) { }
@@ -845,6 +864,7 @@ namespace ArcademiaGameLauncher.Windows
                 {
                     Application.Current?.Dispatcher?.Invoke(() =>
                     {
+                        SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
                         ResetControllerStates();
                         _currentlyRunningProcess.Kill();
                         _infoWindow?.HideWindow();
@@ -1014,6 +1034,7 @@ namespace ArcademiaGameLauncher.Windows
             // Check if the currently running process has exited, and set the focus back to the launcher
             if (_currentlyRunningProcess != null && _currentlyRunningProcess.HasExited)
             {
+                SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
                 ResetControllerStates();
                 SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
                 _currentlyRunningProcess = null;
