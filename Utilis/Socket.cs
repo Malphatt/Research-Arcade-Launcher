@@ -1,132 +1,173 @@
-﻿using System;
-using ArcademiaGameLauncher.Windows;
-using SocketIOClient;
+﻿using ArcademiaGameLauncher.Windows;
+using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ArcademiaGameLauncher.Utilis
 {
     internal class Socket
     {
-        readonly MainWindow mainWindow;
-        readonly SocketIOClient.SocketIO client;
-        private readonly string clientName;
+        private readonly MainWindow _mainWindow;
+        private readonly HubConnection _hub;
+        private readonly CancellationTokenSource _heartbeatCts = new();
+        private readonly ILogger<Socket> _logger;
 
-        public Socket(string ip, string port, string clientName, MainWindow mainWindow)
+        private int _machineId;
+        private int _siteId;
+        private string _machineName = "Unknown";
+
+        public Socket(string baseUrl, string authUser, string authPass, MainWindow mainWindow, ILogger<Socket> logger)
         {
-            Console.WriteLine("[Socket] Connecting to " + ip + ":" + port);
+            _mainWindow = mainWindow;
+            _logger = logger;
 
-            this.mainWindow = mainWindow;
-            client = new SocketIOClient.SocketIO(
-                "ws://" + ip + ":" + port,
-                new SocketIOOptions()
+            var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{authUser}:{authPass}"));
+
+            var hubUrl = $"{baseUrl.TrimEnd('/')}/ws/machine";
+            _logger.LogInformation("[SignalR] Connecting to {HubUrl}", hubUrl);
+
+            _hub = new HubConnectionBuilder()
+                .AddJsonProtocol(o =>
                 {
-                    Reconnection = true,
-                    ReconnectionDelay = 3000,
-                    ReconnectionDelayMax = 5000,
-                    ConnectionTimeout = TimeSpan.FromSeconds(5),
-                }
-            );
-            this.clientName = clientName;
+                    o.PayloadSerializerOptions.PropertyNameCaseInsensitive = true;
+                })
+                .WithUrl(hubUrl, options =>
+                {
+                    options.Headers.Add("Authorization", $"ArcadeMachine {creds}");
+                })
+                .WithAutomaticReconnect()
+                .Build();
 
-            HandleEmits();
-            Connect();
+            WireServerEvents();
+            _ = ConnectAndStartHeartbeat();
         }
 
-        private async void Connect() => await client.ConnectAsync();
-
-        private void HandleEmits()
+        private async Task ConnectAndStartHeartbeat()
         {
-            client.OnConnected += Socket_OnConnected;
-            client.OnDisconnected += Socket_OnDisconnected;
-            client.OnError += Socket_OnError;
-            client.OnReconnected += Socket_OnReconnected;
-            client.OnReconnectAttempt += Socket_OnReconnecting;
-            client.OnReconnectFailed += Socket_OnReconnectFailed;
-
-            client.On("fetchAudio", response => Socket_FetchAudio(response));
-            client.On("playAudio", response => Socket_PlayAudio(response));
-
-            client.On("updateUpdater", response => Socket_UpdateUpdater(response));
-            client.On("updateLauncher", response => Socket_RestartLauncher(response));
-            client.On("updateGames", response => Socket_UpdateGames(response));
-        }
-
-        private void Socket_OnConnected(object sender, EventArgs e)
-        {
-            Console.WriteLine("[Socket] Connected");
-
-            client.EmitAsync("register", clientName);
-        }
-
-        private void Socket_OnDisconnected(object sender, string e)
-        {
-            Console.WriteLine("[Socket] Disconnected");
-        }
-
-        private void Socket_OnError(object sender, string e)
-        {
-            Console.WriteLine("[Socket] Error: " + e);
-        }
-
-        private void Socket_OnReconnected(object sender, int e)
-        {
-            Console.WriteLine("[Socket] Reconnected");
-        }
-
-        private void Socket_OnReconnecting(object sender, int e)
-        {
-            Console.WriteLine("[Socket] Reconnecting");
-        }
-
-        private void Socket_OnReconnectFailed(object sender, EventArgs e)
-        {
-            Console.WriteLine("[Socket] Reconnect failed");
-        }
-
-        private void Socket_FetchAudio(SocketIOResponse response)
-        {
-            Console.WriteLine("[Socket] Fetching audio files");
-
-            mainWindow.DownloadAudioFiles();
-
-            client.EmitAsync("fetchedAudio", string.Join(",", mainWindow.GetAudioFileNames()));
-        }
-
-        private void Socket_PlayAudio(SocketIOResponse response)
-        {
-            if (response.GetValue<int>() >= mainWindow.GetAudioFileNames().Length)
+            try
             {
-                Console.WriteLine("[Socket] Audio file index out of range");
-                return;
+                await _hub.StartAsync();
+                _logger.LogInformation("[SignalR] Connected");
+
+                await SafeInvokeAck("Client connected");
+                await SafeReportStatus("Idle");
+
+                _ = Task.Run(async () =>
+                {
+                    while (!_heartbeatCts.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            await _hub.InvokeAsync("Heartbeat");
+                            _logger.LogDebug("[SignalR] Heartbeat sent");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "[SignalR] Heartbeat failed");
+                        }
+
+                        await Task.Delay(TimeSpan.FromSeconds(60), _heartbeatCts.Token);
+                    }
+                });
             }
-
-            Console.WriteLine(
-                "[Socket] Playing audio file "
-                    + mainWindow.GetAudioFileNames()[response.GetValue<int>()]
-                    + ".wav"
-            );
-
-            mainWindow.PlayAudioFile(mainWindow.GetAudioFileNames()[response.GetValue<int>()]);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SignalR] Initial connect failed");
+            }
         }
 
-        private void Socket_UpdateUpdater(SocketIOResponse response)
+        private void WireServerEvents()
         {
-            Console.WriteLine("[Socket] Updating updater");
+            _hub.Closed += async (ex) =>
+            {
+                _logger.LogWarning("[SignalR] Disconnected: {Error}", ex?.Message);
+                await Task.Delay(2000);
+                try { await _hub.StartAsync(); } catch { }
+            };
 
-            mainWindow.CheckForUpdaterUpdates();
+            _hub.Reconnected += (id) =>
+            {
+                _logger.LogInformation("[SignalR] Reconnected (ConnId: {Id})", id);
+                return Task.CompletedTask;
+            };
+
+            _hub.Reconnecting += (ex) =>
+            {
+                _logger.LogWarning("[SignalR] Reconnecting due to error: {Error}", ex?.Message);
+                return Task.CompletedTask;
+            };
+
+            // Server To Client Events
+            _hub.On("UpdateUpdater", async () =>
+            {
+                _logger.LogInformation("[SignalR] Received UpdateUpdater");
+                await _mainWindow.CheckForUpdaterUpdates();
+            });
+
+            _hub.On("UpdateLauncher", () =>
+            {
+                _logger.LogInformation("[SignalR] Received UpdateLauncher");
+                MainWindow.RestartLauncher();
+            });
+
+            _hub.On("UpdateGames", async () =>
+            {
+                _logger.LogInformation("[SignalR] Received UpdateGames");
+                await _mainWindow.CheckForGameDatabaseChanges();
+            });
+
+            _hub.On<RegisteredPayload>("Registered", payload =>
+            {
+                _machineId = payload.MachineId;
+                _siteId = payload.SiteId;
+                _machineName = payload.MachineName ?? "Unknown";
+
+                _logger.LogInformation(
+                    "[SignalR] Registered as '{MachineName}' (ID: {MachineId}, Site: {SiteId})",
+                    _machineName, _machineId, _siteId
+                );
+            });
         }
 
-        private void Socket_RestartLauncher(SocketIOResponse response)
+        private async Task SafeInvokeAck(string message)
         {
-            Console.WriteLine("[Socket] Restarting launcher");
-
-            MainWindow.RestartLauncher();
+            try
+            {
+                await _hub.InvokeAsync("Ack", message);
+                _logger.LogDebug("[SignalR] Ack sent: {Message}", message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SignalR] Failed to send Ack");
+            }
         }
 
-        private void Socket_UpdateGames(SocketIOResponse response)
+        public async Task StopAsync()
         {
-            Console.WriteLine("[Socket] Updating games");
-
-            mainWindow.CheckForGameDatabaseChanges();
+            _heartbeatCts.Cancel();
+            try { await _hub.StopAsync(); } catch { }
+            _hub.DisposeAsync().AsTask().Wait(1000);
+            _logger.LogInformation("[SignalR] Connection stopped");
         }
+
+        public async Task SafeReportStatus(string status, string? ext = null)
+        {
+            _logger.LogInformation("[SignalR] Reporting status: {Status} {Ext}", status, ext ?? "");
+
+            try { await _hub.InvokeAsync("ReportStatus", status, ext); }
+            catch (Exception ex) { _logger.LogError(ex, "[SignalR] ReportStatus failed"); }
+        }
+    }
+
+    public sealed class RegisteredPayload
+    {
+        public int MachineId { get; set; }
+        public string MachineName { get; set; } = "Unknown";
+        public int SiteId { get; set; }
+        public DateTime ServerTimeUtc { get; set; }
     }
 }

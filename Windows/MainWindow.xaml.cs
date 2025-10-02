@@ -1,4 +1,14 @@
-﻿using System;
+﻿using ArcademiaGameLauncher.Models;
+using ArcademiaGameLauncher.Services;
+using ArcademiaGameLauncher.Utilis;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using NAudio.Wave;
+using Newtonsoft.Json.Linq;
+using Serilog;
+using SharpDX.DirectInput;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -13,14 +23,6 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Xml;
-using ArcademiaGameLauncher.Models;
-using ArcademiaGameLauncher.Services;
-using ArcademiaGameLauncher.Utilis;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using NAudio.Wave;
-using Newtonsoft.Json.Linq;
-using SharpDX.DirectInput;
 using XamlAnimatedGif;
 using static ArcademiaGameLauncher.Utilis.ControllerState;
 
@@ -99,6 +101,8 @@ namespace ArcademiaGameLauncher.Windows
         private readonly InfoWindow _infoWindow;
         private readonly EmojiParser _emojiParser;
 
+        private Socket _socket;
+
         private JArray _audioFiles;
         private string[] _audioFileNames = [];
         private int[] _periodicAudioFiles;
@@ -107,6 +111,22 @@ namespace ArcademiaGameLauncher.Windows
 
         public MainWindow()
         {
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.Console()
+                .WriteTo.File(
+                    "Logs/ArcadeClient-.log",
+                    rollingInterval: RollingInterval.Day,
+                    shared: true
+                )
+                .CreateLogger();
+
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.AddSerilog();
+            });
+
+
             // Setup closing event
             Closing += Window_Closing;
 
@@ -220,17 +240,6 @@ namespace ArcademiaGameLauncher.Windows
             _updater.CloseGameAndUpdater += Updater_CloseGameAndUpdater;
             _updater.RelaunchUpdater += Updater_RelaunchUpdater;
 
-            // Check if site logo exists
-            if (File.Exists(Path.Combine(_applicationPath, "Arcademia_Logo.png")))
-            {
-                StartMenu_ArcademiaLogo.Source = new BitmapImage(
-                    new Uri(Path.Combine(_applicationPath, "Arcademia_Logo.png"))
-                );
-                HomeMenu_ArcademiaLogo.Source = new BitmapImage(
-                    new Uri(Path.Combine(_applicationPath, "Arcademia_Logo.png"))
-                );
-            }
-
             _updater.DownloadSiteLogo();
 
             // Set the locations of each item on the start menu
@@ -282,6 +291,17 @@ namespace ArcademiaGameLauncher.Windows
 
             // Show the Start Menu
             StartMenu.Visibility = Visibility.Visible;
+
+            var socketLogger = loggerFactory.CreateLogger<Socket>();
+
+            // Connect to the WebSocket Server
+            _socket = new Socket(
+                _config["ApiHost"]?.ToString() ?? "https://localhost:5001",
+                _config["ApiUser"]?.ToString() ?? "Research-Arcade-User",
+                _config["ApiPass"]?.ToString() ?? "Research-Arcade-Password",
+                this,
+                socketLogger
+            );
         }
 
         // Initialization
@@ -641,8 +661,12 @@ namespace ArcademiaGameLauncher.Windows
                 if (_currentlyRunningProcess == null || _currentlyRunningProcess.HasExited)
                 {
                     _currentlyRunningProcess = Process.Start(startInfo);
-
                     StyleStartButtonState(GameState.launching);
+
+                    _ = _socket.SafeReportStatus(
+                        "Playing",
+                        _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
+                    );
                 }
 
                 // Set focus to the currently running process
@@ -765,43 +789,6 @@ namespace ArcademiaGameLauncher.Windows
 
             // Initialize the updateTimer
             InitializeUpdateTimer();
-
-            Task.Run(() =>
-            {
-                //// Delete all the audio files
-                //DeleteAllAudioFiles();
-
-                //// Download the audio files
-                //DownloadAudioFiles();
-
-                // Connect to the WebSocket Server
-                string arcadeMachineName = "Arcade Machine (" + _config["ApiUser"] + ")";
-
-                // Disable if not in production
-                if (!production)
-                    return;
-
-                // Disable if WS is disabled
-                if (!(bool)_config["WS_Enabled"])
-                    return;
-
-                _ = new Socket(
-                    _config["WS_IP"].ToString(),
-                    _config["WS_Port"].ToString(),
-                    arcadeMachineName,
-                    this
-                );
-
-                //// Every (between 30 mins and an hour), play a random audio file
-                //Task.Run(async () =>
-                //{
-                //    while (true)
-                //    {
-                //        await Task.Delay(new Random(DateTime.Now.Millisecond).Next(30 * 60 * 1000, 60 * 60 * 1000));
-                //        PlayRandomPeriodicAudioFile();
-                //    }
-                //});
-            });
         }
 
         private void OnTimedEvent(Object source, System.Timers.ElapsedEventArgs e)
@@ -828,7 +815,7 @@ namespace ArcademiaGameLauncher.Windows
             for (int i = 0; i < _controllerStates.Count; i++)
                 _controllerStates[i].UpdateButtonStates();
 
-            // If exit is held, close the current process
+            // If exit is held logic
             if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
             {
                 int maxExitHeldFor = 0;
@@ -869,6 +856,9 @@ namespace ArcademiaGameLauncher.Windows
                         _currentlyRunningProcess.Kill();
                         _infoWindow?.HideWindow();
                         SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+
+                        _ = _socket.SafeReportStatus("Idle");
+                        _currentlyRunningProcess = null;
                     });
                 }
             }
@@ -914,6 +904,8 @@ namespace ArcademiaGameLauncher.Windows
                         ResetControllerStates();
                         _currentlyRunningProcess.Kill();
                         SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+
+                        _ = _socket.SafeReportStatus("Idle");
                         _currentlyRunningProcess = null;
                     }
 
@@ -1037,6 +1029,8 @@ namespace ArcademiaGameLauncher.Windows
                 SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
                 ResetControllerStates();
                 SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+
+                _ = _socket.SafeReportStatus("Idle");
                 _currentlyRunningProcess = null;
 
                 DebounceUpdateGameInfoDisplay();
@@ -1076,6 +1070,10 @@ namespace ArcademiaGameLauncher.Windows
 
         private void Updater_LogoDownloaded(object sender, EventArgs e)
         {
+            // Check if the logo file exists
+            if (!File.Exists(Path.Combine(_applicationPath, "Arcademia_Logo.png")))
+                return;
+
             try
             {
                 Application.Current?.Dispatcher?.Invoke(() =>
@@ -1249,6 +1247,8 @@ namespace ArcademiaGameLauncher.Windows
             if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
             {
                 _currentlyRunningProcess.Kill();
+
+                _ = _socket.SafeReportStatus("Idle");
                 _currentlyRunningProcess = null;
             }
 
@@ -1277,7 +1277,12 @@ namespace ArcademiaGameLauncher.Windows
         {
             // Close the currently running process
             if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
+            {
                 _currentlyRunningProcess.Kill();
+
+                _ = _socket.SafeReportStatus("Idle");
+                _currentlyRunningProcess = null;
+            }
 
             // Close the updateTimer
             _updateTimer?.Close();

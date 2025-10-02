@@ -125,6 +125,7 @@ namespace ArcademiaGameLauncher.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to download site icon.");
+                OnLogoDownloaded();
             }
         }
 
