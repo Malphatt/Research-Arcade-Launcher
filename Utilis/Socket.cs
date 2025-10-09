@@ -120,6 +120,13 @@ namespace ArcademiaGameLauncher.Utilis
                 await _mainWindow.CheckForGameDatabaseChanges();
             });
 
+            // PlaySFX(string fileUrl)
+            _hub.On<string>("PlaySFX", async (fileUrl) =>
+            {
+                _logger.LogInformation("[SignalR] Received PlaySFX: {FileUrl}", fileUrl);
+                await MainWindow.PlaySFX(fileUrl);
+            });
+
             _hub.On<RegisteredPayload>("Registered", payload =>
             {
                 _machineId = payload.MachineId;
@@ -154,7 +161,9 @@ namespace ArcademiaGameLauncher.Utilis
             _logger.LogInformation("[SignalR] Connection stopped");
         }
 
+#nullable enable
         public async Task SafeReportStatus(string status, string? ext = null)
+#nullable restore
         {
             _logger.LogInformation("[SignalR] Reporting status: {Status} {Ext}", status, ext ?? "");
 

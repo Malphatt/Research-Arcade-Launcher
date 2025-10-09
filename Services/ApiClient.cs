@@ -12,6 +12,8 @@ namespace ArcademiaGameLauncher.Services
 {
     public interface IApiClient
     {
+        HttpClient Http { get; }
+
         Task<Stream> GetSiteLogoAsync(CancellationToken cancellationToken);
         Task<string> GetLatestUpdaterVersionAsync(ILogger<UpdaterService> _logger);
         Task<Stream> GetUpdaterDownloadAsync(
@@ -34,6 +36,7 @@ namespace ArcademiaGameLauncher.Services
     public class ApiClient(HttpClient http) : IApiClient
     {
         private readonly HttpClient _http = http;
+        public HttpClient Http => _http;
 
         public async Task<Stream> GetSiteLogoAsync(CancellationToken cancellationToken)
         {

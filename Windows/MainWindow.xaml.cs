@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -223,10 +224,18 @@ namespace ArcademiaGameLauncher.Windows
                                 "ArcadeMachine",
                                 creds
                             );
+                        })
+                        .ConfigurePrimaryHttpMessageHandler(() =>
+                        {
+                            return new HttpClientHandler
+                            {
+                                AllowAutoRedirect = false,
+                            };
                         });
 
                         services.AddSingleton<string>(_applicationPath);
                         services.AddSingleton<IUpdaterService, UpdaterService>();
+                        services.AddSingleton<ISfxPlayer, SfxPlayer>();
                     }
                 )
                 .Build();
@@ -2498,6 +2507,10 @@ namespace ArcademiaGameLauncher.Windows
 
         // Audio File Methods
 
+        public static async Task PlaySFX(string fileUrl) =>
+            await _host.Services.GetRequiredService<ISfxPlayer>().PlayAsync(fileUrl);
+
+        // IGNORE
         private void DeleteAllAudioFiles()
         {
             // Check if the Audio folder exists
