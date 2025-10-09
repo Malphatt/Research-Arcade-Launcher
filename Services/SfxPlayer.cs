@@ -12,18 +12,13 @@ namespace ArcademiaGameLauncher.Services
     public interface ISfxPlayer
     {
         Task PlayAsync(string fileUrl, CancellationToken ct = default);
+        Task PlayRandomPeriodicAsync(CancellationToken ct = default);
     }
 
-    public sealed class SfxPlayer : ISfxPlayer
+    public sealed class SfxPlayer(IApiClient apiClient, ILogger<SfxPlayer> log) : ISfxPlayer
     {
-        private readonly HttpClient _http;
-        private readonly ILogger<SfxPlayer> _log;
-
-        public SfxPlayer(IApiClient apiClient, ILogger<SfxPlayer> log)
-        {
-            _http = apiClient.Http;
-            _log = log;
-        }
+        private readonly HttpClient _http = apiClient.Http;
+        private readonly ILogger<SfxPlayer> _log = log;
 
         public async Task PlayAsync(string fileUrl, CancellationToken ct = default)
         {
@@ -77,6 +72,9 @@ namespace ArcademiaGameLauncher.Services
                 _log.LogError(ex, "[Audio] Failed to play '{Url}'", fileUrl);
             }
         }
+
+        public Task PlayRandomPeriodicAsync(CancellationToken ct = default)
+        => PlayAsync("/api/Assets/RandomPeriodicSFX", ct);
 
         private static bool IsRedirect(HttpStatusCode code) =>
             code == HttpStatusCode.Moved ||

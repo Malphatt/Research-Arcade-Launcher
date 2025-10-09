@@ -102,11 +102,7 @@ namespace ArcademiaGameLauncher.Windows
         private readonly InfoWindow _infoWindow;
         private readonly EmojiParser _emojiParser;
 
-        private Socket _socket;
-
-        private JArray _audioFiles;
-        private string[] _audioFileNames = [];
-        private int[] _periodicAudioFiles;
+        private readonly Socket _socket;
 
         // MAIN WINDOW
 
@@ -789,6 +785,16 @@ namespace ArcademiaGameLauncher.Windows
                         });
                     }
                     catch (TaskCanceledException) { }
+                }
+            });
+
+            // Every (between 30 mins and an hour), play a random periodic audio file
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    await Task.Delay(new Random(DateTime.Now.Millisecond).Next(30 * 60 * 1000, 60 * 60 * 1000));
+                    await PlayRandomPeriodicSFX();
                 }
             });
 
@@ -2510,179 +2516,7 @@ namespace ArcademiaGameLauncher.Windows
         public static async Task PlaySFX(string fileUrl) =>
             await _host.Services.GetRequiredService<ISfxPlayer>().PlayAsync(fileUrl);
 
-        // IGNORE
-        private void DeleteAllAudioFiles()
-        {
-            // Check if the Audio folder exists
-            if (!Directory.Exists(Path.Combine(_applicationPath, "Audio")))
-                return;
-
-            // Delete all audio files
-            string[] audioFiles = Directory.GetFiles(Path.Combine(_applicationPath, "Audio"));
-
-            foreach (string audioFile in audioFiles)
-                File.Delete(audioFile);
-        }
-
-        public void DownloadAudioFiles()
-        {
-            //try
-            //{
-            //    // Get the audio files from the online DB
-            //    WebClient webClient = new WebClient();
-            //    JObject audioFilesJson = JObject.Parse(webClient.DownloadString(EncodeLink(_config["AudioFilesURL"].ToString())));
-
-            //    // Check if audioFiles is unchanged, if so, return
-            //    if (_audioFiles != null)
-            //    {
-            //        bool changed = false;
-
-            //        if (_audioFiles.Count != ((JArray)audioFilesJson["AudioFiles"]).Count)
-            //            changed = true;
-
-            //        else
-            //            for (int i = 0; i < _audioFiles.Count; i++)
-            //            {
-            //                if (_audioFiles[i]["URL"].ToString() != ((JArray)audioFilesJson["AudioFiles"])[i]["URL"].ToString())
-            //                {
-            //                    changed = true;
-            //                    break;
-
-            //                }
-
-            //                if (_audioFiles[i]["URL"].ToString() == "Spacer") continue;
-
-            //                if (_audioFiles[i]["FileName"].ToString() != ((JArray)audioFilesJson["AudioFiles"])[i]["FileName"].ToString())
-            //                {
-            //                    changed = true;
-            //                    break;
-            //                }
-            //            }
-
-            //        if (_periodicAudioFiles.Length != ((JArray)audioFilesJson["PeriodicAudio"]).Count)
-            //            changed = true;
-
-            //        else
-            //            for (int i = 0; i < _periodicAudioFiles.Length; i++)
-            //            {
-            //                if (_periodicAudioFiles[i] != int.Parse(((JArray)audioFilesJson["PeriodicAudio"])[i].ToString()))
-            //                {
-            //                    changed = true;
-            //                    break;
-            //                }
-            //            }
-
-            //        if (!changed) return;
-            //    }
-
-            //    Console.WriteLine("[Audio] Downloading audio files");
-
-            //    _audioFiles = (JArray)audioFilesJson["AudioFiles"];
-
-            //    JArray periodicAudioFilesArray = (JArray)audioFilesJson["PeriodicAudio"];
-
-            //    _periodicAudioFiles = new int[periodicAudioFilesArray.Count];
-
-            //    for (int i = 0; i < periodicAudioFilesArray.Count; i++)
-            //        _periodicAudioFiles[i] = int.Parse(periodicAudioFilesArray[i].ToString());
-
-            //    // Create the Audio folder if it doesn't exist
-            //    if (!Directory.Exists(Path.Combine(_applicationPath, "Audio")))
-            //        Directory.CreateDirectory(Path.Combine(_applicationPath, "Audio"));
-
-            //    _audioFileNames = new string[_audioFiles.Count];
-
-            //    for (int i = 0; i < _audioFiles.Count; i++)
-            //    {
-            //        if (((JObject)_audioFiles[i])["URL"].ToString() == "Spacer")
-            //        {
-            //            _audioFileNames[i] = "";
-            //            continue;
-            //        }
-
-            //        string downloadURL = EncodeLink(((JObject)_audioFiles[i])["URL"].ToString());
-            //        string fileName = ((JObject)_audioFiles[i])["FileName"].ToString();
-
-            //        // Try to download the audio file
-            //        try
-            //        {
-            //            webClient.DownloadFile(downloadURL, Path.Combine(_applicationPath, "Audio", fileName + ".wav"));
-
-            //            // If the download is successful, set the audio file name
-            //            _audioFileNames[i] = fileName;
-            //        }
-            //        catch (Exception)
-            //        {
-            //            // If the download fails, set the audio file name to an empty string
-            //            _audioFileNames[i] = "Failed To Load Audio";
-            //        }
-            //    }
-
-            //    // Delete all audio files that are not in the online DB
-            //    string[] localAudioFiles = Directory.GetFiles(Path.Combine(_applicationPath, "Audio"));
-
-            //    foreach (string localAudioFile in localAudioFiles)
-            //        if (Array.IndexOf(_audioFileNames, Path.GetFileNameWithoutExtension(localAudioFile)) == -1)
-            //            File.Delete(localAudioFile);
-
-            //    Console.WriteLine("[Audio] Finished downloading audio files");
-            //}
-            //catch (Exception)
-            //{
-            //    _audioFiles = new JArray();
-            //    _audioFileNames = new string[0];
-            //    _periodicAudioFiles = new int[0];
-            //}
-        }
-
-        public string[] GetAudioFileNames() => _audioFileNames;
-
-        public void PlayRandomPeriodicAudioFile()
-        {
-            //// Pick a random number between 0 and the length of the periodic audio files array
-            //int randomIndex = new Random(DateTime.Now.Millisecond).Next(0, _periodicAudioFiles.Length);
-
-            //// Play the periodic audio file at the random index
-            //PlayPeriodicAudioFile(randomIndex);
-        }
-
-        private void PlayPeriodicAudioFile(int _index)
-        {
-            //// If the index is out of bounds, return
-            //if (_index < 0 || _index >= _periodicAudioFiles.Length)
-            //    return;
-
-            //// If the periodic audio file at the index is out of bounds, return
-            //if (_periodicAudioFiles[_index] < 0 || _periodicAudioFiles[_index] >= _audioFileNames.Length)
-            //    return;
-
-            //// Play the periodic audio file at the index
-            //PlayAudioFile(_audioFileNames[_periodicAudioFiles[_index]]);
-        }
-
-        public void PlayAudioFile(string _audioFile) =>
-            Task.Run(() => PlayAudioFileAsync(_audioFile));
-
-        private async Task PlayAudioFileAsync(string _audioFile)
-        {
-            // Find the audio file
-            _audioFile = Path.Combine(_applicationPath, "Audio", _audioFile + ".wav");
-
-            // If the audio file does not exist, return
-            if (!File.Exists(_audioFile))
-                return;
-
-            // Play the audio file
-            using (var audioFile = new AudioFileReader(_audioFile))
-            using (var outputDevice = new WaveOutEvent())
-            {
-                outputDevice.Init(audioFile);
-                outputDevice.Play();
-
-                // Wait until the audio file has finished playing
-                while (outputDevice.PlaybackState == PlaybackState.Playing)
-                    await Task.Delay(1000);
-            }
-        }
+        public static async Task PlayRandomPeriodicSFX() =>
+            await _host.Services.GetRequiredService<ISfxPlayer>().PlayRandomPeriodicAsync();
     }
 }
