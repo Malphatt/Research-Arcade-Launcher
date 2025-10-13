@@ -48,35 +48,54 @@ namespace ArcademiaGameLauncher.Utilis
 
         private async Task ConnectAndStartHeartbeat()
         {
-            try
+            var ct = _heartbeatCts.Token;
+            int delayMs = 2000;
+
+            while (!ct.IsCancellationRequested)
             {
-                await _hub.StartAsync();
-                _logger.LogInformation("[SignalR] Connected");
-
-                await SafeInvokeAck("Client connected");
-                await SafeReportStatus("Idle");
-
-                _ = Task.Run(async () =>
+                try
                 {
-                    while (!_heartbeatCts.IsCancellationRequested)
-                    {
-                        try
-                        {
-                            await _hub.InvokeAsync("Heartbeat");
-                            _logger.LogDebug("[SignalR] Heartbeat sent");
-                        }
-                        catch (Exception)
-                        {
-                            _logger.LogError("[SignalR] Heartbeat failed: No active connection");
-                        }
+                    await _hub.StartAsync(ct);
+                    _logger.LogInformation("[SignalR] Connected");
 
-                        await Task.Delay(TimeSpan.FromSeconds(60), _heartbeatCts.Token);
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[SignalR] Initial connect failed");
+                    await SafeInvokeAck("Client connected");
+                    await SafeReportStatus("Idle");
+
+                    // Start a single heartbeat loop tied to the same token
+                    _ = Task.Run(async () =>
+                    {
+                        while (!ct.IsCancellationRequested)
+                        {
+                            try
+                            {
+                                if (_hub.State == HubConnectionState.Connected)
+                                {
+                                    await _hub.InvokeAsync("Heartbeat", cancellationToken: ct);
+                                    _logger.LogDebug("[SignalR] Heartbeat sent");
+                                }
+                                else
+                                {
+                                    _logger.LogDebug("[SignalR] Skipping heartbeat (state: {State})", _hub.State);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "[SignalR] Heartbeat failed");
+                            }
+
+                            try { await Task.Delay(TimeSpan.FromSeconds(60), ct); } catch {  }
+                        }
+                    }, ct);
+
+                    // once connected, exit the initial connect loop
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[SignalR] Initial connect failed – will retry in {DelayMs} ms", delayMs);
+                    try { await Task.Delay(delayMs, ct); } catch { }
+                    delayMs = Math.Min(delayMs * 2, 60_000);
+                }
             }
         }
 
@@ -85,8 +104,25 @@ namespace ArcademiaGameLauncher.Utilis
             _hub.Closed += async (ex) =>
             {
                 _logger.LogWarning("[SignalR] Disconnected: {Error}", ex?.Message);
-                await Task.Delay(2000);
-                try { await _hub.StartAsync(); } catch { }
+
+                var ct = _heartbeatCts.Token;
+                int delayMs = 2000;
+
+                while (!ct.IsCancellationRequested)
+                {
+                    try
+                    {
+                        await Task.Delay(delayMs, ct);
+                        await _hub.StartAsync(ct);
+                        _logger.LogInformation("[SignalR] Reconnected after close");
+                        break;
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.LogWarning(e, "[SignalR] Reconnect attempt failed – will retry in {DelayMs} ms", delayMs);
+                        delayMs = Math.Min(delayMs * 2, 60_000);
+                    }
+                }
             };
 
             _hub.Reconnected += (id) =>
