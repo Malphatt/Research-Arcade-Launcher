@@ -65,9 +65,9 @@ namespace ArcademiaGameLauncher.Utilis
                             await _hub.InvokeAsync("Heartbeat");
                             _logger.LogDebug("[SignalR] Heartbeat sent");
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
-                            _logger.LogError(ex, "[SignalR] Heartbeat failed");
+                            _logger.LogError("[SignalR] Heartbeat failed: No active connection");
                         }
 
                         await Task.Delay(TimeSpan.FromSeconds(60), _heartbeatCts.Token);
