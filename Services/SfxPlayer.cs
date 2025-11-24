@@ -1,11 +1,12 @@
-﻿using Microsoft.Extensions.Logging;
-using NAudio.Wave;
-using System;
+﻿using System;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using NAudio.Vorbis;
+using NAudio.Wave;
 
 namespace ArcademiaGameLauncher.Services
 {
@@ -20,29 +21,44 @@ namespace ArcademiaGameLauncher.Services
         private readonly HttpClient _http = apiClient.Http;
         private readonly ILogger<SfxPlayer> _log = log;
 
-        public async Task PlayAsync(string fileUrl, CancellationToken ct = default)
+        public Task PlayAsync(string fileUrl, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(fileUrl))
-                return;
+                return Task.CompletedTask;
 
+            _ = Task.Run(() => PlayOneShotAsync(fileUrl, ct), CancellationToken.None);
+
+            return Task.CompletedTask;
+        }
+
+        private async Task PlayOneShotAsync(string fileUrl, CancellationToken ct)
+        {
             try
             {
                 var requestUri = ToRelativeIfSameHost(_http.BaseAddress, fileUrl);
 
                 _log.LogDebug("[Audio] GET {Url}", requestUri);
 
-                using var resp = await _http.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+                using var resp = await _http
+                    .GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, ct)
+                    .ConfigureAwait(false);
 
                 // Handle unexpected redirect responses
                 if (IsRedirect(resp.StatusCode))
                 {
-                    _log.LogWarning("[Audio] Unexpected redirect ({Status}) for {Url}", resp.StatusCode, requestUri);
+                    _log.LogWarning(
+                        "[Audio] Unexpected redirect ({Status}) for {Url}",
+                        resp.StatusCode,
+                        requestUri
+                    );
                 }
 
                 resp.EnsureSuccessStatusCode();
 
                 // Buffer to a seekable stream for NAudio
-                await using var net = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                await using var net = await resp
+                    .Content.ReadAsStreamAsync(ct)
+                    .ConfigureAwait(false);
                 using var ms = new MemoryStream(capacity: 64 * 1024);
                 await net.CopyToAsync(ms, ct).ConfigureAwait(false);
                 ms.Position = 0;
@@ -73,14 +89,14 @@ namespace ArcademiaGameLauncher.Services
             }
         }
 
-        public Task PlayRandomPeriodicAsync(CancellationToken ct = default)
-        => PlayAsync("/api/Assets/RandomPeriodicSFX", ct);
+        public Task PlayRandomPeriodicAsync(CancellationToken ct = default) =>
+            PlayAsync("/api/Assets/RandomPeriodicSFX", ct);
 
         private static bool IsRedirect(HttpStatusCode code) =>
-            code == HttpStatusCode.Moved ||
-            code == HttpStatusCode.Redirect ||
-            code == HttpStatusCode.TemporaryRedirect ||
-            (int)code == 308;
+            code == HttpStatusCode.Moved
+            || code == HttpStatusCode.Redirect
+            || code == HttpStatusCode.TemporaryRedirect
+            || (int)code == 308;
 
         private static Uri ToRelativeIfSameHost(Uri baseAddress, string url)
         {
@@ -89,9 +105,11 @@ namespace ArcademiaGameLauncher.Services
 
             if (Uri.TryCreate(url, UriKind.Absolute, out var abs))
             {
-                if (abs.Host.Equals(baseAddress.Host, StringComparison.OrdinalIgnoreCase)
+                if (
+                    abs.Host.Equals(baseAddress.Host, StringComparison.OrdinalIgnoreCase)
                     && abs.Scheme.Equals(baseAddress.Scheme, StringComparison.OrdinalIgnoreCase)
-                    && abs.Port == baseAddress.Port)
+                    && abs.Port == baseAddress.Port
+                )
                 {
                     return new Uri(abs.PathAndQuery + abs.Fragment, UriKind.Relative);
                 }
@@ -104,19 +122,36 @@ namespace ArcademiaGameLauncher.Services
 
         private static WaveStream CreateReaderFor(string url, string contentType, Stream stream)
         {
-            if (url.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)
-                || contentType == "audio/wav" || contentType == "audio/x-wav")
-            {
+            if (
+                url.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)
+                || contentType == "audio/wav"
+                || contentType == "audio/x-wav"
+            )
                 return new WaveFileReader(stream);
-            }
 
-            if (url.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)
-                || contentType == "audio/mpeg")
-            {
+            if (
+                url.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)
+                || contentType == "audio/mpeg"
+            )
                 return new Mp3FileReader(stream);
-            }
 
-            throw new NotSupportedException($"Unsupported audio type for '{url}' ({contentType ?? "unknown"}).");
+            if (
+                url.EndsWith(".aiff", StringComparison.OrdinalIgnoreCase)
+                || contentType == "audio/aiff"
+                || contentType == "audio/x-aiff"
+            )
+                return new AiffFileReader(stream);
+
+            if (
+                url.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)
+                || contentType == "audio/ogg"
+                || contentType == "application/ogg"
+            )
+                return new VorbisWaveReader(stream);
+
+            throw new NotSupportedException(
+                $"Unsupported audio type for '{url}' ({contentType ?? "unknown"})."
+            );
         }
     }
 }

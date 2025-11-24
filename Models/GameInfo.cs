@@ -19,6 +19,6 @@ namespace ArcademiaGameLauncher.Models
         public string NameOfExecutable { get; set; } = null!;
         public string FolderName { get; set; } = null!;
 
-        public DateTime UploadedAt { get; set; }
+        public DateTime? UploadedAt { get; set; }
     }
 }

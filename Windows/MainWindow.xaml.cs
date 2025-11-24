@@ -1,14 +1,4 @@
-﻿using ArcademiaGameLauncher.Models;
-using ArcademiaGameLauncher.Services;
-using ArcademiaGameLauncher.Utilis;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using NAudio.Wave;
-using Newtonsoft.Json.Linq;
-using Serilog;
-using SharpDX.DirectInput;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -24,6 +14,15 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Xml;
+using ArcademiaGameLauncher.Models;
+using ArcademiaGameLauncher.Services;
+using ArcademiaGameLauncher.Utilis;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
+using Serilog;
+using SharpDX.DirectInput;
 using XamlAnimatedGif;
 using static ArcademiaGameLauncher.Utilis.ControllerState;
 
@@ -77,6 +76,8 @@ namespace ArcademiaGameLauncher.Windows
 
         private int _currentlySelectedGameIndex;
         private int _previousPageIndex = 0;
+        private const int _tilesPerPage = 15;
+        private const int _gridColumns = 3;
         private System.Timers.Timer _updateGameInfoDisplayDebounceTimer;
         private bool _showingDebouncedGame = false;
 
@@ -87,7 +88,9 @@ namespace ArcademiaGameLauncher.Windows
         private int _timeSinceLastButton = 0;
 
         private TextBlock[] _homeOptionsList;
-        private TextBlock[] _gameTitlesList;
+        private Grid[] _gameTilesList;
+        private Label[] _gameTitlesList;
+        private Image[] _gameImagesList;
 
         private DirectInput _directInput;
         private readonly List<ControllerState> _controllerStates = [];
@@ -122,7 +125,6 @@ namespace ArcademiaGameLauncher.Windows
             {
                 builder.AddSerilog();
             });
-
 
             // Setup closing event
             Closing += Window_Closing;
@@ -213,21 +215,19 @@ namespace ArcademiaGameLauncher.Windows
                             Encoding.UTF8.GetBytes($"{user}:{pass}")
                         );
 
-                        services.AddHttpClient<IApiClient, ApiClient>(client =>
-                        {
-                            client.BaseAddress = new(host);
-                            client.DefaultRequestHeaders.Authorization = new(
-                                "ArcadeMachine",
-                                creds
-                            );
-                        })
-                        .ConfigurePrimaryHttpMessageHandler(() =>
-                        {
-                            return new HttpClientHandler
+                        services
+                            .AddHttpClient<IApiClient, ApiClient>(client =>
                             {
-                                AllowAutoRedirect = false,
-                            };
-                        });
+                                client.BaseAddress = new(host);
+                                client.DefaultRequestHeaders.Authorization = new(
+                                    "ArcadeMachine",
+                                    creds
+                                );
+                            })
+                            .ConfigurePrimaryHttpMessageHandler(() =>
+                            {
+                                return new HttpClientHandler { AllowAutoRedirect = false };
+                            });
 
                         services.AddSingleton<string>(_applicationPath);
                         services.AddSingleton<IUpdaterService, UpdaterService>();
@@ -406,36 +406,41 @@ namespace ArcademiaGameLauncher.Windows
                     Application.Current?.Dispatcher?.Invoke(() =>
                     {
                         for (
-                            int i = _previousPageIndex * 10;
-                            i < (_previousPageIndex + 1) * 10;
+                            int i = _previousPageIndex * _tilesPerPage;
+                            i < (_previousPageIndex + 1) * _tilesPerPage;
                             i++
                         )
                         {
                             if (i < _gameInfoList.Length)
                             {
-                                _gameTitlesList[i % 10].Text = _emojiParser.ReplaceColonNames(
-                                    _gameInfoList[i]["Name"].ToString()
-                                );
-                                _gameTitlesList[i % 10].Visibility = Visibility.Visible;
+                                _gameTitlesList[i % _tilesPerPage]
+                                    .FitTextToLabel(
+                                        desiredText: _emojiParser.ReplaceColonNames(
+                                            _gameInfoList[i]["Name"].ToString()
+                                        ),
+                                        targetFontSize: 24,
+                                        maxLines: 1,
+                                        minFontSize: 8,
+                                        precision: 0.1
+                                    );
+                                _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Visible;
                             }
                             else
-                                _gameTitlesList[i % 10].Visibility = Visibility.Hidden;
+                                _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
                         }
 
-                        for (
-                            int i = 0;
-                            i < _gameInfoList.Length;
-                            i++
-                        )
+                        for (int i = 0; i < _gameInfoList.Length; i++)
                         {
                             // If the game's exe exists set the title state to ready
-                            if (File.Exists(
-                                Path.Combine(
-                                    _gameDirectoryPath,
-                                    _gameInfoList[i]["FolderName"].ToString(),
-                                    _gameInfoList[i]["NameOfExecutable"].ToString()
+                            if (
+                                File.Exists(
+                                    Path.Combine(
+                                        _gameDirectoryPath,
+                                        _gameInfoList[i]["FolderName"].ToString(),
+                                        _gameInfoList[i]["NameOfExecutable"].ToString()
+                                    )
                                 )
-                            ))
+                            )
                                 SetGameTitleState(i, GameState.ready);
                             else
                                 SetGameTitleState(i, GameState.failed);
@@ -481,15 +486,19 @@ namespace ArcademiaGameLauncher.Windows
                 _gameTitleStates = new GameState[_gameInfoList.Length];
 
                 // Show the game titles as "Loading..." until each title is loaded
-                for (int i = _previousPageIndex * 10; i < (_previousPageIndex + 1) * 10; i++)
+                for (
+                    int i = _previousPageIndex * _tilesPerPage;
+                    i < (_previousPageIndex + 1) * _tilesPerPage;
+                    i++
+                )
                 {
                     if (i < _gameInfoList.Length)
                     {
-                        _gameTitlesList[i % 10].Text = "Loading...";
-                        _gameTitlesList[i % 10].Visibility = Visibility.Visible;
+                        _gameTitlesList[i % _tilesPerPage].Content = "Loading...";
+                        _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Visible;
                     }
                     else
-                        _gameTitlesList[i % 10].Visibility = Visibility.Hidden;
+                        _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
                 }
 
                 return false;
@@ -742,6 +751,24 @@ namespace ArcademiaGameLauncher.Windows
 
             // Initialize the TextBlock arrays
             _homeOptionsList = [GameLibraryText, InputMenuText, AboutText, ExitText];
+            _gameTilesList =
+            [
+                GameTile0,
+                GameTile1,
+                GameTile2,
+                GameTile3,
+                GameTile4,
+                GameTile5,
+                GameTile6,
+                GameTile7,
+                GameTile8,
+                GameTile9,
+                GameTile10,
+                GameTile11,
+                GameTile12,
+                GameTile13,
+                GameTile14,
+            ];
             _gameTitlesList =
             [
                 GameTitleText0,
@@ -754,6 +781,29 @@ namespace ArcademiaGameLauncher.Windows
                 GameTitleText7,
                 GameTitleText8,
                 GameTitleText9,
+                GameTitleText10,
+                GameTitleText11,
+                GameTitleText12,
+                GameTitleText13,
+                GameTitleText14,
+            ];
+            _gameImagesList =
+            [
+                GameImage0,
+                GameImage1,
+                GameImage2,
+                GameImage3,
+                GameImage4,
+                GameImage5,
+                GameImage6,
+                GameImage7,
+                GameImage8,
+                GameImage9,
+                GameImage10,
+                GameImage11,
+                GameImage12,
+                GameImage13,
+                GameImage14,
             ];
 
             // Generate the Credits from the Credits.json file
@@ -793,7 +843,9 @@ namespace ArcademiaGameLauncher.Windows
             {
                 while (true)
                 {
-                    await Task.Delay(new Random(DateTime.Now.Millisecond).Next(30 * 60 * 1000, 60 * 60 * 1000));
+                    await Task.Delay(
+                        new Random(DateTime.Now.Millisecond).Next(30 * 60 * 1000, 60 * 60 * 1000)
+                    );
                     await PlayRandomPeriodicSFX();
                 }
             });
@@ -1182,16 +1234,23 @@ namespace ArcademiaGameLauncher.Windows
             {
                 Application.Current?.Dispatcher?.Invoke(() =>
                 {
-                    for (int i = _previousPageIndex * 10; i < (_previousPageIndex + 1) * 10; i++)
+                    for (
+                        int i = _previousPageIndex * _tilesPerPage;
+                        i < (_previousPageIndex + 1) * _tilesPerPage;
+                        i++
+                    )
                     {
                         if (i < _gameInfoList.Length)
                         {
-                            if (_gameTitlesList[i % 10].Text != _gameInfoList[i]["Name"].ToString())
-                                _gameTitlesList[i % 10].Text = "Loading...";
-                            _gameTitlesList[i % 10].Visibility = Visibility.Visible;
+                            if (
+                                (_gameTitlesList[i % _tilesPerPage].Content as string)
+                                != _gameInfoList[i]["Name"].ToString()
+                            )
+                                _gameTitlesList[i % _tilesPerPage].Content = "Loading...";
+                            _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Visible;
                         }
                         else
-                            _gameTitlesList[i % 10].Visibility = Visibility.Hidden;
+                            _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
                     }
                 });
             }
@@ -1225,14 +1284,72 @@ namespace ArcademiaGameLauncher.Windows
             {
                 // Update the game title text block if it's visible
                 if (
-                    gameIndex >= _previousPageIndex * 10
-                    && gameIndex < (_previousPageIndex + 1) * 10
+                    gameIndex >= _previousPageIndex * _tilesPerPage
+                    && gameIndex < (_previousPageIndex + 1) * _tilesPerPage
                 )
                 {
-                    _gameTitlesList[gameIndex % 10].Text = _emojiParser.ReplaceColonNames(
-                        _gameInfoList[gameIndex]["Name"].ToString()
-                    );
-                    _gameTitlesList[gameIndex % 10].Visibility = Visibility.Visible;
+                    // Update the game title text block
+                    _gameTitlesList[gameIndex % _tilesPerPage]
+                        .FitTextToLabel(
+                            desiredText: _emojiParser.ReplaceColonNames(
+                                _gameInfoList[gameIndex]["Name"].ToString()
+                            ),
+                            targetFontSize: 24,
+                            maxLines: 1,
+                            minFontSize: 8,
+                            precision: 0.1
+                        );
+                    _gameTilesList[gameIndex % _tilesPerPage].Visibility = Visibility.Visible;
+
+                    // Update the game image
+                    if (
+                        _gameInfoList[gameIndex % _tilesPerPage]
+                            ["ThumbnailUrl"]
+                            .ToString()
+                            .StartsWith("http")
+                    )
+                    {
+                        AnimationBehavior.SetSourceUri(
+                            _gameImagesList[gameIndex % _tilesPerPage],
+                            new(
+                                _gameInfoList[gameIndex % _tilesPerPage]["ThumbnailUrl"].ToString(),
+                                UriKind.Absolute
+                            )
+                        );
+                    }
+                    else
+                    {
+                        if (
+                            File.Exists(
+                                Path.Combine(
+                                    _gameDirectoryPath,
+                                    _gameInfoList[gameIndex % _tilesPerPage]
+                                        ["FolderName"]
+                                        .ToString(),
+                                    _gameInfoList[gameIndex % _tilesPerPage]
+                                        ["ThumbnailUrl"]
+                                        .ToString()
+                                )
+                            )
+                        )
+                        {
+                            AnimationBehavior.SetSourceUri(
+                                _gameImagesList[gameIndex % _tilesPerPage],
+                                new(
+                                    Path.Combine(
+                                        _gameDirectoryPath,
+                                        _gameInfoList[gameIndex % _tilesPerPage]
+                                            ["FolderName"]
+                                            .ToString(),
+                                        _gameInfoList[gameIndex % _tilesPerPage]
+                                            ["ThumbnailUrl"]
+                                            .ToString()
+                                    ),
+                                    UriKind.Absolute
+                                )
+                            );
+                        }
+                    }
                 }
 
                 SetGameTitleState(gameIndex, GameState.ready);
@@ -1796,7 +1913,7 @@ namespace ArcademiaGameLauncher.Windows
                 {
                     int[] leftStickDirection = _controllerStates[i].GetLeftStickDirection();
 
-                    // If the left of right stick's direction is up
+                    // If the left or right stick's direction is Up
                     if (leftStickDirection[1] == -1)
                     {
                         // Reset the selection update counter and increment the selection update interval counter
@@ -1826,18 +1943,44 @@ namespace ArcademiaGameLauncher.Windows
                             && _gameInfoList != null
                         )
                         {
-                            _currentlySelectedGameIndex -= 1;
-                            if (_currentlySelectedGameIndex < -1)
-                                _currentlySelectedGameIndex = -1;
+                            int maxIndex = _gameInfoList.Length - 1;
+
+                            if (_currentlySelectedGameIndex <= -1)
+                                _currentlySelectedGameIndex = -1; // Stay on Back
                             else
                             {
-                                // Highlight the current Game Menu Option and debounce the game info display update
+                                int col = _currentlySelectedGameIndex % _gridColumns;
+                                int row = _currentlySelectedGameIndex / _gridColumns;
+
+                                // Move up one row
+                                row -= 1;
+
+                                // Going above top row selects Back
+                                if (row < 0)
+                                    _currentlySelectedGameIndex = -1;
+                                else
+                                {
+                                    int candidate = row * _gridColumns + col;
+
+                                    // If that slot doesn't exist (short final row), walk upward until valid
+                                    while (candidate > maxIndex && row >= 0)
+                                    {
+                                        row--;
+                                        candidate = row * _gridColumns + col;
+                                    }
+
+                                    if (row >= 0)
+                                        _currentlySelectedGameIndex = candidate;
+                                    else
+                                        _currentlySelectedGameIndex = -1;
+                                }
+
                                 HighlightCurrentGameMenuOption();
                                 DebounceUpdateGameInfoDisplay();
                             }
                         }
                     }
-                    // If the left of right stick's direction is down
+                    // If the left or right stick's direction is Down
                     else if (leftStickDirection[1] == 1)
                     {
                         // Reset the selection update counter and increment the selection update interval counter
@@ -1867,15 +2010,96 @@ namespace ArcademiaGameLauncher.Windows
                             && _gameInfoList != null
                         )
                         {
-                            _currentlySelectedGameIndex += 1;
-                            if (_currentlySelectedGameIndex > _gameInfoList.Length - 1)
-                                _currentlySelectedGameIndex = _gameInfoList.Length - 1;
+                            int maxIndex = _gameInfoList.Length - 1;
+
+                            // Down from Back goes to first tile
+                            if (_currentlySelectedGameIndex == -1 && maxIndex >= 0)
+                                    _currentlySelectedGameIndex = 0;
                             else
                             {
-                                // Highlight the current Game Menu Option and debounce the game info display update
-                                HighlightCurrentGameMenuOption();
-                                DebounceUpdateGameInfoDisplay();
+                                int cols = _gridColumns;
+
+                                int col = _currentlySelectedGameIndex % cols;
+                                int row = _currentlySelectedGameIndex / cols;
+
+                                int candidate = _currentlySelectedGameIndex + cols;
+
+                                if (candidate <= maxIndex)
+                                    _currentlySelectedGameIndex = candidate;
+                                else
+                                {
+                                    int lastRow = maxIndex / cols;
+
+                                    if (lastRow > row)
+                                    {
+                                        int lastRowCandidate = lastRow * cols + col;
+
+                                        // Clamp to last valid index if this column doesn't exist on last row
+                                        if (lastRowCandidate > maxIndex)
+                                            lastRowCandidate = maxIndex;
+
+                                        _currentlySelectedGameIndex = lastRowCandidate;
+                                    }
+                                }
                             }
+
+                            HighlightCurrentGameMenuOption();
+                            DebounceUpdateGameInfoDisplay();
+                        }
+                    }
+                    // If the left or right stick's direction is Left
+                    else if (leftStickDirection[0] == -1)
+                    {
+                        _selectionUpdateCounter = 0;
+                        if (_selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax && !updatedIntervalCounter)
+                        {
+                            _selectionUpdateIntervalCounter++;
+                            updatedIntervalCounter = true;
+                        }
+
+                        if (SelectionMenu.Visibility == Visibility.Visible && _gameInfoList != null)
+                        {
+                            int maxIndex = _gameInfoList.Length - 1;
+
+                            if (_currentlySelectedGameIndex > 0)
+                            {
+                                int col = _currentlySelectedGameIndex % _gridColumns;
+                                if (col > 0)
+                                    _currentlySelectedGameIndex -= 1;
+                            }
+
+                            HighlightCurrentGameMenuOption();
+                            DebounceUpdateGameInfoDisplay();
+                        }
+                    }
+                    // If the left or right stick's direction is Right
+                    else if (leftStickDirection[0] == 1)
+                    {
+                        _selectionUpdateCounter = 0;
+                        if (_selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax && !updatedIntervalCounter)
+                        {
+                            _selectionUpdateIntervalCounter++;
+                            updatedIntervalCounter = true;
+                        }
+
+                        if (SelectionMenu.Visibility == Visibility.Visible && _gameInfoList != null)
+                        {
+                            int maxIndex = _gameInfoList.Length - 1;
+
+                            if (_currentlySelectedGameIndex == -1 && maxIndex >= 0)
+                                _currentlySelectedGameIndex = 0;
+                            else
+                            {
+                                int col = _currentlySelectedGameIndex % _gridColumns;
+                                int candidate = _currentlySelectedGameIndex + 1;
+
+                                // Only move right if still in same row and valid
+                                if (col < _gridColumns - 1 && candidate <= maxIndex)
+                                    _currentlySelectedGameIndex = candidate;
+                            }
+
+                            HighlightCurrentGameMenuOption();
+                            DebounceUpdateGameInfoDisplay();
                         }
                     }
                     else
@@ -1987,27 +2211,21 @@ namespace ArcademiaGameLauncher.Windows
 
         private void HighlightCurrentGameMenuOption()
         {
-            // Reset the colour of all Game Menu Options and remove the "<" character if present
-            foreach (TextBlock title in _gameTitlesList)
-            {
+            // Reset the colour of all Game Menu Options
+            foreach (Label title in _gameTitlesList)
                 title.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-                if (title.Text.EndsWith(" <"))
-                    title.Text = title.Text.Substring(0, title.Text.Length - 2);
-            }
 
             // Check if the current page needs to be changed
-            int pageIndex = _currentlySelectedGameIndex / 10;
+            int pageIndex = _currentlySelectedGameIndex / _tilesPerPage;
             if (pageIndex != _previousPageIndex)
                 ChangePage(pageIndex);
 
             //If a game is selected
             if (_currentlySelectedGameIndex >= 0)
             {
-                // Highlight the currently selected Game Menu Option and add the "<" character
-                _gameTitlesList[_currentlySelectedGameIndex % 10].Foreground =
+                // Highlight the currently selected Game Menu Option
+                _gameTitlesList[_currentlySelectedGameIndex % _tilesPerPage].Foreground =
                     GetCurrentSelectionAnimationBrush();
-                if (!_gameTitlesList[_currentlySelectedGameIndex % 10].Text.EndsWith(" <"))
-                    _gameTitlesList[_currentlySelectedGameIndex % 10].Text += " <";
 
                 // Style the Back Button
                 BackFromGameLibraryButton.IsChecked = false;
@@ -2094,8 +2312,8 @@ namespace ArcademiaGameLauncher.Windows
             // Check if the page index is within the bounds of the game info files list
             if (_pageIndex < 0)
                 _pageIndex = 0;
-            else if (_pageIndex > _gameInfoList.Length / 10)
-                _pageIndex = _gameInfoList.Length / 10;
+            else if (_pageIndex > _gameInfoList.Length / _tilesPerPage)
+                _pageIndex = _gameInfoList.Length / _tilesPerPage;
 
             // Set the previous page index to the current page index
             _previousPageIndex = _pageIndex;
@@ -2103,23 +2321,34 @@ namespace ArcademiaGameLauncher.Windows
             ResetTitles();
 
             // For each title on the current page
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < _tilesPerPage; i++)
             {
                 // Break if the current index is out of bounds
-                if (i + _pageIndex * 10 >= _gameInfoList.Length)
+                if (i + _pageIndex * _tilesPerPage >= _gameInfoList.Length)
                     break;
 
-                if (_gameInfoList[i + _pageIndex * 10] == null)
+                if (_gameInfoList[i + _pageIndex * _tilesPerPage] == null)
                 {
                     // Set the text to "Loading..." and make it visible
-                    _gameTitlesList[i].Text = "Loading...";
-                    _gameTitlesList[i].Visibility = Visibility.Visible;
+                    _gameTitlesList[i].Content = "Loading...";
+                    _gameTilesList[i].Visibility = Visibility.Visible;
                 }
                 else
                 {
                     // Set the text to the game title and make it visible
-                    _gameTitlesList[i].Text = _gameInfoList[i + _pageIndex * 10]["Name"].ToString();
-                    _gameTitlesList[i].Visibility = Visibility.Visible;
+                    _gameTitlesList[i % _tilesPerPage]
+                        .FitTextToLabel(
+                            desiredText: _emojiParser.ReplaceColonNames(
+                                _gameInfoList[i]["Name"].ToString()
+                            ),
+                            targetFontSize: 24,
+                            maxLines: 1,
+                            minFontSize: 8,
+                            precision: 0.1
+                        );
+                    _gameTilesList[i].Visibility = Visibility.Visible;
+
+                    // Set the image thumbnail for the game title
                 }
             }
 
@@ -2129,7 +2358,7 @@ namespace ArcademiaGameLauncher.Windows
             else
                 ScrollArrow_Up.Visibility = Visibility.Collapsed;
 
-            if (_gameInfoList.Length > (_pageIndex + 1) * 10)
+            if (_gameInfoList.Length > (_pageIndex + 1) * _tilesPerPage)
                 ScrollArrow_Down.Visibility = Visibility.Visible;
             else
                 ScrollArrow_Down.Visibility = Visibility.Collapsed;
@@ -2376,8 +2605,8 @@ namespace ArcademiaGameLauncher.Windows
         private void ResetTitles()
         {
             // Reset the visibility of all titles
-            for (int i = 0; i < 10; i++)
-                _gameTitlesList[i].Visibility = Visibility.Hidden;
+            for (int i = 0; i < _tilesPerPage; i++)
+                _gameTilesList[i].Visibility = Visibility.Hidden;
         }
 
         private void ResetGameInfoDisplay()

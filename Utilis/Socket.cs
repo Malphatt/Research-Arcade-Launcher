@@ -1,11 +1,11 @@
-﻿using ArcademiaGameLauncher.Windows;
-using Microsoft.AspNetCore.SignalR.Client;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using ArcademiaGameLauncher.Windows;
+using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace ArcademiaGameLauncher.Utilis
 {
@@ -20,7 +20,13 @@ namespace ArcademiaGameLauncher.Utilis
         private int _siteId;
         private string _machineName = "Unknown";
 
-        public Socket(string baseUrl, string authUser, string authPass, MainWindow mainWindow, ILogger<Socket> logger)
+        public Socket(
+            string baseUrl,
+            string authUser,
+            string authPass,
+            MainWindow mainWindow,
+            ILogger<Socket> logger
+        )
         {
             _mainWindow = mainWindow;
             _logger = logger;
@@ -35,10 +41,13 @@ namespace ArcademiaGameLauncher.Utilis
                 {
                     o.PayloadSerializerOptions.PropertyNameCaseInsensitive = true;
                 })
-                .WithUrl(hubUrl, options =>
-                {
-                    options.Headers.Add("Authorization", $"ArcadeMachine {creds}");
-                })
+                .WithUrl(
+                    hubUrl,
+                    options =>
+                    {
+                        options.Headers.Add("Authorization", $"ArcadeMachine {creds}");
+                    }
+                )
                 .WithAutomaticReconnect()
                 .Build();
 
@@ -62,38 +71,56 @@ namespace ArcademiaGameLauncher.Utilis
                     await SafeReportStatus("Idle");
 
                     // Start a single heartbeat loop tied to the same token
-                    _ = Task.Run(async () =>
-                    {
-                        while (!ct.IsCancellationRequested)
+                    _ = Task.Run(
+                        async () =>
                         {
-                            try
+                            while (!ct.IsCancellationRequested)
                             {
-                                if (_hub.State == HubConnectionState.Connected)
+                                try
                                 {
-                                    await _hub.InvokeAsync("Heartbeat", cancellationToken: ct);
-                                    _logger.LogDebug("[SignalR] Heartbeat sent");
+                                    if (_hub.State == HubConnectionState.Connected)
+                                    {
+                                        await _hub.InvokeAsync("Heartbeat", cancellationToken: ct);
+                                        _logger.LogDebug("[SignalR] Heartbeat sent");
+                                    }
+                                    else
+                                    {
+                                        _logger.LogDebug(
+                                            "[SignalR] Skipping heartbeat (state: {State})",
+                                            _hub.State
+                                        );
+                                    }
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    _logger.LogDebug("[SignalR] Skipping heartbeat (state: {State})", _hub.State);
+                                    _logger.LogError(ex, "[SignalR] Heartbeat failed");
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "[SignalR] Heartbeat failed");
-                            }
 
-                            try { await Task.Delay(TimeSpan.FromSeconds(60), ct); } catch {  }
-                        }
-                    }, ct);
+                                try
+                                {
+                                    await Task.Delay(TimeSpan.FromSeconds(60), ct);
+                                }
+                                catch { }
+                            }
+                        },
+                        ct
+                    );
 
                     // once connected, exit the initial connect loop
                     break;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "[SignalR] Initial connect failed – will retry in {DelayMs} ms", delayMs);
-                    try { await Task.Delay(delayMs, ct); } catch { }
+                    _logger.LogError(
+                        ex,
+                        "[SignalR] Initial connect failed – will retry in {DelayMs} ms",
+                        delayMs
+                    );
+                    try
+                    {
+                        await Task.Delay(delayMs, ct);
+                    }
+                    catch { }
                     delayMs = Math.Min(delayMs * 2, 60_000);
                 }
             }
@@ -119,7 +146,11 @@ namespace ArcademiaGameLauncher.Utilis
                     }
                     catch (Exception e)
                     {
-                        _logger.LogWarning(e, "[SignalR] Reconnect attempt failed – will retry in {DelayMs} ms", delayMs);
+                        _logger.LogWarning(
+                            e,
+                            "[SignalR] Reconnect attempt failed – will retry in {DelayMs} ms",
+                            delayMs
+                        );
                         delayMs = Math.Min(delayMs * 2, 60_000);
                     }
                 }
@@ -138,42 +169,59 @@ namespace ArcademiaGameLauncher.Utilis
             };
 
             // Server To Client Events
-            _hub.On("UpdateUpdater", async () =>
-            {
-                _logger.LogInformation("[SignalR] Received UpdateUpdater");
-                await _mainWindow.CheckForUpdaterUpdates();
-            });
+            _hub.On(
+                "UpdateUpdater",
+                async () =>
+                {
+                    _logger.LogInformation("[SignalR] Received UpdateUpdater");
+                    await _mainWindow.CheckForUpdaterUpdates();
+                }
+            );
 
-            _hub.On("UpdateLauncher", () =>
-            {
-                _logger.LogInformation("[SignalR] Received UpdateLauncher");
-                MainWindow.RestartLauncher();
-            });
+            _hub.On(
+                "UpdateLauncher",
+                () =>
+                {
+                    _logger.LogInformation("[SignalR] Received UpdateLauncher");
+                    MainWindow.RestartLauncher();
+                }
+            );
 
-            _hub.On("UpdateGames", async () =>
-            {
-                _logger.LogInformation("[SignalR] Received UpdateGames");
-                await _mainWindow.CheckForGameDatabaseChanges();
-            });
+            _hub.On(
+                "UpdateGames",
+                async () =>
+                {
+                    _logger.LogInformation("[SignalR] Received UpdateGames");
+                    await _mainWindow.CheckForGameDatabaseChanges();
+                }
+            );
 
             // PlaySFX(string fileUrl)
-            _hub.On<string>("PlaySFX", async (fileUrl) =>
-            {
-                _logger.LogInformation("[SignalR] Received PlaySFX: {FileUrl}", fileUrl);
-                await MainWindow.PlaySFX(fileUrl);
-            });
+            _hub.On<string>(
+                "PlaySFX",
+                async (fileUrl) =>
+                {
+                    _logger.LogInformation("[SignalR] Received PlaySFX: {FileUrl}", fileUrl);
+                    await MainWindow.PlaySFX(fileUrl);
+                }
+            );
 
-            _hub.On<RegisteredPayload>("Registered", payload =>
-            {
-                _machineId = payload.MachineId;
-                _siteId = payload.SiteId;
-                _machineName = payload.MachineName ?? "Unknown";
+            _hub.On<RegisteredPayload>(
+                "Registered",
+                payload =>
+                {
+                    _machineId = payload.MachineId;
+                    _siteId = payload.SiteId;
+                    _machineName = payload.MachineName ?? "Unknown";
 
-                _logger.LogInformation(
-                    "[SignalR] Registered as '{MachineName}' (ID: {MachineId}, Site: {SiteId})",
-                    _machineName, _machineId, _siteId
-                );
-            });
+                    _logger.LogInformation(
+                        "[SignalR] Registered as '{MachineName}' (ID: {MachineId}, Site: {SiteId})",
+                        _machineName,
+                        _machineId,
+                        _siteId
+                    );
+                }
+            );
         }
 
         private async Task SafeInvokeAck(string message)
@@ -192,7 +240,11 @@ namespace ArcademiaGameLauncher.Utilis
         public async Task StopAsync()
         {
             _heartbeatCts.Cancel();
-            try { await _hub.StopAsync(); } catch { }
+            try
+            {
+                await _hub.StopAsync();
+            }
+            catch { }
             _hub.DisposeAsync().AsTask().Wait(1000);
             _logger.LogInformation("[SignalR] Connection stopped");
         }
@@ -203,8 +255,14 @@ namespace ArcademiaGameLauncher.Utilis
         {
             _logger.LogInformation("[SignalR] Reporting status: {Status} {Ext}", status, ext ?? "");
 
-            try { await _hub.InvokeAsync("ReportStatus", status, ext); }
-            catch (Exception ex) { _logger.LogError(ex, "[SignalR] ReportStatus failed"); }
+            try
+            {
+                await _hub.InvokeAsync("ReportStatus", status, ext);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SignalR] ReportStatus failed");
+            }
         }
     }
 

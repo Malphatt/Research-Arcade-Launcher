@@ -113,9 +113,18 @@ namespace ArcademiaGameLauncher.Services
             {
                 var logoPath = Path.Combine(_applicationPath, "Arcademia_Logo.png");
 
-                await using var logoStream = await _apiClient.GetSiteLogoAsync(CancellationToken.None);
+                await using var logoStream = await _apiClient.GetSiteLogoAsync(
+                    CancellationToken.None
+                );
 
-                await using (var fileStream = new FileStream(logoPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                await using (
+                    var fileStream = new FileStream(
+                        logoPath,
+                        FileMode.Create,
+                        FileAccess.Write,
+                        FileShare.None
+                    )
+                )
                     await logoStream.CopyToAsync(fileStream);
 
                 _logger.LogInformation("Site icon downloaded successfully.");
@@ -176,7 +185,7 @@ namespace ArcademiaGameLauncher.Services
             _logger.LogInformation("Checking for game updates...");
             try
             {
-                var games = await _apiClient.GetMachineGamesAsync(_logger);
+                var games = await _apiClient.GetMachineGamesAsync(_logger, cancellationToken);
 
                 // If no games are found, log a warning and return
                 if (games is null || !games.Any())
@@ -191,67 +200,76 @@ namespace ArcademiaGameLauncher.Services
                 // Update each game
                 foreach (var game in games)
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        OnStateChanged(GameState.checkingForUpdates, game.Name);
-                        _logger.LogInformation("Checking for updates for {GameName}...", game.Name);
-
-                        // If the local version matches the remote version, skip the update
-                        if (
-                            gameinfoList.Any(g =>
-                                g["Name"].ToString() == game.Name
-                                && g["VersionNumber"].ToString() == game.VersionNumber
-                            )
-                        )
+                    _ = Task.Run(
+                        async () =>
                         {
+                            OnStateChanged(GameState.checkingForUpdates, game.Name);
                             _logger.LogInformation(
-                                "{GameName} is already up to date (v{VersionNumber}). Skipping update.",
-                                game.Name,
-                                game.VersionNumber
+                                "Checking for updates for {GameName}...",
+                                game.Name
                             );
 
-                            OnGameUpdateCompleted(game.Name);
-
-                            return;
-                        }
-
-                        await DownloadGameAndExtractAsync(game, cancellationToken);
-
-                        try
-                        {
-                            bool updateResult = await _apiClient.UpdateRemoteGameVersionAsync(
-                                game.Id,
-                                game.VersionNumber,
-                                _logger
-                            );
-
-                            if (updateResult)
+                            // If the local version matches the remote version, skip the update
+                            if (
+                                gameinfoList.Any(g =>
+                                    g["Name"].ToString() == game.Name
+                                    && g["VersionNumber"].ToString() == game.VersionNumber
+                                )
+                            )
                             {
                                 _logger.LogInformation(
-                                    "Successfully updated {GameName} to version {VersionNumber}.",
+                                    "{GameName} is already up to date (v{VersionNumber}). Skipping update.",
                                     game.Name,
                                     game.VersionNumber
                                 );
+
+                                OnGameUpdateCompleted(game.Name);
+
+                                return;
+                            }
+
+                            await DownloadGameAndExtractAsync(game, cancellationToken);
+
+                            try
+                            {
+                                bool updateResult = await _apiClient.UpdateRemoteGameVersionAsync(
+                                    game.Id,
+                                    game.VersionNumber,
+                                    _logger
+                                );
+
+                                if (updateResult)
+                                {
+                                    _logger.LogInformation(
+                                        "Successfully updated {GameName} to version {VersionNumber}.",
+                                        game.Name,
+                                        game.VersionNumber
+                                    );
+                                    OnGameUpdateCompleted(game.Name);
+                                }
+                                else
+                                {
+                                    _logger.LogWarning(
+                                        "Failed to update {GameName} to version {VersionNumber}.",
+                                        game.Name,
+                                        game.VersionNumber
+                                    );
+                                    OnStateChanged(GameState.failed, game.Name);
+                                }
+                            }
+                            catch (Exception)
+                            {
                                 OnGameUpdateCompleted(game.Name);
                             }
-                            else
-                            {
-                                _logger.LogWarning(
-                                    "Failed to update {GameName} to version {VersionNumber}.",
-                                    game.Name,
-                                    game.VersionNumber
-                                );
-                                OnStateChanged(GameState.failed, game.Name);
-                            }
-                        }
-                        catch (Exception)
-                        {
-                            OnGameUpdateCompleted(game.Name);
-                        }
-                    }, cancellationToken);
+                        },
+                        cancellationToken
+                    );
                 }
             }
-            catch (Exception) { }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while checking for game updates.");
+            }
         }
 
         private async Task DownloadUpdaterAndExtractAsync(
@@ -259,10 +277,7 @@ namespace ArcademiaGameLauncher.Services
             CancellationToken cancellationToken
         )
         {
-            _logger.LogInformation(
-                "Downloading updater version: {VersionNumber}",
-                versionNumber
-            );
+            _logger.LogInformation("Downloading updater version: {VersionNumber}", versionNumber);
 
             // Delete the old updater files (except the Launcher folder and Config.json)
             foreach (string file in Directory.GetFiles(_updaterDir))
@@ -270,10 +285,20 @@ namespace ArcademiaGameLauncher.Services
                     File.Delete(file);
 
             // Download the updater zip file
-            await using var zipStream = await _apiClient.GetUpdaterDownloadAsync(versionNumber.ToString(), cancellationToken);
+            await using var zipStream = await _apiClient.GetUpdaterDownloadAsync(
+                versionNumber.ToString(),
+                cancellationToken
+            );
             var zipFilePath = Path.Combine(_updaterDir, $"{versionNumber}.zip");
 
-            await using (var fileStream = new FileStream(zipFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
+            await using (
+                var fileStream = new FileStream(
+                    zipFilePath,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None
+                )
+            )
                 await zipStream.CopyToAsync(fileStream, cancellationToken);
 
             _logger.LogInformation(
@@ -311,10 +336,21 @@ namespace ArcademiaGameLauncher.Services
                     File.Delete(file);
 
             // Download the game zip file
-            await using var zipStream = await _apiClient.GetGameDownloadAsync(game.Id, game.VersionNumber, cancellationToken);
+            await using var zipStream = await _apiClient.GetGameDownloadAsync(
+                game.Id,
+                game.VersionNumber,
+                cancellationToken
+            );
             var zipFilePath = Path.Combine(gameDir, $"{game.FolderName}.zip");
 
-            await using (var fileStream = new FileStream(zipFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
+            await using (
+                var fileStream = new FileStream(
+                    zipFilePath,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None
+                )
+            )
                 await zipStream.CopyToAsync(fileStream, cancellationToken);
 
             _logger.LogInformation("Game downloaded successfully: {GameName}", game.Name);

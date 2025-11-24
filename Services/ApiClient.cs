@@ -1,12 +1,15 @@
-﻿using ArcademiaGameLauncher.Models;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using ArcademiaGameLauncher.Models;
+using Microsoft.Extensions.Logging;
 
 namespace ArcademiaGameLauncher.Services
 {
@@ -24,8 +27,15 @@ namespace ArcademiaGameLauncher.Services
             string newVersion,
             ILogger<UpdaterService> _logger
         );
-        Task<IEnumerable<GameInfo>> GetMachineGamesAsync(ILogger<UpdaterService> _logger);
-        Task<Stream> GetGameDownloadAsync(int gameId, string versionNumber, CancellationToken cancellationToken);
+        Task<IEnumerable<GameInfo>> GetMachineGamesAsync(
+            ILogger<UpdaterService> _logger,
+            CancellationToken cancellationToken
+        );
+        Task<Stream> GetGameDownloadAsync(
+            int gameId,
+            string versionNumber,
+            CancellationToken cancellationToken
+        );
         Task<bool> UpdateRemoteGameVersionAsync(
             int gameId,
             string newVersion,
@@ -44,7 +54,9 @@ namespace ArcademiaGameLauncher.Services
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync(cancellationToken);
-                throw new Exception($"Failed to download site logo: {response.StatusCode} - {error}");
+                throw new Exception(
+                    $"Failed to download site logo: {response.StatusCode} - {error}"
+                );
             }
             return await response.Content.ReadAsStreamAsync(cancellationToken);
         }
@@ -101,10 +113,7 @@ namespace ArcademiaGameLauncher.Services
                 System.Text.Encoding.UTF8,
                 "application/json"
             );
-            var response = await _http.PutAsync(
-                "/api/UpdaterVersions/UpdateVersion",
-                content
-            );
+            var response = await _http.PutAsync("/api/UpdaterVersions/UpdateVersion", content);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -124,14 +133,25 @@ namespace ArcademiaGameLauncher.Services
         }
 
         public async Task<IEnumerable<GameInfo>> GetMachineGamesAsync(
-            ILogger<UpdaterService> _logger
+            ILogger<UpdaterService> _logger,
+            CancellationToken cancellationToken
         )
         {
-            var response = await _http.GetAsync($"/api/GameAssignments/Machine");
+            _logger.LogInformation(
+                "Fetching games assigned to this machine from the API... " + "Auth header: {Auth}",
+                _http.DefaultRequestHeaders.Authorization?.ToString() ?? "<null>"
+            );
+
+            var response = await _http.GetAsync($"/api/GameAssignments/Machine", cancellationToken);
+
+            _logger.LogInformation(
+                "Received response with status code: {StatusCode}",
+                response.StatusCode
+            );
 
             if (!response.IsSuccessStatusCode)
             {
-                var errorMessage = await response.Content.ReadAsStringAsync();
+                var errorMessage = await response.Content.ReadAsStringAsync(cancellationToken);
 
                 if (
                     response.StatusCode == System.Net.HttpStatusCode.BadRequest
@@ -140,6 +160,8 @@ namespace ArcademiaGameLauncher.Services
                     _logger.LogWarning("Warning: {message}", errorMessage);
                 else
                     _logger.LogError("Unexpected error: {StatusCode}", response.StatusCode);
+
+                _logger.LogInformation("No games retrieved from the API.");
 
                 return [];
             }
@@ -153,10 +175,20 @@ namespace ArcademiaGameLauncher.Services
                 stream,
                 options
             );
+
+            // Log the retrieved games
+            _logger.LogInformation("Retrieved {Count} games from the API.", games.Count());
+
+            _logger.LogInformation("Games: {Games}", string.Join(", ", games.Select(g => g.Name)));
+
             return games ?? [];
         }
 
-        public async Task<Stream> GetGameDownloadAsync(int gameId, string versionNumber, CancellationToken cancellationToken)
+        public async Task<Stream> GetGameDownloadAsync(
+            int gameId,
+            string versionNumber,
+            CancellationToken cancellationToken
+        )
         {
             var response = await _http.GetAsync(
                 $"/api/GameAssignments/{gameId}/Download?versionNumber={versionNumber}",
