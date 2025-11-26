@@ -1,17 +1,53 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
-using System.Linq;
-using System.Threading.Tasks;
+using System.IO;
 using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Serilog;
+using Serilog.Events;
 
 namespace ArcademiaGameLauncher
 {
-    /// <summary>
-    /// Interaction logic for App.xaml
-    /// </summary>
     public partial class App : Application
     {
+        private IHost _host = null!;
+
+        protected override void OnStartup(StartupEventArgs e)
+        {
+            base.OnStartup(e);
+
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Information()
+                //.MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                .WriteTo.Console()
+                .WriteTo.File(
+                    "Logs/ArcadeClient-.log",
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 10,
+                    shared: true)
+                .CreateLogger();
+
+            _host = Host.CreateDefaultBuilder()
+                .UseSerilog()
+                .ConfigureServices(services =>
+                {
+                    services.AddLogging();
+                    services.AddSingleton<Windows.MainWindow>();
+                })
+                .Build();
+
+            _host.Start();
+
+            var mainWindow = _host.Services.GetRequiredService<Windows.MainWindow>();
+            MainWindow = mainWindow;
+            mainWindow.Show();
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            _host?.Dispose();
+            Log.CloseAndFlush();
+            base.OnExit(e);
+        }
     }
 }
