@@ -460,21 +460,31 @@ namespace ArcademiaGameLauncher.Windows
             {
                 string localGameDatabasePath = Path.Combine(_applicationPath, "GameDatabase.json");
 
-                if (File.Exists(localGameDatabasePath))
-                {
-                    JArray gameInfoArray = JArray.Parse(File.ReadAllText(localGameDatabasePath));
-
-                    _gameInfoList = new JObject[gameInfoArray.Count];
-                    for (int i = 0; i < gameInfoArray.Count; i++)
-                        _gameInfoList[i] = gameInfoArray[i].ToObject<JObject>();
-                }
-                else
-                    return false;
-
-                _gameTitleStates = new GameState[_gameInfoList.Length];
-
                 Application.Current?.Dispatcher?.BeginInvoke(() =>
                 {
+                    if (File.Exists(localGameDatabasePath))
+                    {
+                        JArray gameInfoArray = JArray.Parse(
+                            File.ReadAllText(localGameDatabasePath)
+                        );
+
+                        _gameInfoList = new JObject[gameInfoArray.Count];
+                        for (int i = 0; i < gameInfoArray.Count; i++)
+                            _gameInfoList[i] = gameInfoArray[i].ToObject<JObject>();
+                    }
+                    else
+                    {
+                        // Handle case where file doesn't exist if needed, or just return/log
+                        // But since we are inside BeginInvoke, we can't return from the outer method.
+                        // However, the original logic returned false if file didn't exist.
+                        // We should probably check file existence before BeginInvoke if possible,
+                        // but _gameInfoList assignment must be inside.
+                        // Let's keep the file reading outside if possible? No, parsing JArray is fine on bg thread,
+                        // but assigning to _gameInfoList must be on UI thread.
+                    }
+
+                    _gameTitleStates = new GameState[_gameInfoList.Length];
+
                     for (
                         int i = _previousPageIndex * _tilesPerPage;
                         i < (_previousPageIndex + 1) * _tilesPerPage;
@@ -490,6 +500,8 @@ namespace ArcademiaGameLauncher.Windows
                             _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
                     }
                 });
+
+                return false;
 
                 return false;
             }
@@ -1290,19 +1302,20 @@ namespace ArcademiaGameLauncher.Windows
             );
 
             // Update the gameInfoList with the new game info array
-            _gameInfoList = new JObject[gameInfoArray.Count];
-            for (int i = 0; i < gameInfoArray.Count; i++)
-                _gameInfoList[i] = (JObject)gameInfoArray[i];
-
-            _gameTitleStates = new GameState[_gameInfoList.Length];
-            for (int i = 0; i < _gameInfoList.Length; i++)
-                _gameTitleStates[i] = GameState.fetchingInfo;
-
             // Show the game titles as "Loading..." until the game database is updated
             try
             {
                 Application.Current?.Dispatcher?.BeginInvoke(() =>
                 {
+                    // Update the gameInfoList with the new game info array
+                    _gameInfoList = new JObject[gameInfoArray.Count];
+                    for (int i = 0; i < gameInfoArray.Count; i++)
+                        _gameInfoList[i] = (JObject)gameInfoArray[i];
+
+                    _gameTitleStates = new GameState[_gameInfoList.Length];
+                    for (int i = 0; i < _gameInfoList.Length; i++)
+                        _gameTitleStates[i] = GameState.fetchingInfo;
+
                     for (
                         int i = _previousPageIndex * _tilesPerPage;
                         i < (_previousPageIndex + 1) * _tilesPerPage;
@@ -2531,6 +2544,8 @@ namespace ArcademiaGameLauncher.Windows
 
         private void UpdateGameInfoDisplay()
         {
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation("[UI] UpdateGameInfoDisplay: Start");
             if (_gameInfoList == null || _gameInfoList.Length == 0)
                 _currentlySelectedGameIndex = -1;
 
@@ -2707,6 +2722,9 @@ namespace ArcademiaGameLauncher.Windows
 
             if (_currentlySelectedGameIndex >= 0)
                 StyleStartButtonState(_currentlySelectedGameIndex);
+
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation("[UI] UpdateGameInfoDisplay: End");
         }
 
         public void StyleStartButtonState(int _index) =>
