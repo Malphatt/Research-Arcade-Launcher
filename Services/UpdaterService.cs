@@ -160,13 +160,14 @@ namespace ArcademiaGameLauncher.Services
 
                     if (updateResult)
                     {
-                        _logger.LogInformation(
-                            "Successfully updated updater version to {VersionNumber}.",
-                            latestVersion
-                        );
+                        if (_logger.IsEnabled(LogLevel.Information))
+                            _logger.LogInformation(
+                                "Successfully updated updater version to {VersionNumber}.",
+                                latestVersion
+                            );
                         OnRelaunchUpdater();
                     }
-                    else
+                    else if (_logger.IsEnabled(LogLevel.Warning))
                         _logger.LogWarning(
                             "Failed to update updater version to {VersionNumber}.",
                             latestVersion
@@ -204,10 +205,11 @@ namespace ArcademiaGameLauncher.Services
                         async () =>
                         {
                             OnStateChanged(GameState.checkingForUpdates, game.Name);
-                            _logger.LogInformation(
-                                "Checking for updates for {GameName}...",
-                                game.Name
-                            );
+                            if (_logger.IsEnabled(LogLevel.Information))
+                                _logger.LogInformation(
+                                    "Checking for updates for {GameName}...",
+                                    game.Name
+                                );
 
                             // If the local version matches the remote version, skip the update
                             if (
@@ -217,11 +219,12 @@ namespace ArcademiaGameLauncher.Services
                                 )
                             )
                             {
-                                _logger.LogInformation(
-                                    "{GameName} is already up to date (v{VersionNumber}). Skipping update.",
-                                    game.Name,
-                                    game.VersionNumber
-                                );
+                                if (_logger.IsEnabled(LogLevel.Information))
+                                    _logger.LogInformation(
+                                        "{GameName} is already up to date (v{VersionNumber}). Skipping update.",
+                                        game.Name,
+                                        game.VersionNumber
+                                    );
 
                                 OnGameUpdateCompleted(game.Name);
 
@@ -240,20 +243,22 @@ namespace ArcademiaGameLauncher.Services
 
                                 if (updateResult)
                                 {
-                                    _logger.LogInformation(
-                                        "Successfully updated {GameName} to version {VersionNumber}.",
-                                        game.Name,
-                                        game.VersionNumber
-                                    );
+                                    if (_logger.IsEnabled(LogLevel.Information))
+                                        _logger.LogInformation(
+                                            "Successfully updated {GameName} to version {VersionNumber}.",
+                                            game.Name,
+                                            game.VersionNumber
+                                        );
                                     OnGameUpdateCompleted(game.Name);
                                 }
                                 else
                                 {
-                                    _logger.LogWarning(
-                                        "Failed to update {GameName} to version {VersionNumber}.",
-                                        game.Name,
-                                        game.VersionNumber
-                                    );
+                                    if (_logger.IsEnabled(LogLevel.Warning))
+                                        _logger.LogWarning(
+                                            "Failed to update {GameName} to version {VersionNumber}.",
+                                            game.Name,
+                                            game.VersionNumber
+                                        );
                                     OnStateChanged(GameState.failed, game.Name);
                                 }
                             }
@@ -277,7 +282,8 @@ namespace ArcademiaGameLauncher.Services
             CancellationToken cancellationToken
         )
         {
-            _logger.LogInformation("Downloading updater version: {VersionNumber}", versionNumber);
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation("Downloading updater version: {VersionNumber}", versionNumber);
 
             // Delete the old updater files (except the Launcher folder and Config.json)
             foreach (string file in Directory.GetFiles(_updaterDir))
@@ -301,14 +307,21 @@ namespace ArcademiaGameLauncher.Services
             )
                 await zipStream.CopyToAsync(fileStream, cancellationToken);
 
-            _logger.LogInformation(
-                "Updater downloaded successfully: {VersionNumber}",
-                versionNumber
-            );
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation(
+                    "Updater downloaded successfully: {VersionNumber}",
+                    versionNumber
+                );
 
             // Extract the zip file
+            if (_logger.IsEnabled(LogLevel.Warning))
+                _logger.LogWarning("STARTING BLOCKING ZIP EXTRACTION to {zipFilePath}", zipFilePath);
+
             FastZip fastZip = new();
             fastZip.ExtractZip(zipFilePath, _updaterDir, null);
+
+            if (_logger.IsEnabled(LogLevel.Warning))
+                _logger.LogWarning("FINISHED BLOCKING ZIP EXTRACTION to {zipFilePath}", zipFilePath);
 
             // Delete the zip file
             File.Delete(zipFilePath);
@@ -319,11 +332,12 @@ namespace ArcademiaGameLauncher.Services
             CancellationToken cancellationToken
         )
         {
-            _logger.LogInformation(
-                "Downloading {GameName} v{VersionNumber}...",
-                game.Name,
-                game.VersionNumber
-            );
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation(
+                    "Downloading {GameName} v{VersionNumber}...",
+                    game.Name,
+                    game.VersionNumber
+                );
             OnStateChanged(GameState.downloadingGame, game.Name);
 
             var gameDir = Path.Combine(_gamesDir, game.FolderName);
@@ -353,7 +367,8 @@ namespace ArcademiaGameLauncher.Services
             )
                 await zipStream.CopyToAsync(fileStream, cancellationToken);
 
-            _logger.LogInformation("Game downloaded successfully: {GameName}", game.Name);
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation("Game downloaded successfully: {GameName}", game.Name);
 
             // Extract the zip file
             FastZip fastZip = new();

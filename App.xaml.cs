@@ -17,7 +17,7 @@ namespace ArcademiaGameLauncher
             base.OnStartup(e);
 
             Log.Logger = new LoggerConfiguration()
-                .MinimumLevel.Information()
+                .MinimumLevel.Debug()
                 //.MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
                 .WriteTo.Console()
                 .WriteTo.File(

@@ -122,6 +122,8 @@ namespace ArcademiaGameLauncher.Services
 
         private static WaveStream CreateReaderFor(string url, string contentType, Stream stream)
         {
+            // Check if the fileURL is 
+
             if (
                 url.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)
                 || contentType == "audio/wav"
@@ -145,6 +147,7 @@ namespace ArcademiaGameLauncher.Services
             if (
                 url.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)
                 || contentType == "audio/ogg"
+                || contentType == "video/ogg"
                 || contentType == "application/ogg"
             )
                 return new VorbisWaveReader(stream);

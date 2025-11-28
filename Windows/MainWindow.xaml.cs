@@ -1,13 +1,4 @@
-﻿using ArcademiaGameLauncher.Models;
-using ArcademiaGameLauncher.Services;
-using ArcademiaGameLauncher.Utilis;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
-using Serilog;
-using SharpDX.DirectInput;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -24,6 +15,15 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Xml;
+using ArcademiaGameLauncher.Models;
+using ArcademiaGameLauncher.Services;
+using ArcademiaGameLauncher.Utilis;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
+using Serilog;
+using SharpDX.DirectInput;
 using XamlAnimatedGif;
 using static ArcademiaGameLauncher.Utilis.ControllerState;
 
@@ -50,7 +50,10 @@ namespace ArcademiaGameLauncher.Windows
         private JObject[] _gameInfoList;
 
         private DispatcherTimer _updateTimer;
-        private bool _isUpdating;
+        private bool _isTimerRunning = false;
+
+        private string _currentStep = "Idle";
+        private DateTime _lastSuccessfulTick = DateTime.Now;
 
         private int _selectionAnimationFrame = 0;
         private readonly int _selectionAnimationFrameRate = 100;
@@ -364,10 +367,7 @@ namespace ArcademiaGameLauncher.Windows
         private void InitializeUpdateTimer()
         {
             // Timer Setup
-            _updateTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(10)
-            };
+            _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(10) };
             _updateTimer.Tick += OnTimedEvent;
             _updateTimer.Start();
         }
@@ -473,21 +473,23 @@ namespace ArcademiaGameLauncher.Windows
 
                 _gameTitleStates = new GameState[_gameInfoList.Length];
 
-                // Show the game titles as "Loading..." until each title is loaded
-                for (
-                    int i = _previousPageIndex * _tilesPerPage;
-                    i < (_previousPageIndex + 1) * _tilesPerPage;
-                    i++
-                )
+                Application.Current?.Dispatcher?.BeginInvoke(() =>
                 {
-                    if (i < _gameInfoList.Length)
+                    for (
+                        int i = _previousPageIndex * _tilesPerPage;
+                        i < (_previousPageIndex + 1) * _tilesPerPage;
+                        i++
+                    )
                     {
-                        _gameTitlesList[i % _tilesPerPage].Content = "Loading...";
-                        _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Visible;
+                        if (i < _gameInfoList.Length)
+                        {
+                            _gameTitlesList[i % _tilesPerPage].Content = "Loading...";
+                            _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Visible;
+                        }
+                        else
+                            _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
                     }
-                    else
-                        _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
-                }
+                });
 
                 return false;
             }
@@ -729,8 +731,36 @@ namespace ArcademiaGameLauncher.Windows
                 _controllerStates[i].ReleaseButtons();
         }
 
+        private void StartWatchdog()
+        {
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    await Task.Delay(5000); // Check every 5 seconds
+
+                    var timeSinceLastTick = DateTime.Now - _lastSuccessfulTick;
+
+                    // If the UI hasn't finished a loop in 5 seconds, it's frozen
+                    if (timeSinceLastTick.TotalSeconds > 5)
+                    {
+                        _logger.LogError(
+                            "[WATCHDOG] UI THREAD APPEARS FROZEN! "
+                                + "Last Step: {Step}. Time since last tick: {Seconds}s. "
+                                + "Application has likely deadlocked.",
+                            _currentStep,
+                            timeSinceLastTick.TotalSeconds
+                        );
+                    }
+                }
+            });
+        }
+
         private void Window_ContentRendered(object sender, EventArgs e)
         {
+            // Start the Debug Watchdog
+            StartWatchdog();
+
             // Set the Copyright text
             Copyright.Text =
                 "Copyright ©️ 2018 - "
@@ -802,39 +832,74 @@ namespace ArcademiaGameLauncher.Windows
 
             LoadGameDatabase();
 
-            // Every 30 minutes, check for updates to the updater,
-            // and check for game database changes.
             Task.Run(async () =>
             {
-                if (production)
-                    await CheckForUpdaterUpdates();
-                await CheckForGameDatabaseChanges();
+                try
+                {
+                    if (production)
+                        await CheckForUpdaterUpdates();
+                    await CheckForGameDatabaseChanges();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[Updater Loop] Initial check failed");
+                }
 
                 while (true)
                 {
-                    await Task.Delay(30 * 60 * 1000);
+                    await Task.Delay(30 * 60 * 1000); // 30 Minutes
                     try
                     {
-                        Application.Current?.Dispatcher?.BeginInvoke(async () =>
-                        {
-                            if (production)
-                                await CheckForUpdaterUpdates();
-                            await CheckForGameDatabaseChanges();
-                        });
+                        _logger.LogInformation("[Updater Loop] Starting scheduled update check...");
+
+                        if (production)
+                            await CheckForUpdaterUpdates();
+
+                        await CheckForGameDatabaseChanges();
+
+                        _logger.LogInformation("[Updater Loop] Scheduled update check finished.");
                     }
                     catch (TaskCanceledException) { }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "[Updater Loop] Error during update check");
+                    }
                 }
             });
 
-            // Every (between 30 mins and an hour), play a random periodic audio file
             Task.Run(async () =>
             {
                 while (true)
                 {
-                    await Task.Delay(
-                        new Random(DateTime.Now.Millisecond).Next(30 * 60 * 1000, 60 * 60 * 1000)
+                    // Wait random time (30-60 mins)
+                    int delay = new Random(Guid.NewGuid().GetHashCode()).Next(
+                        30 * 60 * 1000,
+                        60 * 60 * 1000
                     );
-                    await PlayRandomPeriodicSFX();
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation(
+                            "[Audio Loop] Waiting {Minutes} minutes for next SFX.",
+                            delay / 1000 / 60
+                        );
+
+                    await Task.Delay(delay);
+
+                    try
+                    {
+                        _logger.LogInformation("[Audio Loop] Attempting to play Random SFX...");
+
+                        await Task.Run(async () =>
+                            {
+                                await PlayRandomPeriodicSFX();
+                            })
+                            .ConfigureAwait(false);
+
+                        _logger.LogInformation("[Audio Loop] Finished playing Random SFX.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "[Audio Loop] Failed to play periodic SFX");
+                    }
                 }
             });
 
@@ -848,31 +913,41 @@ namespace ArcademiaGameLauncher.Windows
 
         private void OnTimedEvent(object? sender, EventArgs e)
         {
+            if (_isTimerRunning)
+                return;
+            _isTimerRunning = true;
+
             try
             {
-                // If the application is undergoing maintenance, pause main loop
+                _lastSuccessfulTick = DateTime.Now;
+
+                _currentStep = "Maintenance Check";
                 if (MaintenanceScreen.Visibility == Visibility.Visible)
                     return;
 
-                // Check if the exit key sent from the updater is pressed
+                _currentStep = "Keyboard Check";
                 if (GetAsyncKeyState(69) != 0)
                 {
-                    // Trigger Window_Closing event
                     Window_Closing(null, null);
-
-                    // Close the application
                     try
                     {
                         Application.Current?.Shutdown();
                     }
-                    catch (TaskCanceledException) { }
+                    catch (TaskCanceledException tcx)
+                    {
+                        if (_logger.IsEnabled(LogLevel.Error))
+                            _logger.LogError(
+                                "[MainWindow] Error shutting down application: {errorMessage}",
+                                tcx.Message
+                            );
+                    }
                 }
 
-                // Update Controller Input
+                _currentStep = "Controller Updates";
                 for (int i = 0; i < _controllerStates.Count; i++)
                     _controllerStates[i].UpdateButtonStates();
 
-                // If exit is held logic
+                _currentStep = "Exit Logic";
                 if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
                 {
                     int maxExitHeldFor = 0;
@@ -880,7 +955,6 @@ namespace ArcademiaGameLauncher.Windows
                         if (_controllerStates[i].GetExitButtonHeldFor() > maxExitHeldFor)
                             maxExitHeldFor = _controllerStates[i].GetExitButtonHeldFor();
 
-                    // If the user has held the exit button for longer than 1 second, show the ForceExitMenu within the infoWindow
                     if (maxExitHeldFor >= 1000)
                     {
                         _infoWindow?.SetCloseGameName(
@@ -889,7 +963,6 @@ namespace ArcademiaGameLauncher.Windows
                         _infoWindow?.ShowWindow(InfoWindowType.ForceExit);
                         _infoWindow?.UpdateCountdown(3000 - maxExitHeldFor);
                     }
-                    // Hide the infoWindow and set the focus back if the user has released the exit button
                     else
                     {
                         if (
@@ -902,8 +975,6 @@ namespace ArcademiaGameLauncher.Windows
                         }
                     }
 
-                    // GAME EXIT
-                    // If the user has held the exit button for 3 seconds, close the currently running application
                     if (maxExitHeldFor >= 3000)
                     {
                         SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
@@ -918,7 +989,6 @@ namespace ArcademiaGameLauncher.Windows
                 }
                 else
                 {
-                    // Hide the infoWindow if the currently running process has exited
                     if (
                         _infoWindow.Visibility == Visibility.Visible
                         && _infoWindow.ForceExitMenu.Visibility == Visibility.Visible
@@ -926,7 +996,7 @@ namespace ArcademiaGameLauncher.Windows
                         _infoWindow?.HideWindow();
                 }
 
-                // If the user is AFK for the specified time (Default: 2 minutes), Warn them and then close the currently running application
+                _currentStep = "AFK Check";
                 if (_afkTimer >= _noInputTimeout)
                 {
                     _infoWindow?.ShowWindow(InfoWindowType.Idle);
@@ -939,31 +1009,22 @@ namespace ArcademiaGameLauncher.Windows
                     else
                         _infoWindow?.SetCloseGameName(null);
 
-                    // If the user is AFK for 5 seconds after the warning, close the currently running application and show the Start Menu
                     if (_afkTimer >= _noInputTimeout + 5000)
                     {
                         _infoWindow?.UpdateCountdown(0);
-
-                        // Reset the timer
                         _afkTimerActive = false;
                         _afkTimer = 0;
-
-                        // Hide the Window
                         _infoWindow?.HideWindow();
 
-                        // GAME EXIT
-                        // Close the currently running application
                         if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
                         {
                             ResetControllerStates();
                             _currentlyRunningProcess.Kill();
                             SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-
                             _ = _socket.SafeReportStatus("Idle");
                             _currentlyRunningProcess = null;
                         }
 
-                        // Show the Start Menu
                         try
                         {
                             StartMenu.Visibility = Visibility.Visible;
@@ -971,12 +1032,18 @@ namespace ArcademiaGameLauncher.Windows
                             SelectionMenu.Visibility = Visibility.Collapsed;
                             InputMenu.Visibility = Visibility.Collapsed;
                         }
-                        catch (TaskCanceledException) { }
+                        catch (TaskCanceledException tcx)
+                        {
+                            if (_logger.IsEnabled(LogLevel.Error))
+                                _logger.LogError(
+                                    "[MainWindow] Error showing Start Menu after AFK: {errorMessage}",
+                                    tcx.Message
+                                );
+                        }
                     }
                 }
                 else
                 {
-                    // Hide the Window
                     if (
                         _infoWindow.Visibility == Visibility.Visible
                         && _infoWindow.IdleMenu.Visibility == Visibility.Visible
@@ -984,14 +1051,12 @@ namespace ArcademiaGameLauncher.Windows
                     {
                         _infoWindow?.HideWindow();
                         _timeSinceLastButton = 0;
-
-                        // Set the focus to currently running process
                         if (_currentlyRunningProcess != null)
                             SetForegroundWindow(_currentlyRunningProcess.MainWindowHandle);
                     }
                 }
 
-                // Increment the selection animation frame
+                _currentStep = "UI Animations";
                 if (
                     (
                         HomeMenu.Visibility == Visibility.Visible
@@ -1005,37 +1070,53 @@ namespace ArcademiaGameLauncher.Windows
                     else
                         _selectionAnimationFrame = 0;
 
-                    // Highlight the current menu option
                     if (HomeMenu.Visibility == Visibility.Visible)
                     {
                         try
                         {
                             HighlightCurrentHomeMenuOption();
                         }
-                        catch (TaskCanceledException) { }
+                        catch (TaskCanceledException tcx)
+                        {
+                            _logger.LogError(
+                                "[MainWindow] Home Highlight Error: {Msg}",
+                                tcx.Message
+                            );
+                        }
                     }
-                    // Highlight the current game option
                     else if (SelectionMenu.Visibility == Visibility.Visible)
                     {
                         try
                         {
                             HighlightCurrentGameMenuOption();
                         }
-                        catch (TaskCanceledException) { }
+                        catch (TaskCanceledException tcx)
+                        {
+                            _logger.LogError(
+                                "[MainWindow] Game Highlight Error: {Msg}",
+                                tcx.Message
+                            );
+                        }
                     }
                 }
 
-                // Update the input menu feedback
+                _currentStep = "Input Menu Feedback";
                 if (InputMenu.Visibility == Visibility.Visible)
                 {
                     try
                     {
                         UpdateInputMenuFeedback();
                     }
-                    catch (TaskCanceledException) { }
+                    catch (TaskCanceledException tcx)
+                    {
+                        _logger.LogError(
+                            "[MainWindow] Input Menu Feedback Error: {Msg}",
+                            tcx.Message
+                        );
+                    }
                 }
 
-                // Update the Home/Selection Menu's current selection
+                _currentStep = "Update Current Selection";
                 if (
                     HomeMenu.Visibility == Visibility.Visible
                     || SelectionMenu.Visibility == Visibility.Visible
@@ -1045,34 +1126,37 @@ namespace ArcademiaGameLauncher.Windows
                     {
                         UpdateCurrentSelection();
                     }
-                    catch (TaskCanceledException) { }
+                    catch (TaskCanceledException tcx)
+                    {
+                        _logger.LogError("[MainWindow] Selection Update Error: {Msg}", tcx.Message);
+                    }
                 }
 
-                // Auto Scroll the Credits Panel
+                _currentStep = "Credits Scroll";
                 if (CreditsPanel.Visibility == Visibility.Visible)
                 {
                     try
                     {
                         AutoScrollCredits();
                     }
-                    catch (TaskCanceledException) { }
+                    catch (TaskCanceledException tcx)
+                    {
+                        _logger.LogError("[MainWindow] Credits Scroll Error: {Msg}", tcx.Message);
+                    }
                 }
 
-                // GAME EXIT
-                // Check if the currently running process has exited, and set the focus back to the launcher
+                _currentStep = "Process Exit Check";
                 if (_currentlyRunningProcess != null && _currentlyRunningProcess.HasExited)
                 {
                     SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
                     ResetControllerStates();
                     SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-
                     _ = _socket.SafeReportStatus("Idle");
                     _currentlyRunningProcess = null;
-
                     DebounceUpdateGameInfoDisplay();
                 }
 
-                // Flash the Start Button if the Start Menu is visible
+                _currentStep = "Flash Start Button";
                 if (StartMenu.Visibility == Visibility.Visible)
                 {
                     try
@@ -1083,31 +1167,40 @@ namespace ArcademiaGameLauncher.Windows
                                     ? Visibility.Hidden
                                     : Visibility.Visible;
                     }
-                    catch (TaskCanceledException) { }
+                    catch (TaskCanceledException tcx)
+                    {
+                        _logger.LogError("[MainWindow] Flash Start Error: {Msg}", tcx.Message);
+                    }
                 }
 
-                // Increment the afkTimer
+                _currentStep = "Counters";
                 if (_afkTimerActive)
                     _afkTimer += 10;
-
-                // Reset the selectionUpdateIntervalCounter if enough time has passed from releasing the analog stick
                 if (_selectionUpdateCounter > _selectionUpdateInterval)
                     _selectionUpdateIntervalCounter = 0;
 
-                // Increment selectionUpdateCounter and timeSinceLastButton
                 _selectionUpdateCounter += 10;
                 _timeSinceLastButton += 10;
 
-                // Increment the global counter
                 _globalCounter += 10;
+
+                if (_globalCounter >= int.MaxValue)
+                    _globalCounter = 0;
+
+                _currentStep = "Finished";
             }
             catch (Exception ex)
             {
                 if (_logger.IsEnabled(LogLevel.Error))
                     _logger.LogError(
-                        "Error in OnTimedEvent: {errorMessage}",
+                        "[MainWindow] Error in OnTimedEvent during step {Step}: {errorMessage}",
+                        _currentStep,
                         ex.Message
                     );
+            }
+            finally
+            {
+                _isTimerRunning = false;
             }
         }
 
@@ -1991,7 +2084,7 @@ namespace ArcademiaGameLauncher.Windows
 
                             // Down from Back goes to first tile
                             if (_currentlySelectedGameIndex == -1 && maxIndex >= 0)
-                                    _currentlySelectedGameIndex = 0;
+                                _currentlySelectedGameIndex = 0;
                             else
                             {
                                 int cols = _gridColumns;
@@ -2028,7 +2121,10 @@ namespace ArcademiaGameLauncher.Windows
                     else if (leftStickDirection[0] == -1)
                     {
                         _selectionUpdateCounter = 0;
-                        if (_selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax && !updatedIntervalCounter)
+                        if (
+                            _selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax
+                            && !updatedIntervalCounter
+                        )
                         {
                             _selectionUpdateIntervalCounter++;
                             updatedIntervalCounter = true;
@@ -2053,7 +2149,10 @@ namespace ArcademiaGameLauncher.Windows
                     else if (leftStickDirection[0] == 1)
                     {
                         _selectionUpdateCounter = 0;
-                        if (_selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax && !updatedIntervalCounter)
+                        if (
+                            _selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax
+                            && !updatedIntervalCounter
+                        )
                         {
                             _selectionUpdateIntervalCounter++;
                             updatedIntervalCounter = true;
@@ -2102,13 +2201,18 @@ namespace ArcademiaGameLauncher.Windows
                     {
                         if (_homeOptionsList == null)
                         {
-                            _logger.LogError("_homeOptionsList is null in Start/A handling");
+                            _logger.LogError(
+                                "[MainWindow] _homeOptionsList is null in Start/A handling"
+                            );
                         }
-                        else if (_currentlySelectedHomeIndex < 0 || _currentlySelectedHomeIndex >= _homeOptionsList.Length)
+                        else if (
+                            _currentlySelectedHomeIndex < 0
+                            || _currentlySelectedHomeIndex >= _homeOptionsList.Length
+                        )
                         {
                             if (_logger.IsEnabled(LogLevel.Error))
                                 _logger.LogError(
-                                    "HomeIndex out of range: {CurrentlySelectedHomeIndex}",
+                                    "[MainWindow] HomeIndex out of range: {CurrentlySelectedHomeIndex}",
                                     _currentlySelectedHomeIndex
                                 );
                         }
@@ -2188,13 +2292,18 @@ namespace ArcademiaGameLauncher.Windows
         {
             if (_homeOptionsList == null)
             {
-                _logger.LogError("HighlightCurrentHomeMenuOption: _homeOptionsList is null!");
+                _logger.LogError(
+                    "[MainWindow] HighlightCurrentHomeMenuOption: _homeOptionsList is null!"
+                );
                 return;
             }
-            if (_currentlySelectedHomeIndex < 0 || _currentlySelectedHomeIndex >= _homeOptionsList.Length)
+            if (
+                _currentlySelectedHomeIndex < 0
+                || _currentlySelectedHomeIndex >= _homeOptionsList.Length
+            )
             {
                 _logger.LogError(
-                    "HighlightCurrentHomeMenuOption: index out of range: {_currentlySelectedHomeIndex}",
+                    "[MainWindow] HighlightCurrentHomeMenuOption: index out of range: {_currentlySelectedHomeIndex}",
                     _currentlySelectedHomeIndex
                 );
                 return;
@@ -2365,7 +2474,9 @@ namespace ArcademiaGameLauncher.Windows
                         AnimationBehavior.SetSourceUri(
                             _gameImagesList[i % _tilesPerPage],
                             new(
-                                _gameInfoList[i + _pageIndex * _tilesPerPage]["ThumbnailUrl"].ToString(),
+                                _gameInfoList[i + _pageIndex * _tilesPerPage]
+                                    ["ThumbnailUrl"]
+                                    .ToString(),
                                 UriKind.Absolute
                             )
                         );
@@ -2658,6 +2769,14 @@ namespace ArcademiaGameLauncher.Windows
 
         private void ResetTiles()
         {
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri("/Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative);
+            bitmap.CacheOption = BitmapCacheOption.OnLoad; // Load into memory
+            bitmap.CreateOptions = BitmapCreateOptions.DelayCreation;
+            bitmap.EndInit();
+            bitmap.Freeze();
+
             for (int i = 0; i < _tilesPerPage; i++)
             {
                 // Reset the visibility of all titles
@@ -2665,9 +2784,7 @@ namespace ArcademiaGameLauncher.Windows
                 // Reset the text of all titles
                 _gameTitlesList[i].Content = "Loading...";
                 // Reset all the images
-                _gameImagesList[i].Source = new BitmapImage(
-                    new("/Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
-                );
+                _gameImagesList[i].Source = bitmap;
             }
         }
 
