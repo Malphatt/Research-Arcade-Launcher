@@ -466,50 +466,56 @@ namespace ArcademiaGameLauncher.Windows
             }
             catch (Exception)
             {
-                string localGameDatabasePath = Path.Combine(_applicationPath, "GameDatabase.json");
-
-                Application.Current?.Dispatcher?.BeginInvoke(() =>
+                try
                 {
-                    if (File.Exists(localGameDatabasePath))
-                    {
-                        JArray gameInfoArray = JArray.Parse(
-                            File.ReadAllText(localGameDatabasePath)
-                        );
+                    string localGameDatabasePath = Path.Combine(
+                        _applicationPath,
+                        "GameDatabase.json"
+                    );
 
-                        _gameInfoList = new JObject[gameInfoArray.Count];
-                        for (int i = 0; i < gameInfoArray.Count; i++)
-                            _gameInfoList[i] = gameInfoArray[i].ToObject<JObject>();
-                    }
-                    else
+                    Application.Current?.Dispatcher?.BeginInvoke(() =>
                     {
-                        _gameInfoList = [];
-                        _gameTitleStates = [];
-                    }
-
-                    for (
-                        int i = _previousPageIndex * _tilesPerPage;
-                        i < (_previousPageIndex + 1) * _tilesPerPage;
-                        i++
-                    )
-                    {
-                        if (i < _gameInfoList.Length)
+                        if (File.Exists(localGameDatabasePath))
                         {
-                            _gameTitlesList[i % _tilesPerPage].Content = "Loading...";
-                            _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Visible;
+                            JArray gameInfoArray = JArray.Parse(
+                                File.ReadAllText(localGameDatabasePath)
+                            );
+
+                            _gameInfoList = new JObject[gameInfoArray.Count];
+                            for (int i = 0; i < gameInfoArray.Count; i++)
+                                _gameInfoList[i] = gameInfoArray[i].ToObject<JObject>();
                         }
                         else
-                            _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
-                    }
-                });
+                        {
+                            _gameInfoList = [];
+                            _gameTitleStates = [];
+                        }
 
-                return true;
-            }
-            catch (Exception ex)
-            {
-                if (_logger.IsEnabled(LogLevel.Error))
-                    _logger.LogError(ex, "[Load Database] LoadGameDatabase: Exception");
+                        for (
+                            int i = _previousPageIndex * _tilesPerPage;
+                            i < (_previousPageIndex + 1) * _tilesPerPage;
+                            i++
+                        )
+                        {
+                            if (i < _gameInfoList.Length)
+                            {
+                                _gameTitlesList[i % _tilesPerPage].Content = "Loading...";
+                                _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Visible;
+                            }
+                            else
+                                _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
+                        }
+                    });
 
-                return false;
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    if (_logger.IsEnabled(LogLevel.Error))
+                        _logger.LogError(ex, "[Load Database] LoadGameDatabase: Exception");
+
+                    return false;
+                }
             }
         }
 
@@ -535,7 +541,11 @@ namespace ArcademiaGameLauncher.Windows
                         _logger.LogInformation("[Navigation] GameLibraryButton_Click: End");
                 });
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException tcx)
+            {
+                if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError(tcx, "[Navigation] GameLibraryButton_Click: Task Canceled");
+            }
 
             // Set the focus to the game launcher
             SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
@@ -562,7 +572,11 @@ namespace ArcademiaGameLauncher.Windows
                         _logger.LogInformation("[Navigation] InputMenuButton_Click: End");
                 });
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException tcx)
+            {
+                if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError(tcx, "[Navigation] InputMenuButton_Click: Task Canceled");
+            }
 
             // Set the focus to the game launcher
             SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
@@ -600,7 +614,11 @@ namespace ArcademiaGameLauncher.Windows
                         _logger.LogInformation("[Navigation] AboutButton_Click: End");
                 });
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException tcx)
+            {
+                if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError(tcx, "[Navigation] AboutButton_Click: Task Canceled");
+            }
         }
 
         private void ExitButton_Click(object sender, RoutedEventArgs e)
@@ -628,7 +646,11 @@ namespace ArcademiaGameLauncher.Windows
                         _logger.LogInformation("[Navigation] ExitButton_Click: End");
                 });
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException tcx)
+            {
+                if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError(tcx, "[Navigation] ExitButton_Click: Task Canceled");
+            }
 
             // Set the focus to the game launcher
             SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
@@ -663,7 +685,14 @@ namespace ArcademiaGameLauncher.Windows
                         _logger.LogInformation("[Navigation] BackFromGameLibraryButton_Click: End");
                 });
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException tcx)
+            {
+                if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError(
+                        tcx,
+                        "[Navigation] BackFromGameLibraryButton_Click: Task Canceled"
+                    );
+            }
 
             // Set the focus to the game launcher
             SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
@@ -760,7 +789,11 @@ namespace ArcademiaGameLauncher.Windows
                             _logger.LogInformation("[First Input] Key_Pressed: End");
                     });
                 }
-                catch (TaskCanceledException) { }
+                catch (TaskCanceledException tcx)
+                {
+                    if (_logger.IsEnabled(LogLevel.Error))
+                        _logger.LogError(tcx, "[First Input] Key_Pressed: Task Canceled");
+                }
 
                 // Set the focus to the game launcher
                 SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
@@ -903,7 +936,11 @@ namespace ArcademiaGameLauncher.Windows
 
                         _logger.LogInformation("[Updater Loop] Scheduled update check finished.");
                     }
-                    catch (TaskCanceledException) { }
+                    catch (TaskCanceledException tcx)
+                    {
+                        if (_logger.IsEnabled(LogLevel.Error))
+                            _logger.LogError(tcx, "[Updater Loop] Scheduled update check canceled");
+                    }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "[Updater Loop] Error during update check");
@@ -1270,7 +1307,11 @@ namespace ArcademiaGameLauncher.Windows
                         _logger.LogInformation("[Updater] Updater_LogoDownloaded: End");
                 });
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException tcx)
+            {
+                if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError(tcx, "[Updater] Updater_LogoDownloaded: Task Canceled");
+            }
         }
 
         private void Updater_GameStateChanged(object sender, GameStateChangedEventArgs e)
@@ -1377,7 +1418,11 @@ namespace ArcademiaGameLauncher.Windows
                         _logger.LogInformation("[Updater] Updater_GameDatabaseFetched: End");
                 });
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException tcx)
+            {
+                if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError(tcx, "[Updater] Updater_GameDatabaseFetched: Task Canceled");
+            }
 
             // Update the game info display if the currently selected game is in the new game database
             DebounceUpdateGameInfoDisplay();
@@ -1504,7 +1549,11 @@ namespace ArcademiaGameLauncher.Windows
                         _logger.LogInformation("[Updater] Updater_CloseGameAndUpdater: End");
                 });
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException tcx)
+            {
+                if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError(tcx, "[Updater] Updater_CloseGameAndUpdater: Task Canceled");
+            }
 
             // Close the currently running process
             if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
@@ -1540,7 +1589,11 @@ namespace ArcademiaGameLauncher.Windows
                         _logger.LogInformation("[Updater] Updater_RelaunchUpdater: End");
                 });
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException tcx)
+            {
+                if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError(tcx, "[Updater] Updater_RelaunchUpdater: Task Canceled");
+            }
         }
 
         private void Window_Closing(object sender, CancelEventArgs e)
@@ -2848,7 +2901,11 @@ namespace ArcademiaGameLauncher.Windows
                         _logger.LogInformation("[UI] StyleStartButtonState: End");
                 });
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException tcx)
+            {
+                if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError(tcx, "[UI] StyleStartButtonState: Task Canceled");
+            }
         }
 
         // Reset Methods
@@ -2995,7 +3052,14 @@ namespace ArcademiaGameLauncher.Windows
                             );
                     });
                 }
-                catch (TaskCanceledException) { }
+                catch (TaskCanceledException tcx)
+                {
+                    if (_logger.IsEnabled(LogLevel.Error))
+                        _logger.LogError(
+                            tcx,
+                            "[UI] DebounceUpdateGameInfoDisplay (Timer): Task Canceled"
+                        );
+                }
             };
 
             // Set the Timer to AutoReset and Enabled
