@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -301,7 +302,211 @@ namespace ArcademiaGameLauncher.Windows
                 socketLogger
             );
 
-            _logger.LogInformation("[MainWindow] initialized.");
+            Application.Current.Dispatcher.Hooks.OperationStarted += (s, e) =>
+            {
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    string opDetails = GetOperationDetails(e.Operation);
+                    _logger.LogDebug(
+                        "[Dispatcher] Operation Started: Priority={Priority}, Method={Method}",
+                        e.Operation.Priority,
+                        opDetails
+                    );
+                }
+            };
+
+            Application.Current.Dispatcher.Hooks.OperationCompleted += (s, e) =>
+            {
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    string opDetails = GetOperationDetails(e.Operation);
+                    _logger.LogDebug(
+                        "[Dispatcher] Operation Completed: Priority={Priority}, Method={Method}",
+                        e.Operation.Priority,
+                        opDetails
+                    );
+                }
+            };
+
+            // Start the Debug Watchdog
+            StartWatchdog();
+
+            // Set the Copyright text
+            Copyright.Text =
+                "Copyright ©️ 2018 - "
+                + DateTime.Now.Year
+                + "\nUniversity of Lincoln,\nAll rights reserved.";
+
+            // Initialize the TextBlock arrays
+            _homeOptionsList = [GameLibraryText, InputMenuText, AboutText, ExitText];
+            _gameTilesList =
+            [
+                GameTile0,
+                GameTile1,
+                GameTile2,
+                GameTile3,
+                GameTile4,
+                GameTile5,
+                GameTile6,
+                GameTile7,
+                GameTile8,
+                GameTile9,
+                GameTile10,
+                GameTile11,
+                GameTile12,
+                GameTile13,
+                GameTile14,
+            ];
+            _gameTitlesList =
+            [
+                GameTitleText0,
+                GameTitleText1,
+                GameTitleText2,
+                GameTitleText3,
+                GameTitleText4,
+                GameTitleText5,
+                GameTitleText6,
+                GameTitleText7,
+                GameTitleText8,
+                GameTitleText9,
+                GameTitleText10,
+                GameTitleText11,
+                GameTitleText12,
+                GameTitleText13,
+                GameTitleText14,
+            ];
+            _gameImagesList =
+            [
+                GameImage0,
+                GameImage1,
+                GameImage2,
+                GameImage3,
+                GameImage4,
+                GameImage5,
+                GameImage6,
+                GameImage7,
+                GameImage8,
+                GameImage9,
+                GameImage10,
+                GameImage11,
+                GameImage12,
+                GameImage13,
+                GameImage14,
+            ];
+
+            // Generate the Credits from the Credits.json file
+            GenerateCredits();
+
+            // Initialize the controller states
+            JoyStickInit();
+
+            LoadGameDatabase();
+
+            Task.Run(async () =>
+            {
+                try
+                {
+                    if (production)
+                        await CheckForUpdaterUpdates();
+                    await CheckForGameDatabaseChanges();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[Updater Loop] Initial check failed");
+                }
+
+                while (true)
+                {
+                    await Task.Delay(30 * 60 * 1000); // 30 Minutes
+                    try
+                    {
+                        _logger.LogInformation("[Updater Loop] Starting scheduled update check...");
+
+                        if (production)
+                            await CheckForUpdaterUpdates();
+
+                        await CheckForGameDatabaseChanges();
+
+                        _logger.LogInformation("[Updater Loop] Scheduled update check finished.");
+                    }
+                    catch (TaskCanceledException tcx)
+                    {
+                        if (_logger.IsEnabled(LogLevel.Error))
+                            _logger.LogError(tcx, "[Updater Loop] Scheduled update check canceled");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "[Updater Loop] Error during update check");
+                    }
+                }
+            });
+
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    // Wait random time (30-60 mins)
+                    int delay = new Random(Guid.NewGuid().GetHashCode()).Next(
+                        30 * 60 * 1000,
+                        60 * 60 * 1000
+                    );
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation(
+                            "[Audio Loop] Waiting {Minutes} minutes for next SFX.",
+                            delay / 1000 / 60
+                        );
+
+                    await Task.Delay(delay);
+
+                    try
+                    {
+                        _logger.LogInformation("[Audio Loop] Attempting to play Random SFX...");
+
+                        await Task.Run(async () =>
+                            {
+                                await PlayRandomPeriodicSFX();
+                            })
+                            .ConfigureAwait(false);
+
+                        _logger.LogInformation("[Audio Loop] Finished playing Random SFX.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "[Audio Loop] Failed to play periodic SFX");
+                    }
+                }
+            });
+
+            // Perform an initial update of the game info display
+            _currentlySelectedGameIndex = 0;
+            UpdateGameInfoDisplay();
+
+            // Initialize the updateTimer
+            InitializeUpdateTimer();
+
+            _logger.LogInformation("[MainWindow] Initialized.");
+        }
+
+        private string GetOperationDetails(DispatcherOperation op)
+        {
+            try
+            {
+                // Try to find a delegate field using reflection
+                var fields = typeof(DispatcherOperation).GetFields(
+                    BindingFlags.Instance | BindingFlags.NonPublic
+                );
+                foreach (var field in fields)
+                {
+                    if (typeof(Delegate).IsAssignableFrom(field.FieldType))
+                    {
+                        var del = field.GetValue(op) as Delegate;
+                        if (del != null)
+                            return $"{del.Method.DeclaringType?.Name}.{del.Method.Name}";
+                    }
+                }
+            }
+            catch { }
+            return "Unknown";
         }
 
         // Initialization
@@ -360,6 +565,7 @@ namespace ArcademiaGameLauncher.Windows
 
                 // Create a new ControllerState object for the joystick
                 ControllerState controllerState = new(joystick, _controllerStates.Count, this);
+                controllerState.StartPolling();
                 _controllerStates.Add(controllerState);
             }
         }
@@ -808,9 +1014,9 @@ namespace ArcademiaGameLauncher.Windows
                 _controllerStates[i].ReleaseButtons();
         }
 
-        private void StartWatchdog()
+        private async void StartWatchdog()
         {
-            Task.Run(async () =>
+            await Task.Run(async () =>
             {
                 while (true)
                 {
@@ -833,166 +1039,7 @@ namespace ArcademiaGameLauncher.Windows
             });
         }
 
-        private void Window_ContentRendered(object sender, EventArgs e)
-        {
-            // Start the Debug Watchdog
-            StartWatchdog();
-
-            // Set the Copyright text
-            Copyright.Text =
-                "Copyright ©️ 2018 - "
-                + DateTime.Now.Year
-                + "\nUniversity of Lincoln,\nAll rights reserved.";
-
-            // Initialize the TextBlock arrays
-            _homeOptionsList = [GameLibraryText, InputMenuText, AboutText, ExitText];
-            _gameTilesList =
-            [
-                GameTile0,
-                GameTile1,
-                GameTile2,
-                GameTile3,
-                GameTile4,
-                GameTile5,
-                GameTile6,
-                GameTile7,
-                GameTile8,
-                GameTile9,
-                GameTile10,
-                GameTile11,
-                GameTile12,
-                GameTile13,
-                GameTile14,
-            ];
-            _gameTitlesList =
-            [
-                GameTitleText0,
-                GameTitleText1,
-                GameTitleText2,
-                GameTitleText3,
-                GameTitleText4,
-                GameTitleText5,
-                GameTitleText6,
-                GameTitleText7,
-                GameTitleText8,
-                GameTitleText9,
-                GameTitleText10,
-                GameTitleText11,
-                GameTitleText12,
-                GameTitleText13,
-                GameTitleText14,
-            ];
-            _gameImagesList =
-            [
-                GameImage0,
-                GameImage1,
-                GameImage2,
-                GameImage3,
-                GameImage4,
-                GameImage5,
-                GameImage6,
-                GameImage7,
-                GameImage8,
-                GameImage9,
-                GameImage10,
-                GameImage11,
-                GameImage12,
-                GameImage13,
-                GameImage14,
-            ];
-
-            // Generate the Credits from the Credits.json file
-            GenerateCredits();
-
-            // Initialize the controller states
-            JoyStickInit();
-
-            LoadGameDatabase();
-
-            Task.Run(async () =>
-            {
-                try
-                {
-                    if (production)
-                        await CheckForUpdaterUpdates();
-                    await CheckForGameDatabaseChanges();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "[Updater Loop] Initial check failed");
-                }
-
-                while (true)
-                {
-                    await Task.Delay(30 * 60 * 1000); // 30 Minutes
-                    try
-                    {
-                        _logger.LogInformation("[Updater Loop] Starting scheduled update check...");
-
-                        if (production)
-                            await CheckForUpdaterUpdates();
-
-                        await CheckForGameDatabaseChanges();
-
-                        _logger.LogInformation("[Updater Loop] Scheduled update check finished.");
-                    }
-                    catch (TaskCanceledException tcx)
-                    {
-                        if (_logger.IsEnabled(LogLevel.Error))
-                            _logger.LogError(tcx, "[Updater Loop] Scheduled update check canceled");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "[Updater Loop] Error during update check");
-                    }
-                }
-            });
-
-            Task.Run(async () =>
-            {
-                while (true)
-                {
-                    // Wait random time (30-60 mins)
-                    int delay = new Random(Guid.NewGuid().GetHashCode()).Next(
-                        30 * 60 * 1000,
-                        60 * 60 * 1000
-                    );
-                    if (_logger.IsEnabled(LogLevel.Information))
-                        _logger.LogInformation(
-                            "[Audio Loop] Waiting {Minutes} minutes for next SFX.",
-                            delay / 1000 / 60
-                        );
-
-                    await Task.Delay(delay);
-
-                    try
-                    {
-                        _logger.LogInformation("[Audio Loop] Attempting to play Random SFX...");
-
-                        await Task.Run(async () =>
-                            {
-                                await PlayRandomPeriodicSFX();
-                            })
-                            .ConfigureAwait(false);
-
-                        _logger.LogInformation("[Audio Loop] Finished playing Random SFX.");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "[Audio Loop] Failed to play periodic SFX");
-                    }
-                }
-            });
-
-            // Perform an initial update of the game info display
-            _currentlySelectedGameIndex = 0;
-            UpdateGameInfoDisplay();
-
-            // Initialize the updateTimer
-            InitializeUpdateTimer();
-        }
-
-        private void OnTimedEvent(object? sender, EventArgs e)
+        private void OnTimedEvent(object sender, EventArgs e)
         {
             if (_isTimerRunning)
                 return;
@@ -1023,10 +1070,6 @@ namespace ArcademiaGameLauncher.Windows
                             );
                     }
                 }
-
-                _currentStep = "Controller Updates";
-                for (int i = 0; i < _controllerStates.Count; i++)
-                    _controllerStates[i].UpdateButtonStates();
 
                 _currentStep = "Exit Logic";
                 if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
@@ -1606,6 +1649,11 @@ namespace ArcademiaGameLauncher.Windows
                 _ = _socket.SafeReportStatus("Idle");
                 _currentlyRunningProcess = null;
             }
+
+            // Stop polling controllers
+            if (_controllerStates != null)
+                foreach (var controller in _controllerStates)
+                    controller.StopPolling();
 
             // Stop the updateTimer
             _updateTimer?.Stop();

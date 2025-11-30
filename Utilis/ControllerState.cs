@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using ArcademiaGameLauncher.Windows;
 using Newtonsoft.Json.Linq;
 using SharpDX.DirectInput;
@@ -29,7 +31,10 @@ namespace ArcademiaGameLauncher.Utilis
         private int leftStickX;
         private int leftStickY;
         private readonly int[] direction;
-        private int exitButtonHeldFor;
+        private volatile int exitButtonHeldFor;
+
+        private CancellationTokenSource _cts;
+        private Task _pollingTask;
 
         // Deadzone and Midpoint values for the joystick
         readonly int joystickDeadzone = 7700;
@@ -102,7 +107,36 @@ namespace ArcademiaGameLauncher.Utilis
             catch { }
         }
 
-        public void UpdateButtonStates()
+        public void StartPolling()
+        {
+            if (_pollingTask != null && !_pollingTask.IsCompleted)
+                return;
+
+            _cts = new CancellationTokenSource();
+            _pollingTask = Task.Run(
+                async () =>
+                {
+                    while (!_cts.Token.IsCancellationRequested)
+                    {
+                        UpdateButtonStates();
+                        await Task.Delay(10, _cts.Token).ConfigureAwait(false);
+                    }
+                },
+                _cts.Token
+            );
+        }
+
+        public void StopPolling()
+        {
+            _cts?.Cancel();
+            try
+            {
+                _pollingTask?.Wait(500);
+            }
+            catch { }
+        }
+
+        private void UpdateButtonStates()
         {
             try
             {
