@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -73,8 +74,7 @@ namespace ArcademiaGameLauncher.Utilis
             }
         }
 
-        private static FitKey _lastKey;
-        private static double _lastFittedSize;
+        private static readonly Dictionary<FitKey, double> _cache = [];
 
         public static void FitTextToLabel(
             this Label label,
@@ -82,7 +82,7 @@ namespace ArcademiaGameLauncher.Utilis
             double targetFontSize,
             int maxLines = 100,
             double minFontSize = 8.0,
-            double precision = 0.1
+            double precision = 0.5
         )
         {
             if (label == null || string.IsNullOrWhiteSpace(desiredText))
@@ -123,10 +123,10 @@ namespace ArcademiaGameLauncher.Utilis
                 precision
             );
 
-            if (_lastKey != null && _lastKey.Equals(key))
+            if (_cache.TryGetValue(key, out double cachedSize))
             {
                 label.Content = desiredText;
-                label.FontSize = Math.Max(_lastFittedSize, minFontSize);
+                label.FontSize = Math.Max(cachedSize, minFontSize);
                 return;
             }
 
@@ -211,8 +211,7 @@ namespace ArcademiaGameLauncher.Utilis
 
             bestSize = Math.Max(bestSize, minFontSize);
 
-            _lastKey = key;
-            _lastFittedSize = bestSize;
+            _cache[key] = bestSize;
 
             double dpi = VisualTreeHelper.GetDpi(label).PixelsPerDip;
 

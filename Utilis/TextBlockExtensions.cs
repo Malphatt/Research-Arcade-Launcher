@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -73,8 +74,7 @@ namespace ArcademiaGameLauncher.Utilis
             }
         }
 
-        private static FitKey _lastKey;
-        private static double _lastFittedSize;
+        private static readonly Dictionary<FitKey, double> _cache = [];
 
         /// <summary>
         /// Adjusts the FontSize of <paramref name="textBlock"/> so that
@@ -87,7 +87,7 @@ namespace ArcademiaGameLauncher.Utilis
             double targetFontSize,
             int maxLines = 100,
             double minFontSize = 8.0,
-            double precision = 0.1
+            double precision = 0.5
         )
         {
             if (textBlock == null || string.IsNullOrWhiteSpace(desiredText))
@@ -127,11 +127,11 @@ namespace ArcademiaGameLauncher.Utilis
                 precision
             );
 
-            if (_lastKey != null && _lastKey.Equals(key))
+            if (_cache.TryGetValue(key, out double cachedSize))
             {
                 textBlock.Text = desiredText;
                 textBlock.TextWrapping = TextWrapping.Wrap;
-                textBlock.FontSize = Math.Max(_lastFittedSize, minFontSize);
+                textBlock.FontSize = Math.Max(cachedSize, minFontSize);
                 return;
             }
 
@@ -212,8 +212,7 @@ namespace ArcademiaGameLauncher.Utilis
 
             bestSize = Math.Max(bestSize, minFontSize);
 
-            _lastKey = key;
-            _lastFittedSize = bestSize;
+            _cache[key] = bestSize;
 
             textBlock.Text = desiredText;
             textBlock.TextWrapping = TextWrapping.Wrap;

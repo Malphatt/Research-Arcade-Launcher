@@ -10,11 +10,17 @@ namespace ArcademiaGameLauncher.Utilis
     internal class ControllerState
     {
         // Import GetKeyState from user32.dll for checking the state of the numlock key
-        [DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true, CallingConvention = CallingConvention.Winapi)]
+        [DllImport(
+            "user32.dll",
+            CharSet = CharSet.Auto,
+            ExactSpelling = true,
+            CallingConvention = CallingConvention.Winapi
+        )]
         public static extern short GetKeyState(int keyCode);
 
         private Keybinds keybinds;
         private bool isKeymapping;
+        private static JObject _cachedPlayerControls;
 
         private readonly int index;
         private readonly bool[] buttonStates;
@@ -70,7 +76,13 @@ namespace ArcademiaGameLauncher.Utilis
             try
             {
                 JObject playerControls = JObject.Parse(
-                    File.ReadAllText(Path.Combine(mainWindow._applicationPath, "Configuration", "ButtonConfig.json"))
+                    File.ReadAllText(
+                        Path.Combine(
+                            mainWindow._applicationPath,
+                            "Configuration",
+                            "ButtonConfig.json"
+                        )
+                    )
                 );
                 keybinds = new Keybinds(playerControls, index);
             }
@@ -133,13 +145,15 @@ namespace ArcademiaGameLauncher.Utilis
             {
                 direction[0] = 1;
                 reqRight = true;
-                if (isKeymapping) mainWindow.Key_Pressed();
+                if (isKeymapping)
+                    mainWindow.Key_Pressed();
             }
             else if (leftStickX < joystickMidpoint - joystickDeadzone)
             {
                 direction[0] = -1;
                 reqLeft = true;
-                if (isKeymapping) mainWindow.Key_Pressed();
+                if (isKeymapping)
+                    mainWindow.Key_Pressed();
             }
             else
             {
@@ -167,13 +181,15 @@ namespace ArcademiaGameLauncher.Utilis
             {
                 direction[1] = 1;
                 reqDown = true;
-                if (isKeymapping) mainWindow.Key_Pressed();
+                if (isKeymapping)
+                    mainWindow.Key_Pressed();
             }
             else if (leftStickY < joystickMidpoint - joystickDeadzone)
             {
                 direction[1] = -1;
                 reqUp = true;
-                if (isKeymapping) mainWindow.Key_Pressed();
+                if (isKeymapping)
+                    mainWindow.Key_Pressed();
             }
             else
             {
@@ -218,35 +234,43 @@ namespace ArcademiaGameLauncher.Utilis
                 switch (_button)
                 {
                     case 0:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.Exit, _buttonState);
                         break;
                     case 1:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.Start, _buttonState);
                         break;
                     case 2:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.A, _buttonState);
                         break;
                     case 3:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.B, _buttonState);
                         break;
                     case 4:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.C, _buttonState);
                         break;
                     case 5:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.D, _buttonState);
                         break;
                     case 6:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.E, _buttonState);
                         break;
                     case 7:
-                        if (_buttonState) mainWindow.Key_Pressed();
+                        if (_buttonState)
+                            mainWindow.Key_Pressed();
                         SendKey(keybinds.F, _buttonState);
                         break;
                     default:
@@ -265,10 +289,26 @@ namespace ArcademiaGameLauncher.Utilis
                     SetButtonState(i, false);
 
             // Release Directionals
-            if (_lastSentLeft) { SendKey(keybinds.Left, false); _lastSentLeft = false; }
-            if (_lastSentRight) { SendKey(keybinds.Right, false); _lastSentRight = false; }
-            if (_lastSentUp) { SendKey(keybinds.Up, false); _lastSentUp = false; }
-            if (_lastSentDown) { SendKey(keybinds.Down, false); _lastSentDown = false; }
+            if (_lastSentLeft)
+            {
+                SendKey(keybinds.Left, false);
+                _lastSentLeft = false;
+            }
+            if (_lastSentRight)
+            {
+                SendKey(keybinds.Right, false);
+                _lastSentRight = false;
+            }
+            if (_lastSentUp)
+            {
+                SendKey(keybinds.Up, false);
+                _lastSentUp = false;
+            }
+            if (_lastSentDown)
+            {
+                SendKey(keybinds.Down, false);
+                _lastSentDown = false;
+            }
         }
 
         public int GetExitButtonHeldFor() => exitButtonHeldFor;
