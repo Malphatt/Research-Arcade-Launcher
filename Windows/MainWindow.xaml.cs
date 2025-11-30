@@ -393,6 +393,8 @@ namespace ArcademiaGameLauncher.Windows
                 {
                     Application.Current?.Dispatcher?.BeginInvoke(() =>
                     {
+                        if (_logger.IsEnabled(LogLevel.Information))
+                            _logger.LogInformation("[Load Database] LoadGameDatabase: Start");
                         for (
                             int i = _previousPageIndex * _tilesPerPage;
                             i < (_previousPageIndex + 1) * _tilesPerPage;
@@ -433,9 +435,15 @@ namespace ArcademiaGameLauncher.Windows
                             else
                                 SetGameTitleState(i, GameState.failed);
                         }
+                        if (_logger.IsEnabled(LogLevel.Information))
+                            _logger.LogInformation("[Load Database] LoadGameDatabase: End");
                     });
                 }
-                catch (TaskCanceledException) { }
+                catch (TaskCanceledException tcx)
+                {
+                    if (_logger.IsEnabled(LogLevel.Error))
+                        _logger.LogError(tcx, "[Load Database] LoadGameDatabase: Task Canceled");
+                }
             }
             else
             {
@@ -474,16 +482,9 @@ namespace ArcademiaGameLauncher.Windows
                     }
                     else
                     {
-                        // Handle case where file doesn't exist if needed, or just return/log
-                        // But since we are inside BeginInvoke, we can't return from the outer method.
-                        // However, the original logic returned false if file didn't exist.
-                        // We should probably check file existence before BeginInvoke if possible,
-                        // but _gameInfoList assignment must be inside.
-                        // Let's keep the file reading outside if possible? No, parsing JArray is fine on bg thread,
-                        // but assigning to _gameInfoList must be on UI thread.
+                        _gameInfoList = [];
+                        _gameTitleStates = [];
                     }
-
-                    _gameTitleStates = new GameState[_gameInfoList.Length];
 
                     for (
                         int i = _previousPageIndex * _tilesPerPage;
@@ -501,7 +502,12 @@ namespace ArcademiaGameLauncher.Windows
                     }
                 });
 
-                return false;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError(ex, "[Load Database] LoadGameDatabase: Exception");
 
                 return false;
             }
@@ -516,6 +522,8 @@ namespace ArcademiaGameLauncher.Windows
             {
                 Application.Current?.Dispatcher?.BeginInvoke(() =>
                 {
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Navigation] GameLibraryButton_Click: Start");
                     StartMenu.Visibility = Visibility.Collapsed;
                     HomeMenu.Visibility = Visibility.Collapsed;
                     SelectionMenu.Visibility = Visibility.Visible;
@@ -523,6 +531,8 @@ namespace ArcademiaGameLauncher.Windows
 
                     // Set the page to 0
                     ChangePage(0);
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Navigation] GameLibraryButton_Click: End");
                 });
             }
             catch (TaskCanceledException) { }
@@ -542,10 +552,14 @@ namespace ArcademiaGameLauncher.Windows
             {
                 Application.Current?.Dispatcher?.BeginInvoke(() =>
                 {
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Navigation] InputMenuButton_Click: Start");
                     StartMenu.Visibility = Visibility.Collapsed;
                     HomeMenu.Visibility = Visibility.Collapsed;
                     SelectionMenu.Visibility = Visibility.Collapsed;
                     InputMenu.Visibility = Visibility.Visible;
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Navigation] InputMenuButton_Click: End");
                 });
             }
             catch (TaskCanceledException) { }
@@ -561,6 +575,8 @@ namespace ArcademiaGameLauncher.Windows
             {
                 Application.Current?.Dispatcher?.BeginInvoke(() =>
                 {
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Navigation] AboutButton_Click: Start");
                     StartMenu.Visibility = Visibility.Collapsed;
                     HomeMenu.Visibility = Visibility.Visible;
                     SelectionMenu.Visibility = Visibility.Collapsed;
@@ -580,6 +596,8 @@ namespace ArcademiaGameLauncher.Windows
                     double logicalScreenHeight = double.Parse(logicalScreenHeight_str);
 
                     Canvas.SetTop(CreditsPanel, logicalScreenHeight);
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Navigation] AboutButton_Click: End");
                 });
             }
             catch (TaskCanceledException) { }
@@ -592,6 +610,8 @@ namespace ArcademiaGameLauncher.Windows
             {
                 Application.Current?.Dispatcher?.BeginInvoke(() =>
                 {
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Navigation] ExitButton_Click: Start");
                     StartMenu.Visibility = Visibility.Visible;
                     HomeMenu.Visibility = Visibility.Collapsed;
                     SelectionMenu.Visibility = Visibility.Collapsed;
@@ -604,6 +624,8 @@ namespace ArcademiaGameLauncher.Windows
                     UoL_Logo.Visibility = Visibility.Collapsed;
                     intlab_Logo.Visibility = Visibility.Collapsed;
                     CSS_Logo.Visibility = Visibility.Collapsed;
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Navigation] ExitButton_Click: End");
                 });
             }
             catch (TaskCanceledException) { }
@@ -629,10 +651,16 @@ namespace ArcademiaGameLauncher.Windows
             {
                 Application.Current?.Dispatcher?.BeginInvoke(() =>
                 {
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation(
+                            "[Navigation] BackFromGameLibraryButton_Click: Start"
+                        );
                     StartMenu.Visibility = Visibility.Collapsed;
                     HomeMenu.Visibility = Visibility.Visible;
                     SelectionMenu.Visibility = Visibility.Collapsed;
                     InputMenu.Visibility = Visibility.Collapsed;
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Navigation] BackFromGameLibraryButton_Click: End");
                 });
             }
             catch (TaskCanceledException) { }
@@ -719,6 +747,8 @@ namespace ArcademiaGameLauncher.Windows
                 {
                     Application.Current?.Dispatcher?.BeginInvoke(() =>
                     {
+                        if (_logger.IsEnabled(LogLevel.Information))
+                            _logger.LogInformation("[First Input] Key_Pressed: Start");
                         StartMenu.Visibility = Visibility.Collapsed;
                         HomeMenu.Visibility = Visibility.Visible;
                         SelectionMenu.Visibility = Visibility.Collapsed;
@@ -726,6 +756,8 @@ namespace ArcademiaGameLauncher.Windows
 
                         _currentlySelectedHomeIndex = 0;
                         HighlightCurrentHomeMenuOption();
+                        if (_logger.IsEnabled(LogLevel.Information))
+                            _logger.LogInformation("[First Input] Key_Pressed: End");
                     });
                 }
                 catch (TaskCanceledException) { }
@@ -1226,12 +1258,16 @@ namespace ArcademiaGameLauncher.Windows
             {
                 Application.Current?.Dispatcher?.BeginInvoke(() =>
                 {
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Updater] Updater_LogoDownloaded: Start");
                     StartMenu_ArcademiaLogo.Source = new BitmapImage(
                         new Uri(Path.Combine(_applicationPath, "Arcademia_Logo.png"))
                     );
                     HomeMenu_ArcademiaLogo.Source = new BitmapImage(
                         new Uri(Path.Combine(_applicationPath, "Arcademia_Logo.png"))
                     );
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Updater] Updater_LogoDownloaded: End");
                 });
             }
             catch (TaskCanceledException) { }
@@ -1307,6 +1343,8 @@ namespace ArcademiaGameLauncher.Windows
             {
                 Application.Current?.Dispatcher?.BeginInvoke(() =>
                 {
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Updater] Updater_GameDatabaseFetched: Start");
                     // Update the gameInfoList with the new game info array
                     _gameInfoList = new JObject[gameInfoArray.Count];
                     for (int i = 0; i < gameInfoArray.Count; i++)
@@ -1334,6 +1372,9 @@ namespace ArcademiaGameLauncher.Windows
                         else
                             _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
                     }
+
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Updater] Updater_GameDatabaseFetched: End");
                 });
             }
             catch (TaskCanceledException) { }
@@ -1364,6 +1405,8 @@ namespace ArcademiaGameLauncher.Windows
 
             Application.Current?.Dispatcher?.BeginInvoke(() =>
             {
+                if (_logger.IsEnabled(LogLevel.Information))
+                    _logger.LogInformation("[Updater] Updater_GameUpdateCompleted: Start");
                 // Update the game title text block if it's visible
                 if (
                     gameIndex >= _previousPageIndex * _tilesPerPage
@@ -1435,6 +1478,8 @@ namespace ArcademiaGameLauncher.Windows
                 }
 
                 SetGameTitleState(gameIndex, GameState.ready);
+                if (_logger.IsEnabled(LogLevel.Information))
+                    _logger.LogInformation("[Updater] Updater_GameUpdateCompleted: End");
             });
 
             if (_currentlySelectedGameIndex == gameIndex)
@@ -1448,11 +1493,15 @@ namespace ArcademiaGameLauncher.Windows
             {
                 Application.Current?.Dispatcher?.BeginInvoke(() =>
                 {
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Updater] Updater_CloseGameAndUpdater: Start");
                     StartMenu.Visibility = Visibility.Collapsed;
                     HomeMenu.Visibility = Visibility.Collapsed;
                     SelectionMenu.Visibility = Visibility.Collapsed;
 
                     MaintenanceScreen.Visibility = Visibility.Visible;
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Updater] Updater_CloseGameAndUpdater: End");
                 });
             }
             catch (TaskCanceledException) { }
@@ -1482,7 +1531,14 @@ namespace ArcademiaGameLauncher.Windows
             // Close the current application
             try
             {
-                Application.Current?.Dispatcher?.BeginInvoke(() => Application.Current?.Shutdown());
+                Application.Current?.Dispatcher?.BeginInvoke(() =>
+                {
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Updater] Updater_RelaunchUpdater: Start");
+                    Application.Current?.Shutdown();
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[Updater] Updater_RelaunchUpdater: End");
+                });
             }
             catch (TaskCanceledException) { }
         }
@@ -1506,7 +1562,15 @@ namespace ArcademiaGameLauncher.Windows
         // Misc
 
         public static void RestartLauncher() =>
-            Application.Current?.Dispatcher?.BeginInvoke(() => Application.Current?.Shutdown());
+            Application.Current?.Dispatcher?.BeginInvoke(() =>
+            {
+                var logger = _host.Services.GetRequiredService<ILogger<MainWindow>>();
+                if (logger.IsEnabled(LogLevel.Information))
+                    logger.LogInformation("[System] RestartLauncher: Start");
+                Application.Current?.Shutdown();
+                if (logger.IsEnabled(LogLevel.Information))
+                    logger.LogInformation("[System] RestartLauncher: End");
+            });
 
         // Credits
 
@@ -2736,6 +2800,8 @@ namespace ArcademiaGameLauncher.Windows
             {
                 Application.Current?.Dispatcher?.BeginInvoke(() =>
                 {
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[UI] StyleStartButtonState: Start");
                     // Style the StartButton
                     switch (_gameState)
                     {
@@ -2778,6 +2844,8 @@ namespace ArcademiaGameLauncher.Windows
                         default:
                             break;
                     }
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[UI] StyleStartButtonState: End");
                 });
             }
             catch (TaskCanceledException) { }
@@ -2916,7 +2984,15 @@ namespace ArcademiaGameLauncher.Windows
                 {
                     Application.Current?.Dispatcher?.BeginInvoke(() =>
                     {
+                        if (_logger.IsEnabled(LogLevel.Information))
+                            _logger.LogInformation(
+                                "[UI] DebounceUpdateGameInfoDisplay (Timer): Start"
+                            );
                         UpdateGameInfoDisplay();
+                        if (_logger.IsEnabled(LogLevel.Information))
+                            _logger.LogInformation(
+                                "[UI] DebounceUpdateGameInfoDisplay (Timer): End"
+                            );
                     });
                 }
                 catch (TaskCanceledException) { }
