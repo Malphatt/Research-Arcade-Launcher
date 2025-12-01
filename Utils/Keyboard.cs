@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace ArcademiaGameLauncher.Utilis
+namespace ArcademiaGameLauncher.Utils
 {
     public class Keyboard
     {

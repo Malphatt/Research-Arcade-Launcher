@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using ArcademiaGameLauncher.Windows;
 using Newtonsoft.Json.Linq;
 
-namespace ArcademiaGameLauncher.Utilis
+namespace ArcademiaGameLauncher.Utils
 {
     internal class EmojiParser
     {

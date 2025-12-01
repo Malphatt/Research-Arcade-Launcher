@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -19,15 +18,13 @@ using System.Windows.Threading;
 using System.Xml;
 using ArcademiaGameLauncher.Models;
 using ArcademiaGameLauncher.Services;
-using ArcademiaGameLauncher.Utilis;
+using ArcademiaGameLauncher.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Serilog;
-using SharpDX.DirectInput;
 using XamlAnimatedGif;
-using static ArcademiaGameLauncher.Utilis.ControllerState;
 
 namespace ArcademiaGameLauncher.Windows
 {
@@ -50,6 +47,8 @@ namespace ArcademiaGameLauncher.Windows
 
         private readonly JObject _config;
         private JObject[] _gameInfoList;
+
+        private readonly ControllerManager _controllerManager;
 
         private System.Timers.Timer _updateTimer;
         private bool _isTimerRunning = false;
@@ -100,9 +99,6 @@ namespace ArcademiaGameLauncher.Windows
         private Grid[] _gameTilesList;
         private Label[] _gameTitlesList;
         private Image[] _gameImagesList;
-
-        private DirectInput _directInput;
-        private readonly List<ControllerState> _controllerStates = [];
 
         private readonly System.Windows.Shapes.Ellipse[] _inputMenuJoysticks;
         private readonly System.Windows.Shapes.Ellipse[][] _inputMenuButtons;
@@ -401,9 +397,6 @@ namespace ArcademiaGameLauncher.Windows
             // Generate the Credits from the Credits.json file
             GenerateCredits();
 
-            // Initialize the controller states
-            JoyStickInit();
-
             LoadGameDatabase();
 
             Task.Run(async () =>
@@ -488,6 +481,11 @@ namespace ArcademiaGameLauncher.Windows
             // Initialize the updateTimer
             InitializeUpdateTimer();
 
+            var controllerManagerLogger = LoggerFactory
+                .Create(b => b.AddSerilog())
+                .CreateLogger<ControllerManager>();
+            _controllerManager = new ControllerManager(this, _tickSpeed, controllerManagerLogger);
+
             _logger.LogInformation("[MainWindow] Initialized.");
         }
 
@@ -514,65 +512,6 @@ namespace ArcademiaGameLauncher.Windows
         }
 
         // Initialization
-
-        private void JoyStickInit()
-        {
-            // Initialize Direct Input
-            _directInput = new();
-
-            // Find a JoyStick Guid
-            List<Guid> joystickGuids = [];
-
-            // Find a Gamepad Guid
-            foreach (
-                var deviceInstance in _directInput.GetDevices(
-                    DeviceType.Gamepad,
-                    DeviceEnumerationFlags.AllDevices
-                )
-            )
-                joystickGuids.Add(deviceInstance.InstanceGuid);
-
-            // If no Gamepad is found, find a Joystick
-            if (joystickGuids.Count == 0)
-                foreach (
-                    var deviceInstance in _directInput.GetDevices(
-                        DeviceType.Joystick,
-                        DeviceEnumerationFlags.AllDevices
-                    )
-                )
-                    joystickGuids.Add(deviceInstance.InstanceGuid);
-
-            // If no Joystick is found, throw an error
-            if (joystickGuids.Count == 0)
-            {
-                //MessageBox.Show("No joystick or gamepad found.");
-                //Application.Current?.Shutdown();
-                return;
-            }
-
-            // For each Joystick Guid, create a new Joystick object
-            foreach (Guid joystickGuid in joystickGuids)
-            {
-                // Instantiate the joystick
-                Joystick joystick = new(_directInput, joystickGuid);
-
-                // Query all suported ForceFeedback effects
-                var allEffects = joystick.GetEffects();
-                foreach (var effectInfo in allEffects)
-                    Console.WriteLine(effectInfo.Name);
-
-                // Set BufferSize in order to use buffered data.
-                joystick.Properties.BufferSize = 128;
-
-                // Acquire the joystick
-                joystick.Acquire();
-
-                // Create a new ControllerState object for the joystick
-                ControllerState controllerState = new(joystick, _controllerStates.Count, this);
-                controllerState.StartPolling();
-                _controllerStates.Add(controllerState);
-            }
-        }
 
         private void InitializeUpdateTimer()
         {
@@ -1040,9 +979,7 @@ namespace ArcademiaGameLauncher.Windows
         private void ResetControllerStates()
         {
             _timeSinceLastButton = 0;
-            // Reset the controller states
-            for (int i = 0; i < _controllerStates.Count; i++)
-                _controllerStates[i].ReleaseButtons();
+            _controllerManager.ReleaseAllButtons();
         }
 
         private async void StartWatchdog()
@@ -1097,12 +1034,9 @@ namespace ArcademiaGameLauncher.Windows
                 _currentStep = "Exit Logic";
                 if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
                 {
-                    int maxExitHeldFor = 0;
-                    for (int i = 0; i < _controllerStates.Count; i++)
-                        if (_controllerStates[i].GetExitButtonHeldFor() > maxExitHeldFor)
-                            maxExitHeldFor = _controllerStates[i].GetExitButtonHeldFor();
+                    int exitHeldFor = _controllerManager.GetExitButtonHeldFor();
 
-                    if (maxExitHeldFor >= 1000)
+                    if (exitHeldFor >= 1000)
                     {
                         Application.Current?.Dispatcher?.Invoke(() =>
                         {
@@ -1110,7 +1044,7 @@ namespace ArcademiaGameLauncher.Windows
                                 _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
                             );
                             _infoWindow?.ShowWindow(InfoWindowType.ForceExit);
-                            _infoWindow?.UpdateCountdown(3000 - maxExitHeldFor);
+                            _infoWindow?.UpdateCountdown(3000 - exitHeldFor);
                         });
                     }
                     else
@@ -1128,7 +1062,7 @@ namespace ArcademiaGameLauncher.Windows
                         });
                     }
 
-                    if (maxExitHeldFor >= 3000)
+                    if (exitHeldFor >= 3000)
                     {
                         Application.Current?.Dispatcher?.Invoke(() =>
                         {
@@ -1730,9 +1664,7 @@ namespace ArcademiaGameLauncher.Windows
             }
 
             // Stop polling controllers
-            if (_controllerStates != null)
-                foreach (var controller in _controllerStates)
-                    controller.StopPolling();
+            _controllerManager.Dispose();
 
             // Stop the updateTimer
             _updateTimer?.Stop();
@@ -2217,333 +2149,333 @@ namespace ArcademiaGameLauncher.Windows
         {
             bool updatedIntervalCounter = false;
 
-            // For each Controller State
-            for (int i = 0; i < _controllerStates.Count; i++)
+            // If the infoWindow is visible, don't listen for inputs
+            if (_infoWindow.Visibility == Visibility.Visible)
+                return;
+
+            // If theres a game running, don't listen for inputs
+            if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
+                return;
+
+            // Use a multiplier to speed up the selection update when the stick is held in either direction
+            double multiplier = 1.00;
+            if (_selectionUpdateIntervalCounter > 0)
+                multiplier =
+                    (double)1.00
+                    - (
+                        (double)_selectionUpdateIntervalCounter
+                        / ((double)_selectionUpdateIntervalCounterMax * 1.6)
+                    );
+
+            // If the selection update counter is greater than the selection update interval, update the selection
+            if (_selectionUpdateCounter >= _selectionUpdateInterval * multiplier)
             {
-                // If the infoWindow is visible, don't listen for inputs
-                if (_infoWindow.Visibility == Visibility.Visible)
-                    return;
+                int[] leftStickDirection = _controllerManager.GetEitherLeftStickDirection();
 
-                // If theres a game running, don't listen for inputs
-                if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
-                    return;
-
-                // Use a multiplier to speed up the selection update when the stick is held in either direction
-                double multiplier = 1.00;
-                if (_selectionUpdateIntervalCounter > 0)
-                    multiplier =
-                        (double)1.00
-                        - (
-                            (double)_selectionUpdateIntervalCounter
-                            / ((double)_selectionUpdateIntervalCounterMax * 1.6)
-                        );
-
-                // If the selection update counter is greater than the selection update interval, update the selection
-                if (_selectionUpdateCounter >= _selectionUpdateInterval * multiplier)
+                // If the left or right stick's direction is Up
+                if (leftStickDirection[1] == -1)
                 {
-                    int[] leftStickDirection = _controllerStates[i].GetLeftStickDirection();
-
-                    // If the left or right stick's direction is Up
-                    if (leftStickDirection[1] == -1)
+                    // Reset the selection update counter and increment the selection update interval counter
+                    _selectionUpdateCounter = 0;
+                    if (
+                        _selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax
+                        && !updatedIntervalCounter
+                    )
                     {
-                        // Reset the selection update counter and increment the selection update interval counter
-                        _selectionUpdateCounter = 0;
-                        if (
-                            _selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax
-                            && !updatedIntervalCounter
-                        )
-                        {
-                            _selectionUpdateIntervalCounter++;
-                            updatedIntervalCounter = true;
-                        }
+                        _selectionUpdateIntervalCounter++;
+                        updatedIntervalCounter = true;
+                    }
 
-                        // If the Home Menu is visible, decrement the currently selected Home Index
-                        if (HomeMenu.Visibility == Visibility.Visible)
-                        {
-                            _currentlySelectedHomeIndex -= 1;
-                            if (_currentlySelectedHomeIndex < 0)
-                                _currentlySelectedHomeIndex = 0;
+                    // If the Home Menu is visible, decrement the currently selected Home Index
+                    if (HomeMenu.Visibility == Visibility.Visible)
+                    {
+                        _currentlySelectedHomeIndex -= 1;
+                        if (_currentlySelectedHomeIndex < 0)
+                            _currentlySelectedHomeIndex = 0;
 
-                            // Highlight the current Home Menu Option
-                            HighlightCurrentHomeMenuOption();
-                        }
-                        // If the Selection Menu is visible, decrement the currently selected Game Index
-                        else if (
-                            SelectionMenu.Visibility == Visibility.Visible
-                            && _gameInfoList != null
-                        )
-                        {
-                            int maxIndex = _gameInfoList.Length - 1;
+                        // Highlight the current Home Menu Option
+                        HighlightCurrentHomeMenuOption();
+                    }
+                    // If the Selection Menu is visible, decrement the currently selected Game Index
+                    else if (
+                        SelectionMenu.Visibility == Visibility.Visible
+                        && _gameInfoList != null
+                    )
+                    {
+                        int maxIndex = _gameInfoList.Length - 1;
 
-                            if (_currentlySelectedGameIndex <= -1)
-                                _currentlySelectedGameIndex = -1; // Stay on Back
+                        if (_currentlySelectedGameIndex <= -1)
+                            _currentlySelectedGameIndex = -1; // Stay on Back
+                        else
+                        {
+                            int col = _currentlySelectedGameIndex % _gridColumns;
+                            int row = _currentlySelectedGameIndex / _gridColumns;
+
+                            // Move up one row
+                            row -= 1;
+
+                            // Going above top row selects Back
+                            if (row < 0)
+                                _currentlySelectedGameIndex = -1;
                             else
                             {
-                                int col = _currentlySelectedGameIndex % _gridColumns;
-                                int row = _currentlySelectedGameIndex / _gridColumns;
+                                int candidate = row * _gridColumns + col;
 
-                                // Move up one row
-                                row -= 1;
+                                // If that slot doesn't exist (short final row), walk upward until valid
+                                while (candidate > maxIndex && row >= 0)
+                                {
+                                    row--;
+                                    candidate = row * _gridColumns + col;
+                                }
 
-                                // Going above top row selects Back
-                                if (row < 0)
+                                if (row >= 0)
+                                    _currentlySelectedGameIndex = candidate;
+                                else
                                     _currentlySelectedGameIndex = -1;
-                                else
-                                {
-                                    int candidate = row * _gridColumns + col;
-
-                                    // If that slot doesn't exist (short final row), walk upward until valid
-                                    while (candidate > maxIndex && row >= 0)
-                                    {
-                                        row--;
-                                        candidate = row * _gridColumns + col;
-                                    }
-
-                                    if (row >= 0)
-                                        _currentlySelectedGameIndex = candidate;
-                                    else
-                                        _currentlySelectedGameIndex = -1;
-                                }
-
-                                HighlightCurrentGameMenuOption();
-                                DebounceUpdateGameInfoDisplay();
                             }
+
+                            HighlightCurrentGameMenuOption();
+                            DebounceUpdateGameInfoDisplay();
                         }
                     }
-                    // If the left or right stick's direction is Down
-                    else if (leftStickDirection[1] == 1)
+                }
+                // If the left or right stick's direction is Down
+                else if (leftStickDirection[1] == 1)
+                {
+                    // Reset the selection update counter and increment the selection update interval counter
+                    _selectionUpdateCounter = 0;
+                    if (
+                        _selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax
+                        && !updatedIntervalCounter
+                    )
                     {
-                        // Reset the selection update counter and increment the selection update interval counter
-                        _selectionUpdateCounter = 0;
-                        if (
-                            _selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax
-                            && !updatedIntervalCounter
-                        )
-                        {
-                            _selectionUpdateIntervalCounter++;
-                            updatedIntervalCounter = true;
-                        }
+                        _selectionUpdateIntervalCounter++;
+                        updatedIntervalCounter = true;
+                    }
 
-                        // If the Home Menu is visible, increment the currently selected Home Index
-                        if (HomeMenu.Visibility == Visibility.Visible)
-                        {
-                            _currentlySelectedHomeIndex += 1;
-                            if (_currentlySelectedHomeIndex > _homeOptionsList.Length - 1)
-                                _currentlySelectedHomeIndex = _homeOptionsList.Length - 1;
+                    // If the Home Menu is visible, increment the currently selected Home Index
+                    if (HomeMenu.Visibility == Visibility.Visible)
+                    {
+                        _currentlySelectedHomeIndex += 1;
+                        if (_currentlySelectedHomeIndex > _homeOptionsList.Length - 1)
+                            _currentlySelectedHomeIndex = _homeOptionsList.Length - 1;
 
-                            // Highlight the current Home Menu Option
-                            HighlightCurrentHomeMenuOption();
-                        }
-                        // If the Selection Menu is visible, increment the currently selected Game Index
-                        else if (
-                            SelectionMenu.Visibility == Visibility.Visible
-                            && _gameInfoList != null
-                        )
-                        {
-                            int maxIndex = _gameInfoList.Length - 1;
+                        // Highlight the current Home Menu Option
+                        HighlightCurrentHomeMenuOption();
+                    }
+                    // If the Selection Menu is visible, increment the currently selected Game Index
+                    else if (
+                        SelectionMenu.Visibility == Visibility.Visible
+                        && _gameInfoList != null
+                    )
+                    {
+                        int maxIndex = _gameInfoList.Length - 1;
 
-                            // Down from Back goes to first tile
-                            if (_currentlySelectedGameIndex == -1 && maxIndex >= 0)
-                                _currentlySelectedGameIndex = 0;
+                        // Down from Back goes to first tile
+                        if (_currentlySelectedGameIndex == -1 && maxIndex >= 0)
+                            _currentlySelectedGameIndex = 0;
+                        else
+                        {
+                            int cols = _gridColumns;
+
+                            int col = _currentlySelectedGameIndex % cols;
+                            int row = _currentlySelectedGameIndex / cols;
+
+                            int candidate = _currentlySelectedGameIndex + cols;
+
+                            if (candidate <= maxIndex)
+                                _currentlySelectedGameIndex = candidate;
                             else
                             {
-                                int cols = _gridColumns;
+                                int lastRow = maxIndex / cols;
 
-                                int col = _currentlySelectedGameIndex % cols;
-                                int row = _currentlySelectedGameIndex / cols;
-
-                                int candidate = _currentlySelectedGameIndex + cols;
-
-                                if (candidate <= maxIndex)
-                                    _currentlySelectedGameIndex = candidate;
-                                else
+                                if (lastRow > row)
                                 {
-                                    int lastRow = maxIndex / cols;
+                                    int lastRowCandidate = lastRow * cols + col;
 
-                                    if (lastRow > row)
-                                    {
-                                        int lastRowCandidate = lastRow * cols + col;
+                                    // Clamp to last valid index if this column doesn't exist on last row
+                                    if (lastRowCandidate > maxIndex)
+                                        lastRowCandidate = maxIndex;
 
-                                        // Clamp to last valid index if this column doesn't exist on last row
-                                        if (lastRowCandidate > maxIndex)
-                                            lastRowCandidate = maxIndex;
-
-                                        _currentlySelectedGameIndex = lastRowCandidate;
-                                    }
+                                    _currentlySelectedGameIndex = lastRowCandidate;
                                 }
                             }
-
-                            HighlightCurrentGameMenuOption();
-                            DebounceUpdateGameInfoDisplay();
                         }
+
+                        HighlightCurrentGameMenuOption();
+                        DebounceUpdateGameInfoDisplay();
                     }
-                    // If the left or right stick's direction is Left
-                    else if (leftStickDirection[0] == -1)
+                }
+                // If the left or right stick's direction is Left
+                else if (leftStickDirection[0] == -1)
+                {
+                    _selectionUpdateCounter = 0;
+                    if (
+                        _selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax
+                        && !updatedIntervalCounter
+                    )
                     {
-                        _selectionUpdateCounter = 0;
-                        if (
-                            _selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax
-                            && !updatedIntervalCounter
-                        )
-                        {
-                            _selectionUpdateIntervalCounter++;
-                            updatedIntervalCounter = true;
-                        }
-
-                        if (SelectionMenu.Visibility == Visibility.Visible && _gameInfoList != null)
-                        {
-                            int maxIndex = _gameInfoList.Length - 1;
-
-                            if (_currentlySelectedGameIndex > 0)
-                            {
-                                int col = _currentlySelectedGameIndex % _gridColumns;
-                                if (col > 0)
-                                    _currentlySelectedGameIndex -= 1;
-                            }
-
-                            HighlightCurrentGameMenuOption();
-                            DebounceUpdateGameInfoDisplay();
-                        }
+                        _selectionUpdateIntervalCounter++;
+                        updatedIntervalCounter = true;
                     }
-                    // If the left or right stick's direction is Right
-                    else if (leftStickDirection[0] == 1)
+
+                    if (SelectionMenu.Visibility == Visibility.Visible && _gameInfoList != null)
                     {
-                        _selectionUpdateCounter = 0;
-                        if (
-                            _selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax
-                            && !updatedIntervalCounter
-                        )
+                        int maxIndex = _gameInfoList.Length - 1;
+
+                        if (_currentlySelectedGameIndex > 0)
                         {
-                            _selectionUpdateIntervalCounter++;
-                            updatedIntervalCounter = true;
+                            int col = _currentlySelectedGameIndex % _gridColumns;
+                            if (col > 0)
+                                _currentlySelectedGameIndex -= 1;
                         }
 
-                        if (SelectionMenu.Visibility == Visibility.Visible && _gameInfoList != null)
+                        HighlightCurrentGameMenuOption();
+                        DebounceUpdateGameInfoDisplay();
+                    }
+                }
+                // If the left or right stick's direction is Right
+                else if (leftStickDirection[0] == 1)
+                {
+                    _selectionUpdateCounter = 0;
+                    if (
+                        _selectionUpdateIntervalCounter < _selectionUpdateIntervalCounterMax
+                        && !updatedIntervalCounter
+                    )
+                    {
+                        _selectionUpdateIntervalCounter++;
+                        updatedIntervalCounter = true;
+                    }
+
+                    if (SelectionMenu.Visibility == Visibility.Visible && _gameInfoList != null)
+                    {
+                        int maxIndex = _gameInfoList.Length - 1;
+
+                        if (_currentlySelectedGameIndex == -1 && maxIndex >= 0)
+                            _currentlySelectedGameIndex = 0;
+                        else
                         {
-                            int maxIndex = _gameInfoList.Length - 1;
+                            int col = _currentlySelectedGameIndex % _gridColumns;
+                            int candidate = _currentlySelectedGameIndex + 1;
 
-                            if (_currentlySelectedGameIndex == -1 && maxIndex >= 0)
-                                _currentlySelectedGameIndex = 0;
-                            else
-                            {
-                                int col = _currentlySelectedGameIndex % _gridColumns;
-                                int candidate = _currentlySelectedGameIndex + 1;
-
-                                // Only move right if still in same row and valid
-                                if (col < _gridColumns - 1 && candidate <= maxIndex)
-                                    _currentlySelectedGameIndex = candidate;
-                            }
-
-                            HighlightCurrentGameMenuOption();
-                            DebounceUpdateGameInfoDisplay();
+                            // Only move right if still in same row and valid
+                            if (col < _gridColumns - 1 && candidate <= maxIndex)
+                                _currentlySelectedGameIndex = candidate;
                         }
+
+                        HighlightCurrentGameMenuOption();
+                        DebounceUpdateGameInfoDisplay();
+                    }
+                }
+                else
+                    _selectionUpdateIntervalCounter = 0;
+            }
+
+            // Check if the Start/A button is pressed
+            if (
+                _timeSinceLastButton > 250
+                && (
+                    _controllerManager.GetEitherButtonDownState(
+                        ControllerState.ControllerButtons.Start
+                    )
+                    || _controllerManager.GetEitherButtonDownState(
+                        ControllerState.ControllerButtons.A
+                    )
+                )
+            )
+            {
+                // Reset the time since the last button press
+                _timeSinceLastButton = 0;
+
+                // Check if the Home Menu is visible
+                if (HomeMenu.Visibility == Visibility.Visible)
+                {
+                    if (_homeOptionsList == null)
+                    {
+                        _logger.LogError(
+                            "[MainWindow] _homeOptionsList is null in Start/A handling"
+                        );
+                    }
+                    else if (
+                        _currentlySelectedHomeIndex < 0
+                        || _currentlySelectedHomeIndex >= _homeOptionsList.Length
+                    )
+                    {
+                        if (_logger.IsEnabled(LogLevel.Error))
+                            _logger.LogError(
+                                "[MainWindow] HomeIndex out of range: {CurrentlySelectedHomeIndex}",
+                                _currentlySelectedHomeIndex
+                            );
                     }
                     else
-                        _selectionUpdateIntervalCounter = 0;
-                }
-
-                // Check if the Start/A button is pressed
-                if (
-                    _timeSinceLastButton > 250
-                    && (
-                        _controllerStates[i]
-                            .GetButtonDownState(ControllerState.ControllerButtons.Start)
-                        || _controllerStates[i]
-                            .GetButtonDownState(ControllerState.ControllerButtons.A)
-                    )
-                )
-                {
-                    // Reset the time since the last button press
-                    _timeSinceLastButton = 0;
-
-                    // Check if the Home Menu is visible
-                    if (HomeMenu.Visibility == Visibility.Visible)
                     {
-                        if (_homeOptionsList == null)
+                        // If the Game Library option is selected
+                        if (_homeOptionsList[_currentlySelectedHomeIndex] == GameLibraryText)
                         {
-                            _logger.LogError(
-                                "[MainWindow] _homeOptionsList is null in Start/A handling"
-                            );
+                            // Show the Selection Menu
+                            GameLibraryButton_Click(null, null);
                         }
-                        else if (
-                            _currentlySelectedHomeIndex < 0
-                            || _currentlySelectedHomeIndex >= _homeOptionsList.Length
-                        )
+                        // If the About option is selected
+                        else if (_homeOptionsList[_currentlySelectedHomeIndex] == AboutText)
                         {
-                            if (_logger.IsEnabled(LogLevel.Error))
-                                _logger.LogError(
-                                    "[MainWindow] HomeIndex out of range: {CurrentlySelectedHomeIndex}",
-                                    _currentlySelectedHomeIndex
-                                );
+                            // Show the Credits
+                            AboutButton_Click(null, null);
                         }
-                        else
+                        else if (_homeOptionsList[_currentlySelectedHomeIndex] == InputMenuText)
                         {
-                            // If the Game Library option is selected
-                            if (_homeOptionsList[_currentlySelectedHomeIndex] == GameLibraryText)
-                            {
-                                // Show the Selection Menu
-                                GameLibraryButton_Click(null, null);
-                            }
-                            // If the About option is selected
-                            else if (_homeOptionsList[_currentlySelectedHomeIndex] == AboutText)
-                            {
-                                // Show the Credits
-                                AboutButton_Click(null, null);
-                            }
-                            else if (_homeOptionsList[_currentlySelectedHomeIndex] == InputMenuText)
-                            {
-                                // Show the Input Menu
-                                InputMenuButton_Click(null, null);
-                            }
-                            // If the Exit option is selected
-                            else if (_homeOptionsList[_currentlySelectedHomeIndex] == ExitText)
-                            {
-                                // Go back to the Start Menu
-                                ExitButton_Click(null, null);
-                            }
+                            // Show the Input Menu
+                            InputMenuButton_Click(null, null);
                         }
-                    }
-                    // Else check if the Selection Menu is visible
-                    else if (SelectionMenu.Visibility == Visibility.Visible)
-                    {
-                        // If a game is selected, attempt to start the game
-                        if (_currentlySelectedGameIndex >= 0)
-                            Task.Run(() =>
-                            {
-                                StartButton_Click(null, null);
-                            });
-                        // If the back button is selected, return to the Home Menu
-                        else
-                            BackFromGameLibraryButton_Click(null, null);
+                        // If the Exit option is selected
+                        else if (_homeOptionsList[_currentlySelectedHomeIndex] == ExitText)
+                        {
+                            // Go back to the Start Menu
+                            ExitButton_Click(null, null);
+                        }
                     }
                 }
-
-                // Check if the Exit/B button is pressed
-                if (
-                    _timeSinceLastButton > 250
-                    && (
-                        _controllerStates[i]
-                            .GetButtonDownState(ControllerState.ControllerButtons.Exit)
-                        || _controllerStates[i]
-                            .GetButtonDownState(ControllerState.ControllerButtons.B)
-                    )
-                )
+                // Else check if the Selection Menu is visible
+                else if (SelectionMenu.Visibility == Visibility.Visible)
                 {
-                    // Reset the time since the last button press
-                    _timeSinceLastButton = 0;
-
-                    // If the Home Menu is visible
-                    if (HomeMenu.Visibility == Visibility.Visible)
-                    {
-                        // Go back to the Start Menu
-                        ExitButton_Click(null, null);
-                    }
-                    // Else if the Selection Menu is visible
-                    else if (SelectionMenu.Visibility == Visibility.Visible)
-                    {
-                        // Go back to the Home Menu
+                    // If a game is selected, attempt to start the game
+                    if (_currentlySelectedGameIndex >= 0)
+                        Task.Run(() =>
+                        {
+                            StartButton_Click(null, null);
+                        });
+                    // If the back button is selected, return to the Home Menu
+                    else
                         BackFromGameLibraryButton_Click(null, null);
-                    }
+                }
+            }
+
+            // Check if the Exit/B button is pressed
+            if (
+                _timeSinceLastButton > 250
+                && (
+                    _controllerManager.GetEitherButtonDownState(
+                        ControllerState.ControllerButtons.Exit
+                    )
+                    || _controllerManager.GetEitherButtonDownState(
+                        ControllerState.ControllerButtons.B
+                    )
+                )
+            )
+            {
+                // Reset the time since the last button press
+                _timeSinceLastButton = 0;
+
+                // If the Home Menu is visible
+                if (HomeMenu.Visibility == Visibility.Visible)
+                {
+                    // Go back to the Start Menu
+                    ExitButton_Click(null, null);
+                }
+                // Else if the Selection Menu is visible
+                else if (SelectionMenu.Visibility == Visibility.Visible)
+                {
+                    // Go back to the Home Menu
+                    BackFromGameLibraryButton_Click(null, null);
                 }
             }
         }
@@ -2633,27 +2565,24 @@ namespace ArcademiaGameLauncher.Windows
             int exitHeldMilliseconds = 1500;
 
             // Update the held countdown text
-            int maxExitHeldFor = 0;
-            for (int i = 0; i < _controllerStates.Count; i++)
-                if (_controllerStates[i].GetExitButtonHeldFor() > maxExitHeldFor)
-                    maxExitHeldFor = _controllerStates[i].GetExitButtonHeldFor();
+            int exitHeldFor = _controllerManager.GetExitButtonHeldFor();
 
-            if (maxExitHeldFor > 0)
+            if (exitHeldFor > 0)
                 InputMenu_HoldBackCountdownText.Text = (
-                    (double)(exitHeldMilliseconds - maxExitHeldFor) / 1000
+                    (double)(exitHeldMilliseconds - exitHeldFor) / 1000
                 ).ToString("0.0");
             else
                 InputMenu_HoldBackCountdownText.Text = "";
 
             // Check if the exit button has been held for 1.5 seconds, if so, go back to the Start Menu
-            if (maxExitHeldFor >= exitHeldMilliseconds)
+            if (exitHeldFor >= exitHeldMilliseconds)
                 ExitButton_Click(null, null);
 
             // For each Controller State
-            for (int i = 0; i < _controllerStates.Count; i++)
+            for (int i = 0; i < _controllerManager.GetControllerCount(); i++)
             {
                 // Joystick Input
-                int[] leftStickDirection = _controllerStates[i].GetLeftStickDirection();
+                int[] leftStickDirection = _controllerManager.GetPlayerLeftStickDirection(i);
                 _inputMenuJoysticks[i].Margin = new(
                     leftStickDirection[0] * 50,
                     leftStickDirection[1] * 50,
@@ -2668,7 +2597,12 @@ namespace ArcademiaGameLauncher.Windows
                         continue;
 
                     // If the user is pressing the button, highlight the button
-                    if (_controllerStates[i].GetButtonState((ControllerButtons)j))
+                    if (
+                        _controllerManager.GetPlayerButtonState(
+                            i,
+                            (ControllerState.ControllerButtons)j
+                        )
+                    )
                     {
                         _inputMenuButtons[i][j].Fill = activeFillColour;
                         _inputMenuButtons[i][j].Stroke = activeBorderColour;

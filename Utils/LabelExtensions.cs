@@ -5,9 +5,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
-namespace ArcademiaGameLauncher.Utilis
+namespace ArcademiaGameLauncher.Utils
 {
-    public static class TextBlockExtensions
+    public static class LabelExtensions
     {
         private class FitKey(
             string text,
@@ -35,8 +35,6 @@ namespace ArcademiaGameLauncher.Utilis
             public double MinSize { get; } = minSize;
             public double Precision { get; } = precision;
 
-            public override bool Equals(object obj) => Equals(obj as FitKey);
-
             public bool Equals(FitKey other)
             {
                 if (other == null)
@@ -53,6 +51,8 @@ namespace ArcademiaGameLauncher.Utilis
                     && MinSize == other.MinSize
                     && Precision == other.Precision;
             }
+
+            public override bool Equals(object obj) => Equals(obj as FitKey);
 
             public override int GetHashCode()
             {
@@ -76,13 +76,8 @@ namespace ArcademiaGameLauncher.Utilis
 
         private static readonly Dictionary<FitKey, double> _cache = [];
 
-        /// <summary>
-        /// Adjusts the FontSize of <paramref name="textBlock"/> so that
-        /// <paramref name="desiredText"/> fits within its ActualWidth/ActualHeight,
-        /// wrapping into at most <paramref name="maxLines"/> lines.
-        /// </summary>
-        public static void FitTextToTextBlock(
-            this TextBlock textBlock,
+        public static void FitTextToLabel(
+            this Label label,
             string desiredText,
             double targetFontSize,
             int maxLines = 100,
@@ -90,17 +85,17 @@ namespace ArcademiaGameLauncher.Utilis
             double precision = 0.5
         )
         {
-            if (textBlock == null || string.IsNullOrWhiteSpace(desiredText))
+            if (label == null || string.IsNullOrWhiteSpace(desiredText))
                 return;
 
-            if (textBlock.ActualWidth <= 0 || textBlock.ActualHeight <= 0)
+            if (label.ActualWidth <= 0 || label.ActualHeight <= 0)
             {
                 void Handler(object s, SizeChangedEventArgs e)
                 {
-                    if (textBlock.ActualWidth > 0 && textBlock.ActualHeight > 0)
+                    if (label.ActualWidth > 0 && label.ActualHeight > 0)
                     {
-                        textBlock.SizeChanged -= Handler;
-                        textBlock.FitTextToTextBlock(
+                        label.SizeChanged -= Handler;
+                        label.FitTextToLabel(
                             desiredText,
                             targetFontSize,
                             maxLines,
@@ -109,18 +104,19 @@ namespace ArcademiaGameLauncher.Utilis
                         );
                     }
                 }
-                textBlock.SizeChanged += Handler;
+
+                label.SizeChanged += Handler;
                 return;
             }
 
             var key = new FitKey(
                 desiredText,
-                textBlock.ActualWidth,
-                textBlock.ActualHeight,
-                textBlock.FontFamily,
-                textBlock.FontStyle,
-                textBlock.FontWeight,
-                textBlock.FontStretch,
+                label.ActualWidth,
+                label.ActualHeight,
+                label.FontFamily,
+                label.FontStyle,
+                label.FontWeight,
+                label.FontStretch,
                 maxLines,
                 targetFontSize,
                 minFontSize,
@@ -129,36 +125,42 @@ namespace ArcademiaGameLauncher.Utilis
 
             if (_cache.TryGetValue(key, out double cachedSize))
             {
-                textBlock.Text = desiredText;
-                textBlock.TextWrapping = TextWrapping.Wrap;
-                textBlock.FontSize = Math.Max(cachedSize, minFontSize);
+                label.Content = desiredText;
+                label.FontSize = Math.Max(cachedSize, minFontSize);
                 return;
             }
 
-            double availableWidth = textBlock.ActualWidth;
-            double availableHeight = textBlock.ActualHeight;
+            var padding = label.Padding;
+            var border = label.BorderThickness;
 
-            Typeface typeface = new Typeface(
-                textBlock.FontFamily,
-                textBlock.FontStyle,
-                textBlock.FontWeight,
-                textBlock.FontStretch
+            double availableWidth = Math.Max(
+                0,
+                label.ActualWidth - padding.Left - padding.Right - border.Left - border.Right
             );
 
-            if (!typeface.TryGetGlyphTypeface(out GlyphTypeface glyph))
-                glyph = null;
+            double availableHeight = Math.Max(
+                0,
+                label.ActualHeight - padding.Top - padding.Bottom - border.Top - border.Bottom
+            );
+
+            Typeface typeface = new Typeface(
+                label.FontFamily,
+                label.FontStyle,
+                label.FontWeight,
+                label.FontStretch
+            );
+
+            typeface.TryGetGlyphTypeface(out GlyphTypeface glyph);
 
             double GetLineHeight(double fontSize)
             {
-                if (glyph != null)
-                    return glyph.Height * fontSize;
-                else
-                    return fontSize;
+                return glyph != null ? glyph.Height * fontSize : fontSize;
             }
 
             bool TextFits(double fontSize)
             {
-                double dpiFactor = VisualTreeHelper.GetDpi(textBlock).PixelsPerDip;
+                double dpi = VisualTreeHelper.GetDpi(label).PixelsPerDip;
+
                 var ft = new FormattedText(
                     desiredText,
                     CultureInfo.CurrentUICulture,
@@ -166,26 +168,23 @@ namespace ArcademiaGameLauncher.Utilis
                     typeface,
                     fontSize,
                     Brushes.Black,
-                    dpiFactor
+                    dpi
                 )
                 {
                     MaxTextWidth = availableWidth,
-                    Trimming = TextTrimming.None,
-                    TextAlignment = textBlock.TextAlignment,
+                    TextAlignment = TextAlignment.Center,
                 };
 
                 double totalHeight = ft.Height;
-                double lineH = GetLineHeight(fontSize);
+                double lineHeight = GetLineHeight(fontSize);
 
-                int linesUsed = (int)Math.Ceiling(totalHeight / lineH);
+                int linesUsed = (int)Math.Ceiling(totalHeight / lineHeight);
 
-                bool fitsLines = linesUsed <= maxLines;
-                bool fitsHeight = totalHeight <= availableHeight;
-
-                return fitsLines && fitsHeight;
+                return linesUsed <= maxLines && totalHeight <= availableHeight;
             }
 
             double bestSize = minFontSize;
+
             if (TextFits(targetFontSize))
             {
                 bestSize = targetFontSize;
@@ -214,10 +213,81 @@ namespace ArcademiaGameLauncher.Utilis
 
             _cache[key] = bestSize;
 
-            textBlock.Text = desiredText;
-            textBlock.TextWrapping = TextWrapping.Wrap;
-            textBlock.FontSize = bestSize;
-            textBlock.LineHeight = GetLineHeight(bestSize * 1.2);
+            double dpi = VisualTreeHelper.GetDpi(label).PixelsPerDip;
+
+            // If it's at minimum size and text still doesn't fit, add ellipsis
+            if (Math.Abs(bestSize - minFontSize) < 0.01)
+            {
+                var ft = new FormattedText(
+                    desiredText,
+                    CultureInfo.CurrentUICulture,
+                    FlowDirection.LeftToRight,
+                    typeface,
+                    bestSize,
+                    Brushes.Black,
+                    dpi
+                )
+                {
+                    MaxTextWidth = availableWidth,
+                };
+
+                bool stillTooTall = ft.Height > availableHeight;
+
+                if (stillTooTall)
+                {
+                    desiredText = TrimToEllipsis(
+                        desiredText,
+                        availableWidth,
+                        availableHeight,
+                        typeface,
+                        bestSize,
+                        dpi
+                    );
+                }
+            }
+
+            label.Content = desiredText;
+            label.FontSize = bestSize;
+        }
+
+        private static string TrimToEllipsis(
+            string text,
+            double width,
+            double height,
+            Typeface typeface,
+            double fontSize,
+            double dpi
+        )
+        {
+            if (string.IsNullOrEmpty(text))
+                return text;
+
+            string working = text;
+
+            while (working.Length > 1)
+            {
+                string test = working + "...";
+
+                var ft = new FormattedText(
+                    test,
+                    CultureInfo.CurrentUICulture,
+                    FlowDirection.LeftToRight,
+                    typeface,
+                    fontSize,
+                    Brushes.Black,
+                    dpi
+                )
+                {
+                    MaxTextWidth = width,
+                };
+
+                if (ft.Height <= height)
+                    return test;
+
+                working = working.Substring(0, working.Length - 1);
+            }
+
+            return "..."; // worst-case scenario
         }
     }
 }
