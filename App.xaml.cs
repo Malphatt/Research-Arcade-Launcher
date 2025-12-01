@@ -24,7 +24,10 @@ namespace ArcademiaGameLauncher
                     "Logs/ArcadeClient-.log",
                     rollingInterval: RollingInterval.Day,
                     retainedFileCountLimit: 10,
-                    shared: true)
+                    fileSizeLimitBytes: 50 * 1024 * 1024,
+                    rollOnFileSizeLimit: true,
+                    shared: true
+                )
                 .CreateLogger();
 
             _host = Host.CreateDefaultBuilder()
