@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using ArcademiaGameLauncher.Utils;
 
 namespace ArcademiaGameLauncher.Windows
 {
@@ -14,19 +15,15 @@ namespace ArcademiaGameLauncher.Windows
     public partial class InfoWindow : Window
     {
         [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
-
-        [DllImport("user32.dll")]
-        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr ProcessId);
-
-        [DllImport("user32.dll")]
-        private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
-
-        [DllImport("user32.dll")]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+        private static extern bool SetWindowPos(
+            IntPtr hWnd,
+            IntPtr hWndInsertAfter,
+            int X,
+            int Y,
+            int cx,
+            int cy,
+            uint uFlags
+        );
 
         private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
         private static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
@@ -82,61 +79,47 @@ namespace ArcademiaGameLauncher.Windows
                 Show();
                 Activate();
 
-                ForceForeground();
+                WindowHelper.ForceForeground(this);
             });
         }
 
         public void HideWindow()
         {
-            Application.Current?.Dispatcher?.InvokeAsync(() =>
-            {
-                _isOpen = false;
+            Application.Current?.Dispatcher?.InvokeAsync(
+                () =>
+                {
+                    _isOpen = false;
 
-                if (_windowHandle != IntPtr.Zero)
-                    SetWindowPos(_windowHandle, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                    if (_windowHandle != IntPtr.Zero)
+                        SetWindowPos(
+                            _windowHandle,
+                            HWND_BOTTOM,
+                            0,
+                            0,
+                            0,
+                            0,
+                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+                        );
 
-                Topmost = false;
-                Hide();
-
-            }, System.Windows.Threading.DispatcherPriority.Send);
+                    Topmost = false;
+                    Hide();
+                },
+                System.Windows.Threading.DispatcherPriority.Send
+            );
         }
 
         public void ForceForeground()
         {
-            if (!_isOpen || _windowHandle == IntPtr.Zero) return;
-
-            Application.Current?.Dispatcher?.InvokeAsync(() =>
-            {
-                if (!_isOpen) return;
-
-                IntPtr foregroundWnd = GetForegroundWindow();
-                if (foregroundWnd != _windowHandle)
-                {
-                    uint threadId1 = GetWindowThreadProcessId(foregroundWnd, IntPtr.Zero);
-                    uint threadId2 = GetWindowThreadProcessId(_windowHandle, IntPtr.Zero);
-
-                    if (threadId1 != threadId2)
-                    {
-                        AttachThreadInput(threadId2, threadId1, true);
-                        SetForegroundWindow(_windowHandle);
-                        SetWindowPos(_windowHandle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-                        AttachThreadInput(threadId2, threadId1, false);
-                    }
-                    else
-                    {
-                        SetForegroundWindow(_windowHandle);
-                        SetWindowPos(_windowHandle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-                    }
-                }
-            });
+            WindowHelper.ForceForeground(this);
         }
 
         public void SetCloseGameName(string gameName)
         {
-            if (!_isOpen) return;
             Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                string text = gameName == null ? "Returning To Home Screen..." : $"Closing {gameName}...";
+                string text = string.IsNullOrEmpty(gameName)
+                    ? "Returning To Home Screen..."
+                    : $"Closing {gameName}...";
                 ForceExitTitle.Text = text;
                 IdleTitle.Text = text;
             });
@@ -144,11 +127,13 @@ namespace ArcademiaGameLauncher.Windows
 
         public void UpdateCountdown(int time)
         {
-            if (!_isOpen) return;
+            if (!_isOpen)
+                return;
             float timeSeconds = time / 1000.0f;
             string timeString = Math.Max(0, timeSeconds).ToString("0.0");
 
-            if (timeString == _lastTimeString) return;
+            if (timeString == _lastTimeString)
+                return;
             _lastTimeString = timeString;
 
             Application.Current?.Dispatcher?.InvokeAsync(() =>
