@@ -79,6 +79,8 @@ namespace ArcademiaGameLauncher.Windows
         bool _isInfoWindowVisible = false;
         bool _isInfoWindowIdleVisible = false;
         bool _isInfoWindowForceExitVisible = false;
+        bool _isUpdatingInputMenu = false;
+        bool _isUpdatingCredits = false;
 
         private int _globalCounter = 0;
 
@@ -552,13 +554,13 @@ namespace ArcademiaGameLauncher.Windows
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Load Database] LoadGameDatabase: Start");
 
-                    for (
-                        int i = _previousPageIndex * _tilesPerPage;
-                        i < (_previousPageIndex + 1) * _tilesPerPage;
-                        i++
-                    )
+                    Application.Current?.Dispatcher?.InvokeAsync(() =>
                     {
-                        Application.Current?.Dispatcher?.InvokeAsync(() =>
+                        for (
+                            int i = _previousPageIndex * _tilesPerPage;
+                            i < (_previousPageIndex + 1) * _tilesPerPage;
+                            i++
+                        )
                         {
                             if (i < _gameInfoList.Length)
                             {
@@ -576,8 +578,8 @@ namespace ArcademiaGameLauncher.Windows
                             }
                             else
                                 _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
-                        });
-                    }
+                        }
+                    });
 
                     for (int i = 0; i < _gameInfoList.Length; i++)
                     {
@@ -652,13 +654,13 @@ namespace ArcademiaGameLauncher.Windows
                         _gameTitleStates = [];
                     }
 
-                    for (
-                        int i = _previousPageIndex * _tilesPerPage;
-                        i < (_previousPageIndex + 1) * _tilesPerPage;
-                        i++
-                    )
+                    Application.Current?.Dispatcher?.InvokeAsync(() =>
                     {
-                        Application.Current?.Dispatcher?.InvokeAsync(() =>
+                        for (
+                            int i = _previousPageIndex * _tilesPerPage;
+                            i < (_previousPageIndex + 1) * _tilesPerPage;
+                            i++
+                        )
                         {
                             if (i < _gameInfoList.Length)
                             {
@@ -667,8 +669,8 @@ namespace ArcademiaGameLauncher.Windows
                             }
                             else
                                 _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
-                        });
-                    }
+                        }
+                    });
 
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Load Database] CheckForGameDatabaseChanges: End");
@@ -2064,19 +2066,31 @@ namespace ArcademiaGameLauncher.Windows
 
         private void AutoScrollCredits()
         {
+            if (_isUpdatingCredits)
+                return;
+            _isUpdatingCredits = true;
+
             Application.Current?.Dispatcher?.InvokeAsync(() =>
             {
-                // Change Canvas.Top of the CreditsPanel
-                double currentTop = Canvas.GetTop(CreditsPanel);
-                double newTop = currentTop - (double)0.5;
-                Canvas.SetTop(CreditsPanel, newTop);
+                try
+                {
+                    // Change Canvas.Top of the CreditsPanel
+                    double currentTop = Canvas.GetTop(CreditsPanel);
+                    double newTop = currentTop - (double)0.5;
+                    Canvas.SetTop(CreditsPanel, newTop);
 
-                // If the CreditsPanel is off the screen, reset it to the bottom
-                string logicalScreenHeight_str = TryFindResource("LogicalSizeHeight").ToString();
-                double logicalScreenHeight = double.Parse(logicalScreenHeight_str);
+                    // If the CreditsPanel is off the screen, reset it to the bottom
+                    string logicalScreenHeight_str = TryFindResource("LogicalSizeHeight")
+                        .ToString();
+                    double logicalScreenHeight = double.Parse(logicalScreenHeight_str);
 
-                if (newTop < -CreditsPanel.ActualHeight)
-                    Canvas.SetTop(CreditsPanel, logicalScreenHeight);
+                    if (newTop < -CreditsPanel.ActualHeight)
+                        Canvas.SetTop(CreditsPanel, logicalScreenHeight);
+                }
+                finally
+                {
+                    _isUpdatingCredits = false;
+                }
             });
         }
 
@@ -2447,22 +2461,17 @@ namespace ArcademiaGameLauncher.Windows
                 return;
             }
 
-            // Reset the colour of all Home Menu Options and remove the "<" character if present
-            foreach (TextBlock option in _homeOptionsList)
+            Application.Current?.Dispatcher?.InvokeAsync(() =>
             {
-                Application.Current?.Dispatcher?.InvokeAsync(() =>
+                // Reset the colour of all Home Menu Options and remove the "<" character if present
+                foreach (TextBlock option in _homeOptionsList)
                 {
-                    // Ensure UI updates are done on the main thread
                     option.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
                     if (option.Text.EndsWith(" <"))
                         option.Text = option.Text[..^2];
-                });
-            }
+                }
 
-            // Highlight the currently selected Home Menu Option and add the "<" character
-            Application.Current?.Dispatcher?.InvokeAsync(() =>
-            {
-                // Ensure UI updates are done on the main thread
+                // Highlight the currently selected Home Menu Option and add the "<" character
                 _homeOptionsList[_currentlySelectedHomeIndex].Foreground =
                     GetCurrentSelectionAnimationBrush();
                 if (!_homeOptionsList[_currentlySelectedHomeIndex].Text.EndsWith(" <"))
@@ -2513,65 +2522,84 @@ namespace ArcademiaGameLauncher.Windows
 
         private void UpdateInputMenuFeedback()
         {
+            if (_isUpdatingInputMenu)
+                return;
+            _isUpdatingInputMenu = true;
+
             Application.Current?.Dispatcher?.InvokeAsync(() =>
             {
-                SolidColorBrush activeFillColour = new(Color.FromArgb(0xFF, 0x00, 0xFF, 0x00));
-                SolidColorBrush activeBorderColour = new(Color.FromArgb(0xFF, 0x00, 0xBB, 0x00));
-
-                SolidColorBrush inactiveFillColour = new(Color.FromArgb(0xFF, 0xFF, 0x00, 0x00));
-                SolidColorBrush inactiveBorderColour = new(Color.FromArgb(0xFF, 0xBB, 0x00, 0x00));
-
-                int exitHeldMilliseconds = 1500;
-
-                // Update the held countdown text
-                int exitHeldFor = _controllerManager.GetExitButtonHeldFor();
-
-                if (exitHeldFor > 0)
-                    InputMenu_HoldBackCountdownText.Text = (
-                        (double)(exitHeldMilliseconds - exitHeldFor) / 1000
-                    ).ToString("0.0");
-                else
-                    InputMenu_HoldBackCountdownText.Text = "";
-
-                // Check if the exit button has been held for 1.5 seconds, if so, go back to the Start Menu
-                if (exitHeldFor >= exitHeldMilliseconds)
-                    ExitButton_Click(null, null);
-
-                // For each Controller State
-                for (int i = 0; i < _controllerManager.GetControllerCount(); i++)
+                try
                 {
-                    // Joystick Input
-                    int[] leftStickDirection = _controllerManager.GetPlayerLeftStickDirection(i);
-                    _inputMenuJoysticks[i].Margin = new(
-                        leftStickDirection[0] * 50,
-                        leftStickDirection[1] * 50,
-                        0,
-                        0
+                    SolidColorBrush activeFillColour = new(Color.FromArgb(0xFF, 0x00, 0xFF, 0x00));
+                    SolidColorBrush activeBorderColour = new(
+                        Color.FromArgb(0xFF, 0x00, 0xBB, 0x00)
                     );
 
-                    // For each button in the Input Menu
-                    for (int j = 0; j < _inputMenuButtons[i].Length; j++)
-                    {
-                        if (_inputMenuButtons[i][j] == null)
-                            continue;
+                    SolidColorBrush inactiveFillColour = new(
+                        Color.FromArgb(0xFF, 0xFF, 0x00, 0x00)
+                    );
+                    SolidColorBrush inactiveBorderColour = new(
+                        Color.FromArgb(0xFF, 0xBB, 0x00, 0x00)
+                    );
 
-                        // If the user is pressing the button, highlight the button
-                        if (
-                            _controllerManager.GetPlayerButtonState(
-                                i,
-                                (ControllerState.ControllerButtons)j
+                    int exitHeldMilliseconds = 1500;
+
+                    // Update the held countdown text
+                    int exitHeldFor = _controllerManager.GetExitButtonHeldFor();
+
+                    if (exitHeldFor > 0)
+                        InputMenu_HoldBackCountdownText.Text = (
+                            (double)(exitHeldMilliseconds - exitHeldFor) / 1000
+                        ).ToString("0.0");
+                    else
+                        InputMenu_HoldBackCountdownText.Text = "";
+
+                    // Check if the exit button has been held for 1.5 seconds, if so, go back to the Start Menu
+                    if (exitHeldFor >= exitHeldMilliseconds)
+                        ExitButton_Click(null, null);
+
+                    // For each Controller State
+                    for (int i = 0; i < _controllerManager.GetControllerCount(); i++)
+                    {
+                        // Joystick Input
+                        int[] leftStickDirection = _controllerManager.GetPlayerLeftStickDirection(
+                            i
+                        );
+                        _inputMenuJoysticks[i].Margin = new(
+                            leftStickDirection[0] * 50,
+                            leftStickDirection[1] * 50,
+                            0,
+                            0
+                        );
+
+                        // For each button in the Input Menu
+                        for (int j = 0; j < _inputMenuButtons[i].Length; j++)
+                        {
+                            if (_inputMenuButtons[i][j] == null)
+                                continue;
+
+                            // If the user is pressing the button, highlight the button
+                            if (
+                                _controllerManager.GetPlayerButtonState(
+                                    i,
+                                    (ControllerState.ControllerButtons)j
+                                )
                             )
-                        )
-                        {
-                            _inputMenuButtons[i][j].Fill = activeFillColour;
-                            _inputMenuButtons[i][j].Stroke = activeBorderColour;
-                        }
-                        else
-                        {
-                            _inputMenuButtons[i][j].Fill = inactiveFillColour;
-                            _inputMenuButtons[i][j].Stroke = inactiveBorderColour;
+                            {
+                                _inputMenuButtons[i][j].Fill = activeFillColour;
+                                _inputMenuButtons[i][j].Stroke = activeBorderColour;
+                            }
+                            else
+                            {
+                                _inputMenuButtons[i][j].Fill = inactiveFillColour;
+                                _inputMenuButtons[i][j].Stroke = inactiveBorderColour;
+                            }
                         }
                     }
+                }
+                finally
+                {
+                    _isUpdatingInputMenu = false;
                 }
             });
         }
