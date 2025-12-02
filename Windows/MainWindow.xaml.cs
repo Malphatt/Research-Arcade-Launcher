@@ -45,6 +45,9 @@ namespace ArcademiaGameLauncher.Windows
         private readonly JObject _config;
         private JObject[] _gameInfoList;
 
+        private readonly CreditsGenerator _creditsGenerator;
+        private readonly GameDatabaseService _gameDatabaseService;
+
         private readonly ControllerManager _controllerManager;
 
         private System.Timers.Timer _updateTimer;
@@ -123,9 +126,15 @@ namespace ArcademiaGameLauncher.Windows
 
         // MAIN WINDOW
 
-        public MainWindow(ILogger<MainWindow> logger)
+        public MainWindow(
+            ILogger<MainWindow> logger,
+            CreditsGenerator creditsGenerator,
+            GameDatabaseService gameDatabaseService
+        )
         {
             _logger = logger;
+            _creditsGenerator = creditsGenerator;
+            _gameDatabaseService = gameDatabaseService;
 
             // Setup closing event
             Closing += Window_Closing;
@@ -404,9 +413,6 @@ namespace ArcademiaGameLauncher.Windows
                 GameImage14,
             ];
 
-            // Generate the Credits from the Credits.json file
-            GenerateCredits();
-
             LoadGameDatabase();
 
             Task.Run(async () =>
@@ -534,19 +540,14 @@ namespace ArcademiaGameLauncher.Windows
         private void LoadGameDatabase()
         {
             // Load the game database from the GameDatabase.json file
-            string gameDatabasePath = Path.Combine(_gameDirectoryPath, "GameDatabase.json");
-            if (File.Exists(gameDatabasePath))
+            _gameInfoList = _gameDatabaseService.LoadGameDatabase(_gameDirectoryPath);
+            _gameTitleStates = _gameDatabaseService.ValidateGameExecutables(
+                _gameInfoList,
+                _gameDirectoryPath
+            );
+
+            if (_gameInfoList.Length > 0)
             {
-                JArray gameInfoArray = JArray.Parse(File.ReadAllText(gameDatabasePath));
-
-                _gameInfoList = new JObject[gameInfoArray.Count];
-                for (int i = 0; i < gameInfoArray.Count; i++)
-                    _gameInfoList[i] = gameInfoArray[i].ToObject<JObject>();
-
-                _gameTitleStates = new GameState[_gameInfoList.Length];
-                for (int i = 0; i < _gameTitleStates.Length; i++)
-                    _gameTitleStates[i] = GameState.fetchingInfo;
-
                 // Load the game titles into the TextBlocks
                 try
                 {
@@ -581,23 +582,6 @@ namespace ArcademiaGameLauncher.Windows
                         }
                     });
 
-                    for (int i = 0; i < _gameInfoList.Length; i++)
-                    {
-                        // If the game's exe exists set the title state to ready
-                        if (
-                            File.Exists(
-                                Path.Combine(
-                                    _gameDirectoryPath,
-                                    _gameInfoList[i]["FolderName"].ToString(),
-                                    _gameInfoList[i]["NameOfExecutable"].ToString()
-                                )
-                            )
-                        )
-                            SetGameTitleState(i, GameState.ready);
-                        else
-                            SetGameTitleState(i, GameState.failed);
-                    }
-
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Load Database] LoadGameDatabase: End");
                 }
@@ -606,11 +590,6 @@ namespace ArcademiaGameLauncher.Windows
                     if (_logger.IsEnabled(LogLevel.Error))
                         _logger.LogError(tcx, "[Load Database] LoadGameDatabase: Task Canceled");
                 }
-            }
-            else
-            {
-                _gameInfoList = [];
-                _gameTitleStates = [];
             }
         }
 
@@ -630,29 +609,14 @@ namespace ArcademiaGameLauncher.Windows
             {
                 try
                 {
-                    string localGameDatabasePath = Path.Combine(
-                        _applicationPath,
-                        "GameDatabase.json"
-                    );
-
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Load Database] CheckForGameDatabaseChanges: Start");
 
-                    if (File.Exists(localGameDatabasePath))
-                    {
-                        JArray gameInfoArray = JArray.Parse(
-                            File.ReadAllText(localGameDatabasePath)
-                        );
-
-                        _gameInfoList = new JObject[gameInfoArray.Count];
-                        for (int i = 0; i < gameInfoArray.Count; i++)
-                            _gameInfoList[i] = gameInfoArray[i].ToObject<JObject>();
-                    }
-                    else
-                    {
-                        _gameInfoList = [];
-                        _gameTitleStates = [];
-                    }
+                    _gameInfoList = _gameDatabaseService.LoadGameDatabase(_applicationPath);
+                    _gameTitleStates = _gameDatabaseService.ValidateGameExecutables(
+                        _gameInfoList,
+                        _gameDirectoryPath
+                    );
 
                     Application.Current?.Dispatcher?.InvokeAsync(() =>
                     {
@@ -799,6 +763,13 @@ namespace ArcademiaGameLauncher.Windows
                     double logicalScreenHeight = double.Parse(logicalScreenHeight_str);
 
                     Canvas.SetTop(CreditsPanel, logicalScreenHeight);
+
+                    // Generate the Credits
+                    _creditsGenerator.Generate(
+                        CreditsPanel,
+                        Path.Combine(_applicationPath, "Configuration", "Credits.json"),
+                        GifTemplateElement_Parent
+                    );
 
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Navigation] AboutButton_Click: End");
@@ -1639,430 +1610,6 @@ namespace ArcademiaGameLauncher.Windows
             });
 
         // Credits
-
-        private void GenerateCredits()
-        {
-            // Read the Credits.json file
-            string creditsPath = Path.Combine(_applicationPath, "Configuration", "Credits.json");
-
-            if (File.Exists(creditsPath))
-            {
-                // Parse the Credits.json file and get the Credits array
-                JObject creditsFile = JObject.Parse(File.ReadAllText(creditsPath));
-                JArray creditsArray = (JArray)creditsFile["Credits"];
-
-                // Clear the CreditsPanel
-                CreditsPanel.RowDefinitions.Clear();
-                CreditsPanel.Children.Clear();
-
-                // Create a new TextBlock for each credit
-                for (int i = 0; i < creditsArray.Count; i++)
-                {
-                    JObject creditsObject = (JObject)creditsArray[i];
-
-                    switch (creditsObject["Type"].ToString())
-                    {
-                        case "Title":
-                            // Create a new RowDefinition
-                            RowDefinition titleRow = new() { Height = new(60, GridUnitType.Pixel) };
-                            CreditsPanel.RowDefinitions.Add(titleRow);
-
-                            // Create a new Grid
-                            Grid titleGrid = new()
-                            {
-                                HorizontalAlignment = HorizontalAlignment.Left,
-                                VerticalAlignment = VerticalAlignment.Center,
-                            };
-                            Grid.SetRow(titleGrid, 2 * i);
-
-                            // Create 2 new RowDefinitions
-                            RowDefinition titleGridTitleRow = new()
-                            {
-                                Height = new GridLength(40, GridUnitType.Pixel),
-                            };
-                            titleGrid.RowDefinitions.Add(titleGridTitleRow);
-
-                            RowDefinition titleGridSubtitleRow = new()
-                            {
-                                Height = new(20, GridUnitType.Pixel),
-                            };
-                            titleGrid.RowDefinitions.Add(titleGridSubtitleRow);
-
-                            // Create a new TextBlock (Title)
-                            TextBlock titleText = new()
-                            {
-                                Text = creditsObject["Value"].ToString(),
-                                Style = (Style)FindResource("Early GameBoy"),
-                                FontSize = 24,
-                                Foreground = new SolidColorBrush(
-                                    Color.FromArgb(0xFF, 0xFF, 0xD9, 0x66)
-                                ),
-                                HorizontalAlignment = HorizontalAlignment.Left,
-                                VerticalAlignment = VerticalAlignment.Center,
-                            };
-
-                            // Add the TextBlock to the Grid
-                            Grid.SetRow(titleText, 0);
-                            titleGrid.Children.Add(titleText);
-
-                            // Create a new TextBlock (Subtitle)
-                            if (creditsObject["Subtitle"] != null)
-                            {
-                                TextBlock subtitleText = new()
-                                {
-                                    Text = creditsObject["Subtitle"].ToString(),
-                                    Style = (Style)FindResource("Early GameBoy"),
-                                    FontSize = 16,
-                                    Foreground = new SolidColorBrush(
-                                        Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)
-                                    ),
-                                    HorizontalAlignment = HorizontalAlignment.Left,
-                                    VerticalAlignment = VerticalAlignment.Center,
-                                };
-
-                                // Add the TextBlock to the Grid
-                                Grid.SetRow(subtitleText, 1);
-                                titleGrid.Children.Add(subtitleText);
-                            }
-
-                            // Add the Grid to the CreditsPanel
-                            CreditsPanel.Children.Add(titleGrid);
-
-                            break;
-                        case "Heading":
-                            // Check the Subheadings property
-                            JArray subheadingsArray = (JArray)creditsObject["Subheadings"];
-
-                            // Create a new RowDefinition
-                            RowDefinition headingRow = new()
-                            {
-                                Height = new GridLength(
-                                    30 + (subheadingsArray.Count * 25),
-                                    GridUnitType.Pixel
-                                ),
-                            };
-                            CreditsPanel.RowDefinitions.Add(headingRow);
-
-                            // Create a new Grid
-                            Grid headingGrid = new()
-                            {
-                                HorizontalAlignment = HorizontalAlignment.Left,
-                                VerticalAlignment = VerticalAlignment.Center,
-                            };
-                            Grid.SetRow(headingGrid, 2 * i);
-
-                            // Create 2 new ColumnDefinitions
-                            ColumnDefinition headingGridBorderColumn = new()
-                            {
-                                Width = new(3, GridUnitType.Pixel),
-                            };
-                            headingGrid.ColumnDefinitions.Add(headingGridBorderColumn);
-
-                            ColumnDefinition headingGridContentColumn = new()
-                            {
-                                Width = new(1, GridUnitType.Star),
-                            };
-                            headingGrid.ColumnDefinitions.Add(headingGridContentColumn);
-
-                            // Create a Grid to function as a border
-                            Grid headingBorderGrid = new()
-                            {
-                                Background = new SolidColorBrush(
-                                    Color.FromArgb(0xFF, 0x33, 0x33, 0x33)
-                                ),
-                                Margin = new(0, 10, 0, 10),
-                            };
-
-                            // Add the Grid to the Grid
-                            Grid.SetColumn(headingBorderGrid, 0);
-                            headingGrid.Children.Add(headingBorderGrid);
-
-                            // Create a new Grid to hold the Title and Subheadings
-                            Grid headingContentGrid = new()
-                            {
-                                HorizontalAlignment = HorizontalAlignment.Left,
-                                VerticalAlignment = VerticalAlignment.Center,
-                                Margin = new(25, 0, 0, 0),
-                            };
-
-                            // Add the Grid to the Grid
-                            Grid.SetColumn(headingContentGrid, 1);
-                            headingGrid.Children.Add(headingContentGrid);
-
-                            // Create 2 new RowDefinitions
-                            RowDefinition headingGridTitleRow = new()
-                            {
-                                Height = new(30, GridUnitType.Pixel),
-                            };
-                            headingContentGrid.RowDefinitions.Add(headingGridTitleRow);
-
-                            RowDefinition headingGridSubheadingsRow = new()
-                            {
-                                Height = new(subheadingsArray.Count * 25, GridUnitType.Pixel),
-                            };
-                            headingContentGrid.RowDefinitions.Add(headingGridSubheadingsRow);
-
-                            // Create a new TextBlock (Title)
-                            TextBlock headingText = new()
-                            {
-                                Text = creditsObject["Value"].ToString(),
-                                Style = (Style)FindResource("Early GameBoy"),
-                                FontSize = 16,
-                                Foreground = new SolidColorBrush(
-                                    Color.FromArgb(0xFF, 0x85, 0x8E, 0xFF)
-                                ),
-                                HorizontalAlignment = HorizontalAlignment.Left,
-                                VerticalAlignment = VerticalAlignment.Center,
-                            };
-
-                            // Add the TextBlock to the Grid
-                            Grid.SetRow(headingText, 0);
-                            headingContentGrid.Children.Add(headingText);
-
-                            // Create a new Grid for the Subheadings
-                            Grid subheadingsGrid = new()
-                            {
-                                HorizontalAlignment = HorizontalAlignment.Left,
-                                VerticalAlignment = VerticalAlignment.Center,
-                            };
-                            Grid.SetRow(subheadingsGrid, 1);
-
-                            // For each Subheading
-                            for (int j = 0; j < subheadingsArray.Count; j++)
-                            {
-                                // Create new RowDefinitions & for each Subheading
-                                RowDefinition subheadingRow = new()
-                                {
-                                    Height = new(25, GridUnitType.Pixel),
-                                };
-                                subheadingsGrid.RowDefinitions.Add(subheadingRow);
-
-                                string colour =
-                                    subheadingsArray[j]["Colour"] != null
-                                        ? subheadingsArray[j]["Colour"].ToString()
-                                        : "White";
-
-                                // Create a new TextBlock (Subheading)
-                                TextBlock subheadingText = new()
-                                {
-                                    Text = subheadingsArray[j]["Value"].ToString(),
-                                    Style = (Style)FindResource("Early GameBoy"),
-                                    FontSize = 18,
-                                    Foreground = new SolidColorBrush(
-                                        (Color)ColorConverter.ConvertFromString(colour)
-                                    ),
-                                    HorizontalAlignment = HorizontalAlignment.Left,
-                                    VerticalAlignment = VerticalAlignment.Center,
-                                };
-
-                                // Add the TextBlock to the Grid
-                                Grid.SetRow(subheadingText, j);
-                                subheadingsGrid.Children.Add(subheadingText);
-                            }
-
-                            // Add the Subheading Grid to the Heading Grid
-                            headingContentGrid.Children.Add(subheadingsGrid);
-
-                            // Add the Grid to the CreditsPanel
-                            CreditsPanel.Children.Add(headingGrid);
-
-                            break;
-                        case "Note":
-                            int noteHeight =
-                                20 + (creditsObject["Value"].ToString().Length / 80 * 20);
-
-                            // Create a new RowDefinition
-                            RowDefinition noteRow = new()
-                            {
-                                Height = new(noteHeight, GridUnitType.Pixel),
-                            };
-                            CreditsPanel.RowDefinitions.Add(noteRow);
-
-                            // Create a new Grid
-                            Grid noteGrid = new()
-                            {
-                                HorizontalAlignment = HorizontalAlignment.Left,
-                                VerticalAlignment = VerticalAlignment.Center,
-                                Margin = new(0, 0, 100, 0),
-                            };
-                            Grid.SetRow(noteGrid, 2 * i);
-
-                            // Create a new TextBlock
-                            TextBlock noteText = new()
-                            {
-                                Text = creditsObject["Value"].ToString(),
-                                Style = (Style)FindResource("Early GameBoy"),
-                                FontSize = 11,
-                                Foreground = new SolidColorBrush(
-                                    Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)
-                                ),
-                                HorizontalAlignment = HorizontalAlignment.Left,
-                                VerticalAlignment = VerticalAlignment.Center,
-                                TextWrapping = TextWrapping.Wrap,
-                                LineHeight = 20,
-                            };
-
-                            // Add the TextBlock to the Grid
-                            noteGrid.Children.Add(noteText);
-
-                            // Add the Grid to the CreditsPanel
-                            CreditsPanel.Children.Add(noteGrid);
-
-                            break;
-                        case "Break":
-                            // Create a new RowDefinition
-                            RowDefinition breakRow = new() { Height = new(10, GridUnitType.Pixel) };
-                            CreditsPanel.RowDefinitions.Add(breakRow);
-
-                            // Create a new Grid
-                            Grid breakGrid = new()
-                            {
-                                HorizontalAlignment = HorizontalAlignment.Left,
-                                VerticalAlignment = VerticalAlignment.Center,
-                            };
-                            Grid.SetRow(breakGrid, 2 * i);
-
-                            // Create a new TextBlock
-                            TextBlock breakText = new()
-                            {
-                                Text = "----------------------",
-                                Style = (Style)FindResource("Early GameBoy"),
-                                FontSize = 16,
-                                Foreground = new SolidColorBrush(
-                                    Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
-                                ),
-                                HorizontalAlignment = HorizontalAlignment.Left,
-                                VerticalAlignment = VerticalAlignment.Center,
-                            };
-
-                            // Add the TextBlock to the Grid
-                            breakGrid.Children.Add(breakText);
-
-                            // Add the Grid to the CreditsPanel
-                            CreditsPanel.Children.Add(breakGrid);
-
-                            break;
-                        case "Image":
-                            double overrideHeight =
-                                creditsObject["HeightOverride"] != null
-                                    ? double.Parse(creditsObject["HeightOverride"].ToString())
-                                    : 100;
-                            string stretch =
-                                creditsObject["Stretch"] != null
-                                    ? creditsObject["Stretch"].ToString()
-                                    : "Uniform";
-
-                            // Create a new RowDefinition
-                            RowDefinition imageRow = new()
-                            {
-                                Height = new(overrideHeight, GridUnitType.Pixel),
-                            };
-                            CreditsPanel.RowDefinitions.Add(imageRow);
-
-                            // Create a new Grid
-                            Grid imageGrid = new()
-                            {
-                                HorizontalAlignment = HorizontalAlignment.Left,
-                                VerticalAlignment = VerticalAlignment.Center,
-                            };
-                            Grid.SetRow(imageGrid, 2 * i);
-
-                            string imagePath = creditsObject["Path"].ToString();
-
-                            // Create a new Image (Static)
-                            Image imageStatic = new()
-                            {
-                                Source = new BitmapImage(new Uri(imagePath, UriKind.Relative)),
-                            };
-
-                            // Set Image Stretch
-                            switch (stretch)
-                            {
-                                case "Fill":
-                                    imageStatic.Stretch = Stretch.Fill;
-                                    break;
-                                case "None":
-                                    imageStatic.Stretch = Stretch.None;
-                                    break;
-                                case "Uniform":
-                                    imageStatic.Stretch = Stretch.Uniform;
-                                    break;
-                                case "UniformToFill":
-                                    imageStatic.Stretch = Stretch.UniformToFill;
-                                    break;
-                            }
-
-                            // Add the Image to the Grid
-                            imageGrid.Children.Add(imageStatic);
-
-                            // Set Grid Height to Image Height
-                            imageGrid.Height = overrideHeight;
-
-                            // Create a new Image (Gif)
-                            if (imagePath.EndsWith(".gif"))
-                            {
-                                // Copy GifTemplateElement_Parent's child element to make a new Image
-                                Image imageGif = CloneXamlElement(
-                                    (Image)GifTemplateElement_Parent.Children[0]
-                                );
-                                AnimationBehavior.SetSourceUri(
-                                    imageGif,
-                                    new(imagePath, UriKind.Relative)
-                                );
-
-                                // Set Image Stretch
-                                switch (stretch)
-                                {
-                                    case "Fill":
-                                        imageGif.Stretch = Stretch.Fill;
-                                        break;
-                                    case "None":
-                                        imageGif.Stretch = Stretch.None;
-                                        break;
-                                    case "Uniform":
-                                        imageGif.Stretch = Stretch.Uniform;
-                                        break;
-                                    case "UniformToFill":
-                                        imageGif.Stretch = Stretch.UniformToFill;
-                                        break;
-                                }
-
-                                // Add the Image to the Grid
-                                imageGrid.Children.Add(imageGif);
-
-                                AnimationBehavior.AddLoadedHandler(
-                                    imageGif,
-                                    (sender, e) =>
-                                    {
-                                        // Hide the static image
-                                        imageStatic.Visibility = Visibility.Collapsed;
-                                    }
-                                );
-                            }
-
-                            // Add the Grid to the CreditsPanel
-                            CreditsPanel.Children.Add(imageGrid);
-
-                            break;
-                        default:
-                            break;
-                    }
-
-                    // Create a space between each credit
-                    if (i < creditsArray.Count - 1)
-                    {
-                        // Create a new RowDefinition
-                        RowDefinition spaceRow = new() { Height = new(40, GridUnitType.Pixel) };
-                        CreditsPanel.RowDefinitions.Add(spaceRow);
-                    }
-                }
-            }
-            else
-            {
-                // If the Credits.json file does not exist, show an error message
-                MessageBox.Show("Failed to generate credits: Credits.json does not exist.");
-            }
-        }
 
         private void AutoScrollCredits()
         {
