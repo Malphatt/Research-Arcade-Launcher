@@ -7,11 +7,16 @@
         mc:Ignorable="d"
         WindowStartupLocation="CenterScreen"
         WindowState="Normal"
-        WindowStyle="None"
         ResizeMode="NoResize"
         Title="InfoWindow"
         Height="600"
-        Width="1000">
+        Width="1000"
+        
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True">
 
         <!-- Declare the Launcher Version, Global Font and ToggleButton style -->
         <Window.Resources>

@@ -73,6 +73,16 @@ namespace ArcademiaGameLauncher.Windows
             new(Color.FromArgb(0xFF, 0xE5, 0xC3, 0x5C)),
         ];
 
+        bool _isMaintenanceVisible = false;
+        bool _isStartMenuVisible = false;
+        bool _isHomeMenuVisible = false;
+        bool _isSelectionMenuVisible = false;
+        bool _isInputMenuVisible = false;
+        bool _isCreditsVisible = false;
+        bool _isInfoWindowVisible = false;
+        bool _isInfoWindowIdleVisible = false;
+        bool _isInfoWindowForceExitVisible = false;
+
         private int _globalCounter = 0;
 
         private readonly int _selectionUpdateInterval = 250;
@@ -288,6 +298,7 @@ namespace ArcademiaGameLauncher.Windows
 
             // Show the Start Menu
             StartMenu.Visibility = Visibility.Visible;
+            _isStartMenuVisible = true;
 
             var socketLogger = LoggerFactory.Create(b => b.AddSerilog()).CreateLogger<Socket>();
 
@@ -516,8 +527,7 @@ namespace ArcademiaGameLauncher.Windows
         private void InitializeUpdateTimer()
         {
             // Timer Setup
-            _updateTimer = new System.Timers.Timer(10);
-            _updateTimer.AutoReset = false;
+            _updateTimer = new System.Timers.Timer(10) { AutoReset = false };
             _updateTimer.Elapsed += OnTimedEvent;
             _updateTimer.Start();
         }
@@ -542,16 +552,16 @@ namespace ArcademiaGameLauncher.Windows
                 try
                 {
                     _logger.LogDebug("[Load Database] LoadGameDatabase: Queued");
-                    Application.Current?.Dispatcher?.BeginInvoke(() =>
-                    {
-                        if (_logger.IsEnabled(LogLevel.Debug))
-                            _logger.LogDebug("[Load Database] LoadGameDatabase: Start");
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("[Load Database] LoadGameDatabase: Start");
 
-                        for (
-                            int i = _previousPageIndex * _tilesPerPage;
-                            i < (_previousPageIndex + 1) * _tilesPerPage;
-                            i++
-                        )
+                    for (
+                        int i = _previousPageIndex * _tilesPerPage;
+                        i < (_previousPageIndex + 1) * _tilesPerPage;
+                        i++
+                    )
+                    {
+                        Application.Current?.Dispatcher?.InvokeAsync(() =>
                         {
                             if (i < _gameInfoList.Length)
                             {
@@ -569,28 +579,28 @@ namespace ArcademiaGameLauncher.Windows
                             }
                             else
                                 _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
-                        }
+                        });
+                    }
 
-                        for (int i = 0; i < _gameInfoList.Length; i++)
-                        {
-                            // If the game's exe exists set the title state to ready
-                            if (
-                                File.Exists(
-                                    Path.Combine(
-                                        _gameDirectoryPath,
-                                        _gameInfoList[i]["FolderName"].ToString(),
-                                        _gameInfoList[i]["NameOfExecutable"].ToString()
-                                    )
+                    for (int i = 0; i < _gameInfoList.Length; i++)
+                    {
+                        // If the game's exe exists set the title state to ready
+                        if (
+                            File.Exists(
+                                Path.Combine(
+                                    _gameDirectoryPath,
+                                    _gameInfoList[i]["FolderName"].ToString(),
+                                    _gameInfoList[i]["NameOfExecutable"].ToString()
                                 )
                             )
-                                SetGameTitleState(i, GameState.ready);
-                            else
-                                SetGameTitleState(i, GameState.failed);
-                        }
+                        )
+                            SetGameTitleState(i, GameState.ready);
+                        else
+                            SetGameTitleState(i, GameState.failed);
+                    }
 
-                        if (_logger.IsEnabled(LogLevel.Debug))
-                            _logger.LogDebug("[Load Database] LoadGameDatabase: End");
-                    });
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("[Load Database] LoadGameDatabase: End");
                 }
                 catch (TaskCanceledException tcx)
                 {
@@ -626,33 +636,32 @@ namespace ArcademiaGameLauncher.Windows
                         "GameDatabase.json"
                     );
 
-                    _logger.LogDebug("[Load Database] CheckForGameDatabaseChanges: Queued");
-                    Application.Current?.Dispatcher?.BeginInvoke(() =>
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("[Load Database] CheckForGameDatabaseChanges: Start");
+
+                    if (File.Exists(localGameDatabasePath))
                     {
-                        if (_logger.IsEnabled(LogLevel.Debug))
-                            _logger.LogDebug("[Load Database] CheckForGameDatabaseChanges: Start");
+                        JArray gameInfoArray = JArray.Parse(
+                            File.ReadAllText(localGameDatabasePath)
+                        );
 
-                        if (File.Exists(localGameDatabasePath))
-                        {
-                            JArray gameInfoArray = JArray.Parse(
-                                File.ReadAllText(localGameDatabasePath)
-                            );
+                        _gameInfoList = new JObject[gameInfoArray.Count];
+                        for (int i = 0; i < gameInfoArray.Count; i++)
+                            _gameInfoList[i] = gameInfoArray[i].ToObject<JObject>();
+                    }
+                    else
+                    {
+                        _gameInfoList = [];
+                        _gameTitleStates = [];
+                    }
 
-                            _gameInfoList = new JObject[gameInfoArray.Count];
-                            for (int i = 0; i < gameInfoArray.Count; i++)
-                                _gameInfoList[i] = gameInfoArray[i].ToObject<JObject>();
-                        }
-                        else
-                        {
-                            _gameInfoList = [];
-                            _gameTitleStates = [];
-                        }
-
-                        for (
-                            int i = _previousPageIndex * _tilesPerPage;
-                            i < (_previousPageIndex + 1) * _tilesPerPage;
-                            i++
-                        )
+                    for (
+                        int i = _previousPageIndex * _tilesPerPage;
+                        i < (_previousPageIndex + 1) * _tilesPerPage;
+                        i++
+                    )
+                    {
+                        Application.Current?.Dispatcher?.InvokeAsync(() =>
                         {
                             if (i < _gameInfoList.Length)
                             {
@@ -661,11 +670,11 @@ namespace ArcademiaGameLauncher.Windows
                             }
                             else
                                 _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
-                        }
+                        });
+                    }
 
-                        if (_logger.IsEnabled(LogLevel.Debug))
-                            _logger.LogDebug("[Load Database] CheckForGameDatabaseChanges: End");
-                    });
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("[Load Database] CheckForGameDatabaseChanges: End");
 
                     return true;
                 }
@@ -687,15 +696,19 @@ namespace ArcademiaGameLauncher.Windows
             try
             {
                 _logger.LogDebug("[Navigation] GameLibraryButton_Click: Queued");
-                Application.Current?.Dispatcher?.BeginInvoke(() =>
+                Application.Current?.Dispatcher?.InvokeAsync(() =>
                 {
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Navigation] GameLibraryButton_Click: Start");
 
                     StartMenu.Visibility = Visibility.Collapsed;
+                    _isStartMenuVisible = false;
                     HomeMenu.Visibility = Visibility.Collapsed;
+                    _isHomeMenuVisible = false;
                     SelectionMenu.Visibility = Visibility.Visible;
+                    _isSelectionMenuVisible = true;
                     InputMenu.Visibility = Visibility.Collapsed;
+                    _isInputMenuVisible = false;
 
                     // Set the page to 0
                     ChangePage(0);
@@ -724,15 +737,19 @@ namespace ArcademiaGameLauncher.Windows
             try
             {
                 _logger.LogDebug("[Navigation] InputMenuButton_Click: Queued");
-                Application.Current?.Dispatcher?.BeginInvoke(() =>
+                Application.Current?.Dispatcher?.InvokeAsync(() =>
                 {
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Navigation] InputMenuButton_Click: Start");
 
                     StartMenu.Visibility = Visibility.Collapsed;
+                    _isStartMenuVisible = false;
                     HomeMenu.Visibility = Visibility.Collapsed;
+                    _isHomeMenuVisible = false;
                     SelectionMenu.Visibility = Visibility.Collapsed;
+                    _isSelectionMenuVisible = false;
                     InputMenu.Visibility = Visibility.Visible;
+                    _isInputMenuVisible = true;
 
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Navigation] InputMenuButton_Click: End");
@@ -754,18 +771,23 @@ namespace ArcademiaGameLauncher.Windows
             try
             {
                 _logger.LogDebug("[Navigation] AboutButton_Click: Queued");
-                Application.Current?.Dispatcher?.BeginInvoke(() =>
+                Application.Current?.Dispatcher?.InvokeAsync(() =>
                 {
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Navigation] AboutButton_Click: Start");
 
                     StartMenu.Visibility = Visibility.Collapsed;
+                    _isStartMenuVisible = false;
                     HomeMenu.Visibility = Visibility.Visible;
+                    _isHomeMenuVisible = true;
                     SelectionMenu.Visibility = Visibility.Collapsed;
+                    _isSelectionMenuVisible = false;
                     InputMenu.Visibility = Visibility.Collapsed;
+                    _isInputMenuVisible = false;
 
                     HomeImage.Opacity = 0.2;
                     CreditsPanel.Visibility = Visibility.Visible;
+                    _isCreditsVisible = true;
 
                     // Show the CreditsPanel Logos
                     UoL_Logo.Visibility = Visibility.Visible;
@@ -796,18 +818,23 @@ namespace ArcademiaGameLauncher.Windows
             try
             {
                 _logger.LogDebug("[Navigation] ExitButton_Click: Queued");
-                Application.Current?.Dispatcher?.BeginInvoke(() =>
+                Application.Current?.Dispatcher?.InvokeAsync(() =>
                 {
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Navigation] ExitButton_Click: Start");
 
                     StartMenu.Visibility = Visibility.Visible;
+                    _isStartMenuVisible = true;
                     HomeMenu.Visibility = Visibility.Collapsed;
+                    _isHomeMenuVisible = false;
                     SelectionMenu.Visibility = Visibility.Collapsed;
+                    _isSelectionMenuVisible = false;
                     InputMenu.Visibility = Visibility.Collapsed;
+                    _isInputMenuVisible = false;
 
                     HomeImage.Opacity = 1;
                     CreditsPanel.Visibility = Visibility.Collapsed;
+                    _isCreditsVisible = false;
 
                     // Hide the CreditsPanel Logos
                     UoL_Logo.Visibility = Visibility.Collapsed;
@@ -844,15 +871,19 @@ namespace ArcademiaGameLauncher.Windows
             try
             {
                 _logger.LogDebug("[Navigation] BackFromGameLibraryButton_Click: Queued");
-                Application.Current?.Dispatcher?.BeginInvoke(() =>
+                Application.Current?.Dispatcher?.InvokeAsync(() =>
                 {
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Navigation] BackFromGameLibraryButton_Click: Start");
 
                     StartMenu.Visibility = Visibility.Collapsed;
+                    _isStartMenuVisible = false;
                     HomeMenu.Visibility = Visibility.Visible;
+                    _isHomeMenuVisible = true;
                     SelectionMenu.Visibility = Visibility.Collapsed;
+                    _isSelectionMenuVisible = false;
                     InputMenu.Visibility = Visibility.Collapsed;
+                    _isInputMenuVisible = false;
 
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Navigation] BackFromGameLibraryButton_Click: End");
@@ -948,15 +979,19 @@ namespace ArcademiaGameLauncher.Windows
                 try
                 {
                     _logger.LogDebug("[First Input] Key_Pressed: Queued");
-                    Application.Current?.Dispatcher?.BeginInvoke(() =>
+                    Application.Current?.Dispatcher?.InvokeAsync(() =>
                     {
                         if (_logger.IsEnabled(LogLevel.Debug))
                             _logger.LogDebug("[First Input] Key_Pressed: Start");
 
                         StartMenu.Visibility = Visibility.Collapsed;
+                        _isStartMenuVisible = false;
                         HomeMenu.Visibility = Visibility.Visible;
+                        _isHomeMenuVisible = true;
                         SelectionMenu.Visibility = Visibility.Collapsed;
+                        _isSelectionMenuVisible = false;
                         InputMenu.Visibility = Visibility.Collapsed;
+                        _isInputMenuVisible = false;
 
                         _currentlySelectedHomeIndex = 0;
                         HighlightCurrentHomeMenuOption();
@@ -980,6 +1015,14 @@ namespace ArcademiaGameLauncher.Windows
         {
             _timeSinceLastButton = 0;
             _controllerManager.ReleaseAllButtons();
+        }
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+
+            if (_infoWindow != null)
+                _infoWindow.Owner = this;
         }
 
         private async void StartWatchdog()
@@ -1007,12 +1050,6 @@ namespace ArcademiaGameLauncher.Windows
             });
         }
 
-        private int _maintenanceCheckCounter = 0;
-        private bool _exitButtonWasHeld = false;
-        private bool _isIdleMenuVisible = false;
-        private bool _isForceExitMenuVisible = false;
-        private int _uiUpdateCounter = 0;
-
         private void OnTimedEvent(object sender, ElapsedEventArgs e)
         {
             if (_isTimerRunning)
@@ -1020,361 +1057,236 @@ namespace ArcademiaGameLauncher.Windows
 
             _isTimerRunning = true;
 
-            try
-            {
-                _lastSuccessfulTick = DateTime.Now;
+            _lastSuccessfulTick = DateTime.Now;
 
-                _currentStep = "Maintenance Check";
-                // Only check maintenance every 100 ticks (1 second)
-                if (_maintenanceCheckCounter++ >= 100)
+            _currentStep = "Maintenance Check";
+            if (_isMaintenanceVisible)
+                return;
+
+            _currentStep = "Keyboard Check";
+            if (GetAsyncKeyState(69) != 0)
+                Window_Closing(null, null);
+
+            _currentStep = "Exit Logic";
+            if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
+            {
+                int exitHeldFor = _controllerManager.GetExitButtonHeldFor();
+
+                if (exitHeldFor >= 1000)
                 {
-                    _maintenanceCheckCounter = 0;
-                    bool isMaintenanceVisible = false;
-                    Application.Current?.Dispatcher?.Invoke(
-                        () =>
-                            isMaintenanceVisible =
-                                MaintenanceScreen.Visibility == Visibility.Visible
+                    if (_isInfoWindowVisible && _isInfoWindowForceExitVisible)
+                        _infoWindow?.UpdateCountdown(3000 - exitHeldFor);
+                    else if (!_isInfoWindowVisible)
+                    {
+                        _isInfoWindowVisible = true;
+                        _isInfoWindowForceExitVisible = true;
+
+                        _infoWindow?.SetCloseGameName(
+                            _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
+                        );
+                        _infoWindow?.ShowWindow(InfoWindowType.ForceExit);
+                        _infoWindow?.UpdateCountdown(3000 - exitHeldFor);
+                    }
+
+                    if (exitHeldFor % 200 < _tickSpeed)
+                        _infoWindow?.ForceForeground();
+                }
+                else if (_isInfoWindowVisible && _isInfoWindowForceExitVisible)
+                {
+                    _infoWindow?.HideWindow();
+
+                    Application.Current?.Dispatcher?.InvokeAsync(
+                        () => SetForegroundWindow(_currentlyRunningProcess.MainWindowHandle)
                     );
 
-                    if (isMaintenanceVisible)
-                        return;
+                    _isInfoWindowVisible = false;
+                    _isInfoWindowIdleVisible = false;
+                    _isInfoWindowForceExitVisible = false;
                 }
 
-                _currentStep = "Keyboard Check";
-                if (GetAsyncKeyState(69) != 0)
-                    Application.Current?.Dispatcher?.Invoke(() => Window_Closing(null, null));
-
-                _currentStep = "Exit Logic";
-                if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
+                if (exitHeldFor >= 3000)
                 {
-                    int exitHeldFor = _controllerManager.GetExitButtonHeldFor();
+                    SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
+                    ResetControllerStates();
+                    _currentlyRunningProcess.Kill();
+                    _infoWindow?.HideWindow();
 
-                    if (exitHeldFor >= 1000)
+                    Application.Current?.Dispatcher?.InvokeAsync(() =>
                     {
-                        _exitButtonWasHeld = true;
-                        _isForceExitMenuVisible = true;
-                        Application.Current?.Dispatcher?.Invoke(() =>
-                        {
-                            _infoWindow?.SetCloseGameName(
-                                _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
-                            );
-                            _infoWindow?.ShowWindow(InfoWindowType.ForceExit);
-                            _infoWindow?.UpdateCountdown(3000 - exitHeldFor);
-                        });
-                    }
-                    else if (_exitButtonWasHeld || _isForceExitMenuVisible)
-                    {
-                        // Only invoke if the button was previously held to hide the window
-                        _exitButtonWasHeld = false;
-
-                        if (_isForceExitMenuVisible)
-                        {
-                            Application.Current?.Dispatcher?.Invoke(() =>
-                            {
-                                if (
-                                    _infoWindow.Visibility == Visibility.Visible
-                                    && _infoWindow.ForceExitMenu.Visibility == Visibility.Visible
-                                )
-                                {
-                                    _infoWindow?.HideWindow();
-                                    SetForegroundWindow(_currentlyRunningProcess.MainWindowHandle);
-                                }
-                            });
-                            _isForceExitMenuVisible = false;
-                        }
-                    }
-
-                    if (exitHeldFor >= 3000)
-                    {
-                        Application.Current?.Dispatcher?.Invoke(() =>
-                        {
-                            SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
-                            ResetControllerStates();
-                            _currentlyRunningProcess.Kill();
-                            _infoWindow?.HideWindow();
-                            SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-
-                            _ = _socket.SafeReportStatus("Idle");
-                            _currentlyRunningProcess = null;
-                        });
-                        _isForceExitMenuVisible = false;
-                    }
-                }
-                else
-                {
-                    if (_isForceExitMenuVisible)
-                    {
-                        Application.Current?.Dispatcher?.Invoke(() =>
-                        {
-                            if (
-                                _infoWindow.Visibility == Visibility.Visible
-                                && _infoWindow.ForceExitMenu.Visibility == Visibility.Visible
-                            )
-                                _infoWindow?.HideWindow();
-                        });
-                        _isForceExitMenuVisible = false;
-                    }
-                }
-
-                _currentStep = "AFK Check";
-                if (_afkTimer >= _noInputTimeout)
-                {
-                    _isIdleMenuVisible = true;
-                    Application.Current?.Dispatcher?.Invoke(() =>
-                    {
-                        _infoWindow?.ShowWindow(InfoWindowType.Idle);
-                        _infoWindow?.UpdateCountdown(_noInputTimeout + 5000 - _afkTimer);
-
-                        if (_currentlyRunningProcess != null)
-                            _infoWindow?.SetCloseGameName(
-                                _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
-                            );
-                        else
-                            _infoWindow?.SetCloseGameName(null);
-                    });
-
-                    if (_afkTimer >= _noInputTimeout + 5000)
-                    {
-                        Application.Current?.Dispatcher?.Invoke(() =>
-                        {
-                            _infoWindow?.UpdateCountdown(0);
-                            _afkTimerActive = false;
-                            _afkTimer = 0;
-                            _infoWindow?.HideWindow();
-                            _isIdleMenuVisible = false;
-
-                            if (
-                                _currentlyRunningProcess != null
-                                && !_currentlyRunningProcess.HasExited
-                            )
-                            {
-                                ResetControllerStates();
-                                _currentlyRunningProcess.Kill();
-                                SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-                                _ = _socket.SafeReportStatus("Idle");
-                                _currentlyRunningProcess = null;
-                            }
-
-                            try
-                            {
-                                StartMenu.Visibility = Visibility.Visible;
-                                HomeMenu.Visibility = Visibility.Collapsed;
-                                SelectionMenu.Visibility = Visibility.Collapsed;
-                                InputMenu.Visibility = Visibility.Collapsed;
-                            }
-                            catch (TaskCanceledException tcx)
-                            {
-                                if (_logger.IsEnabled(LogLevel.Error))
-                                    _logger.LogError(
-                                        "[MainWindow] Error showing Start Menu after AFK: {errorMessage}",
-                                        tcx.Message
-                                    );
-                            }
-                        });
-                    }
-                }
-                else if (_isIdleMenuVisible)
-                {
-                    Application.Current?.Dispatcher?.Invoke(() =>
-                    {
-                        if (
-                            _infoWindow.Visibility == Visibility.Visible
-                            && _infoWindow.IdleMenu.Visibility == Visibility.Visible
-                        )
-                        {
-                            _infoWindow?.HideWindow();
-                            _isIdleMenuVisible = false;
-                            _timeSinceLastButton = 0;
-                            if (_currentlyRunningProcess != null)
-                                SetForegroundWindow(_currentlyRunningProcess.MainWindowHandle);
-                        }
-                        else
-                        {
-                            _isIdleMenuVisible = false;
-                        }
-                    });
-                }
-
-                _currentStep = "UI Animations";
-
-                // Throttle UI updates to every 4 ticks (approx 25Hz)
-                if (_uiUpdateCounter++ < 3)
-                    goto Counters;
-
-                _uiUpdateCounter = 0;
-
-                // Batch UI updates
-                Application.Current?.Dispatcher?.Invoke(() =>
-                {
-                    if (
-                        (
-                            HomeMenu.Visibility == Visibility.Visible
-                            || SelectionMenu.Visibility == Visibility.Visible
-                        )
-                        && _globalCounter % _selectionAnimationFrameRate == 0
-                    )
-                    {
-                        if (_selectionAnimationFrame < _selectionAnimationFrames.Length - 1)
-                            _selectionAnimationFrame++;
-                        else
-                            _selectionAnimationFrame = 0;
-
-                        if (HomeMenu.Visibility == Visibility.Visible)
-                        {
-                            try
-                            {
-                                HighlightCurrentHomeMenuOption();
-                            }
-                            catch (TaskCanceledException tcx)
-                            {
-                                if (_logger.IsEnabled(LogLevel.Error))
-                                    _logger.LogError(
-                                        "[MainWindow] Home Highlight Error: {Msg}",
-                                        tcx.Message
-                                    );
-                            }
-                        }
-                        else if (SelectionMenu.Visibility == Visibility.Visible)
-                        {
-                            try
-                            {
-                                HighlightCurrentGameMenuOption();
-                            }
-                            catch (TaskCanceledException tcx)
-                            {
-                                if (_logger.IsEnabled(LogLevel.Error))
-                                    _logger.LogError(
-                                        "[MainWindow] Game Highlight Error: {Msg}",
-                                        tcx.Message
-                                    );
-                            }
-                        }
-                    }
-
-                    _currentStep = "Input Menu Feedback";
-                    if (InputMenu.Visibility == Visibility.Visible)
-                    {
-                        try
-                        {
-                            UpdateInputMenuFeedback();
-                        }
-                        catch (TaskCanceledException tcx)
-                        {
-                            if (_logger.IsEnabled(LogLevel.Error))
-                                _logger.LogError(
-                                    "[MainWindow] Input Menu Feedback Error: {Msg}",
-                                    tcx.Message
-                                );
-                        }
-                    }
-
-                    _currentStep = "Update Current Selection";
-                    if (
-                        HomeMenu.Visibility == Visibility.Visible
-                        || SelectionMenu.Visibility == Visibility.Visible
-                    )
-                    {
-                        try
-                        {
-                            UpdateCurrentSelection();
-                        }
-                        catch (TaskCanceledException tcx)
-                        {
-                            if (_logger.IsEnabled(LogLevel.Error))
-                                _logger.LogError(
-                                    "[MainWindow] Selection Update Error: {Msg}",
-                                    tcx.Message
-                                );
-                        }
-                    }
-
-                    _currentStep = "Credits Scroll";
-                    if (CreditsPanel.Visibility == Visibility.Visible)
-                    {
-                        try
-                        {
-                            AutoScrollCredits();
-                        }
-                        catch (TaskCanceledException tcx)
-                        {
-                            if (_logger.IsEnabled(LogLevel.Error))
-                                _logger.LogError(
-                                    "[MainWindow] Credits Scroll Error: {Msg}",
-                                    tcx.Message
-                                );
-                        }
-                    }
-
-                    _currentStep = "Process Exit Check";
-                    if (_currentlyRunningProcess != null && _currentlyRunningProcess.HasExited)
-                    {
-                        SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
-                        ResetControllerStates();
                         SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
-                        _ = _socket.SafeReportStatus("Idle");
-                        _currentlyRunningProcess = null;
-                        DebounceUpdateGameInfoDisplay();
-                    }
+                    });
 
-                    _currentStep = "Flash Start Button";
-                    if (StartMenu.Visibility == Visibility.Visible)
-                    {
-                        try
-                        {
-                            if (_timeSinceLastButton % 300 == 0)
-                                PressStartText.Visibility =
-                                    PressStartText.Visibility == Visibility.Visible
-                                        ? Visibility.Hidden
-                                        : Visibility.Visible;
-                        }
-                        catch (TaskCanceledException tcx)
-                        {
-                            if (_logger.IsEnabled(LogLevel.Error))
-                                _logger.LogError(
-                                    "[MainWindow] Flash Start Error: {Msg}",
-                                    tcx.Message
-                                );
-                        }
-                    }
+                    _ = _socket.SafeReportStatus("Idle");
+                    _currentlyRunningProcess = null;
+
+                    _isInfoWindowVisible = false;
+                    _isInfoWindowIdleVisible = false;
+                    _isInfoWindowForceExitVisible = false;
+                }
+            }
+            else if (_isInfoWindowVisible)
+            {
+                _infoWindow?.HideWindow();
+
+                Application.Current?.Dispatcher?.InvokeAsync(() =>
+                {
+                    SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
                 });
 
-                Counters:
-                _currentStep = "Counters";
-                if (_afkTimerActive)
-                    _afkTimer += _tickSpeed;
-                if (_selectionUpdateCounter > _selectionUpdateInterval)
-                    _selectionUpdateIntervalCounter = 0;
-
-                _selectionUpdateCounter += _tickSpeed;
-                _timeSinceLastButton += _tickSpeed;
-
-                _globalCounter += _tickSpeed;
-
-                if (_globalCounter >= int.MaxValue)
-                    _globalCounter = 0;
-
-                _currentStep = "Finished";
+                _isInfoWindowVisible = false;
             }
-            catch (Exception ex)
+
+            _currentStep = "AFK Check";
+            if (_afkTimer >= _noInputTimeout)
             {
-                if (_logger.IsEnabled(LogLevel.Error))
-                    _logger.LogError(
-                        "[MainWindow] Error in OnTimedEvent during step {Step}: {errorMessage}",
-                        _currentStep,
-                        ex.Message
-                    );
-            }
-            finally
-            {
-                _isTimerRunning = false;
-                if (_updateTimer != null)
+                if (!_isInfoWindowIdleVisible)
                 {
-                    try
-                    {
-                        _updateTimer.Start();
-                    }
-                    catch { }
+                    _isInfoWindowVisible = true;
+                    _isInfoWindowIdleVisible = true;
+
+                    if (_currentlyRunningProcess != null)
+                        _infoWindow?.SetCloseGameName(
+                            _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
+                        );
+                    else
+                        _infoWindow?.SetCloseGameName(null);
+
+                    _infoWindow?.ShowWindow(InfoWindowType.Idle);
                 }
+
+                if (_afkTimer % 100 < _tickSpeed)
+                    _infoWindow?.UpdateCountdown(_noInputTimeout + 5000 - _afkTimer);
+
+                if (_afkTimer % 250 < _tickSpeed)
+                    _infoWindow?.ForceForeground();
+
+                if (_afkTimer >= _noInputTimeout + 5000)
+                {
+                    _infoWindow?.UpdateCountdown(0);
+                    _afkTimerActive = false;
+                    _afkTimer = 0;
+
+                    _infoWindow?.HideWindow();
+                    _isInfoWindowVisible = false;
+                    _isInfoWindowIdleVisible = false;
+                    _isInfoWindowForceExitVisible = false;
+
+                    if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
+                    {
+                        ResetControllerStates();
+                        try
+                        {
+                            _currentlyRunningProcess.Kill();
+                        }
+                        catch { }
+                        _ = _socket.SafeReportStatus("Idle");
+                        _currentlyRunningProcess = null;
+                    }
+
+                    Application.Current?.Dispatcher?.InvokeAsync(() =>
+                    {
+                        StartMenu.Visibility = Visibility.Visible;
+                        _isStartMenuVisible = true;
+                        HomeMenu.Visibility = Visibility.Collapsed;
+                        _isHomeMenuVisible = false;
+                        SelectionMenu.Visibility = Visibility.Collapsed;
+                        _isSelectionMenuVisible = false;
+                        InputMenu.Visibility = Visibility.Collapsed;
+                        _isInputMenuVisible = false;
+
+                        SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle);
+                    });
+                }
+            }
+            else if (_isInfoWindowVisible)
+            {
+                _infoWindow?.HideWindow();
+                _timeSinceLastButton = 0;
+
+                if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
+                    Application.Current?.Dispatcher?.InvokeAsync(
+                        () => SetForegroundWindow(_currentlyRunningProcess.MainWindowHandle)
+                    );
+                else
+                    Application.Current?.Dispatcher?.InvokeAsync(
+                        () => SetForegroundWindow(Process.GetCurrentProcess().MainWindowHandle)
+                    );
+
+                _isInfoWindowVisible = false;
+                _isInfoWindowIdleVisible = false;
+                _isInfoWindowForceExitVisible = false;
+            }
+
+            _currentStep = "UI Animations";
+            if (
+                (_isHomeMenuVisible || _isSelectionMenuVisible)
+                && _globalCounter % _selectionAnimationFrameRate == 0
+            )
+            {
+                if (_selectionAnimationFrame < _selectionAnimationFrames.Length - 1)
+                    _selectionAnimationFrame++;
+                else
+                    _selectionAnimationFrame = 0;
+
+                Task.Run(() =>
+                {
+                    if (_isHomeMenuVisible)
+                        HighlightCurrentHomeMenuOption();
+                    else if (_isSelectionMenuVisible)
+                        HighlightCurrentGameMenuOption();
+                });
+            }
+
+            Task.Run(() =>
+            {
+                if (_isInputMenuVisible)
+                    UpdateInputMenuFeedback();
+
+                if (_isHomeMenuVisible || _isSelectionMenuVisible)
+                    UpdateCurrentSelection();
+
+                if (_isCreditsVisible)
+                    AutoScrollCredits();
+            });
+
+            if (_isStartMenuVisible)
+            {
+                if (_timeSinceLastButton % 300 == 0)
+                {
+                    Application.Current?.Dispatcher?.InvokeAsync(
+                        () =>
+                            PressStartText.Visibility =
+                                PressStartText.Visibility == Visibility.Visible
+                                    ? Visibility.Hidden
+                                    : Visibility.Visible
+                    );
+                }
+            }
+
+            _currentStep = "Counters";
+            if (_afkTimerActive)
+                _afkTimer += _tickSpeed;
+            if (_selectionUpdateCounter > _selectionUpdateInterval)
+                _selectionUpdateIntervalCounter = 0;
+
+            _selectionUpdateCounter += _tickSpeed;
+            _timeSinceLastButton += _tickSpeed;
+
+            _globalCounter += _tickSpeed;
+
+            if (_globalCounter >= int.MaxValue)
+                _globalCounter = 0;
+
+            _currentStep = "Finished";
+
+            _isTimerRunning = false;
+            if (_updateTimer != null)
+            {
+                try
+                {
+                    _updateTimer.Start();
+                }
+                catch { }
             }
         }
 
@@ -1387,7 +1299,7 @@ namespace ArcademiaGameLauncher.Windows
             try
             {
                 _logger.LogDebug("[Updater] Updater_LogoDownloaded: Queued");
-                Application.Current?.Dispatcher?.BeginInvoke(() =>
+                Application.Current?.Dispatcher?.InvokeAsync(() =>
                 {
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Updater] Updater_LogoDownloaded: Start");
@@ -1478,26 +1390,25 @@ namespace ArcademiaGameLauncher.Windows
             // Show the game titles as "Loading..." until the game database is updated
             try
             {
-                _logger.LogDebug("[Updater] Updater_GameDatabaseFetched: Queued");
-                Application.Current?.Dispatcher?.BeginInvoke(() =>
+                if (_logger.IsEnabled(LogLevel.Debug))
+                    _logger.LogDebug("[Updater] Updater_GameDatabaseFetched: Start");
+
+                // Update the gameInfoList with the new game info array
+                _gameInfoList = new JObject[gameInfoArray.Count];
+                for (int i = 0; i < gameInfoArray.Count; i++)
+                    _gameInfoList[i] = (JObject)gameInfoArray[i];
+
+                _gameTitleStates = new GameState[_gameInfoList.Length];
+                for (int i = 0; i < _gameInfoList.Length; i++)
+                    _gameTitleStates[i] = GameState.fetchingInfo;
+
+                for (
+                    int i = _previousPageIndex * _tilesPerPage;
+                    i < (_previousPageIndex + 1) * _tilesPerPage;
+                    i++
+                )
                 {
-                    if (_logger.IsEnabled(LogLevel.Debug))
-                        _logger.LogDebug("[Updater] Updater_GameDatabaseFetched: Start");
-
-                    // Update the gameInfoList with the new game info array
-                    _gameInfoList = new JObject[gameInfoArray.Count];
-                    for (int i = 0; i < gameInfoArray.Count; i++)
-                        _gameInfoList[i] = (JObject)gameInfoArray[i];
-
-                    _gameTitleStates = new GameState[_gameInfoList.Length];
-                    for (int i = 0; i < _gameInfoList.Length; i++)
-                        _gameTitleStates[i] = GameState.fetchingInfo;
-
-                    for (
-                        int i = _previousPageIndex * _tilesPerPage;
-                        i < (_previousPageIndex + 1) * _tilesPerPage;
-                        i++
-                    )
+                    Application.Current?.Dispatcher?.InvokeAsync(() =>
                     {
                         if (i < _gameInfoList.Length)
                         {
@@ -1510,11 +1421,11 @@ namespace ArcademiaGameLauncher.Windows
                         }
                         else
                             _gameTilesList[i % _tilesPerPage].Visibility = Visibility.Hidden;
-                    }
+                    });
+                }
 
-                    if (_logger.IsEnabled(LogLevel.Debug))
-                        _logger.LogDebug("[Updater] Updater_GameDatabaseFetched: End");
-                });
+                if (_logger.IsEnabled(LogLevel.Debug))
+                    _logger.LogDebug("[Updater] Updater_GameDatabaseFetched: End");
             }
             catch (TaskCanceledException tcx)
             {
@@ -1547,7 +1458,7 @@ namespace ArcademiaGameLauncher.Windows
             }
 
             _logger.LogDebug("[Updater] Updater_GameUpdateCompleted: Queued");
-            Application.Current?.Dispatcher?.BeginInvoke(() =>
+            Application.Current?.Dispatcher?.InvokeAsync(() =>
             {
                 if (_logger.IsEnabled(LogLevel.Debug))
                     _logger.LogDebug("[Updater] Updater_GameUpdateCompleted: Start");
@@ -1638,16 +1549,20 @@ namespace ArcademiaGameLauncher.Windows
             try
             {
                 _logger.LogDebug("[Updater] Updater_CloseGameAndUpdater: Queued");
-                Application.Current?.Dispatcher?.BeginInvoke(() =>
+                Application.Current?.Dispatcher?.InvokeAsync(() =>
                 {
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Updater] Updater_CloseGameAndUpdater: Start");
 
                     StartMenu.Visibility = Visibility.Collapsed;
+                    _isStartMenuVisible = false;
                     HomeMenu.Visibility = Visibility.Collapsed;
+                    _isHomeMenuVisible = false;
                     SelectionMenu.Visibility = Visibility.Collapsed;
+                    _isSelectionMenuVisible = false;
 
                     MaintenanceScreen.Visibility = Visibility.Visible;
+                    _isMaintenanceVisible = true;
 
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Updater] Updater_CloseGameAndUpdater: End");
@@ -1681,26 +1596,7 @@ namespace ArcademiaGameLauncher.Windows
                 Path.Combine(Directory.GetCurrentDirectory(), "Research-Arcade-Updater.exe")
             );
 
-            // Close the current application
-            try
-            {
-                _logger.LogDebug("[Updater] Updater_RelaunchUpdater: Queued");
-                Application.Current?.Dispatcher?.BeginInvoke(() =>
-                {
-                    if (_logger.IsEnabled(LogLevel.Debug))
-                        _logger.LogDebug("[Updater] Updater_RelaunchUpdater: Start");
-
-                    Application.Current?.Shutdown();
-
-                    if (_logger.IsEnabled(LogLevel.Debug))
-                        _logger.LogDebug("[Updater] Updater_RelaunchUpdater: End");
-                });
-            }
-            catch (TaskCanceledException tcx)
-            {
-                if (_logger.IsEnabled(LogLevel.Error))
-                    _logger.LogError(tcx, "[Updater] Updater_RelaunchUpdater: Task Canceled");
-            }
+            RestartLauncher();
         }
 
         private void Window_Closing(object sender, CancelEventArgs e)
@@ -1722,13 +1618,13 @@ namespace ArcademiaGameLauncher.Windows
             _updateTimer = null;
 
             // Close the application
-            Application.Current?.Shutdown();
+            RestartLauncher();
         }
 
         // Misc
 
         public static void RestartLauncher() =>
-            Application.Current?.Dispatcher?.BeginInvoke(() =>
+            Application.Current?.Dispatcher?.Invoke(() =>
             {
                 var logger = _host.Services.GetRequiredService<ILogger<MainWindow>>();
                 if (logger.IsEnabled(LogLevel.Information))
@@ -2166,17 +2062,20 @@ namespace ArcademiaGameLauncher.Windows
 
         private void AutoScrollCredits()
         {
-            // Change Canvas.Top of the CreditsPanel
-            double currentTop = Canvas.GetTop(CreditsPanel);
-            double newTop = currentTop - (double)0.5;
-            Canvas.SetTop(CreditsPanel, newTop);
+            Application.Current?.Dispatcher?.InvokeAsync(() =>
+            {
+                // Change Canvas.Top of the CreditsPanel
+                double currentTop = Canvas.GetTop(CreditsPanel);
+                double newTop = currentTop - (double)0.5;
+                Canvas.SetTop(CreditsPanel, newTop);
 
-            // If the CreditsPanel is off the screen, reset it to the bottom
-            string logicalScreenHeight_str = TryFindResource("LogicalSizeHeight").ToString();
-            double logicalScreenHeight = double.Parse(logicalScreenHeight_str);
+                // If the CreditsPanel is off the screen, reset it to the bottom
+                string logicalScreenHeight_str = TryFindResource("LogicalSizeHeight").ToString();
+                double logicalScreenHeight = double.Parse(logicalScreenHeight_str);
 
-            if (newTop < -CreditsPanel.ActualHeight)
-                Canvas.SetTop(CreditsPanel, logicalScreenHeight);
+                if (newTop < -CreditsPanel.ActualHeight)
+                    Canvas.SetTop(CreditsPanel, logicalScreenHeight);
+            });
         }
 
         // Getters & Setters
@@ -2201,7 +2100,7 @@ namespace ArcademiaGameLauncher.Windows
             bool updatedIntervalCounter = false;
 
             // If the infoWindow is visible, don't listen for inputs
-            if (_infoWindow.Visibility == Visibility.Visible)
+            if (_isInfoWindowVisible)
                 return;
 
             // If theres a game running, don't listen for inputs
@@ -2238,7 +2137,7 @@ namespace ArcademiaGameLauncher.Windows
                     }
 
                     // If the Home Menu is visible, decrement the currently selected Home Index
-                    if (HomeMenu.Visibility == Visibility.Visible)
+                    if (_isHomeMenuVisible)
                     {
                         _currentlySelectedHomeIndex -= 1;
                         if (_currentlySelectedHomeIndex < 0)
@@ -2248,10 +2147,7 @@ namespace ArcademiaGameLauncher.Windows
                         HighlightCurrentHomeMenuOption();
                     }
                     // If the Selection Menu is visible, decrement the currently selected Game Index
-                    else if (
-                        SelectionMenu.Visibility == Visibility.Visible
-                        && _gameInfoList != null
-                    )
+                    else if (_isSelectionMenuVisible && _gameInfoList != null)
                     {
                         int maxIndex = _gameInfoList.Length - 1;
 
@@ -2305,7 +2201,7 @@ namespace ArcademiaGameLauncher.Windows
                     }
 
                     // If the Home Menu is visible, increment the currently selected Home Index
-                    if (HomeMenu.Visibility == Visibility.Visible)
+                    if (_isHomeMenuVisible)
                     {
                         _currentlySelectedHomeIndex += 1;
                         if (_currentlySelectedHomeIndex > _homeOptionsList.Length - 1)
@@ -2315,10 +2211,7 @@ namespace ArcademiaGameLauncher.Windows
                         HighlightCurrentHomeMenuOption();
                     }
                     // If the Selection Menu is visible, increment the currently selected Game Index
-                    else if (
-                        SelectionMenu.Visibility == Visibility.Visible
-                        && _gameInfoList != null
-                    )
+                    else if (_isSelectionMenuVisible && _gameInfoList != null)
                     {
                         int maxIndex = _gameInfoList.Length - 1;
 
@@ -2370,7 +2263,7 @@ namespace ArcademiaGameLauncher.Windows
                         updatedIntervalCounter = true;
                     }
 
-                    if (SelectionMenu.Visibility == Visibility.Visible && _gameInfoList != null)
+                    if (_isSelectionMenuVisible && _gameInfoList != null)
                     {
                         int maxIndex = _gameInfoList.Length - 1;
 
@@ -2398,7 +2291,7 @@ namespace ArcademiaGameLauncher.Windows
                         updatedIntervalCounter = true;
                     }
 
-                    if (SelectionMenu.Visibility == Visibility.Visible && _gameInfoList != null)
+                    if (_isSelectionMenuVisible && _gameInfoList != null)
                     {
                         int maxIndex = _gameInfoList.Length - 1;
 
@@ -2439,7 +2332,7 @@ namespace ArcademiaGameLauncher.Windows
                 _timeSinceLastButton = 0;
 
                 // Check if the Home Menu is visible
-                if (HomeMenu.Visibility == Visibility.Visible)
+                if (_isHomeMenuVisible)
                 {
                     if (_homeOptionsList == null)
                     {
@@ -2486,7 +2379,7 @@ namespace ArcademiaGameLauncher.Windows
                     }
                 }
                 // Else check if the Selection Menu is visible
-                else if (SelectionMenu.Visibility == Visibility.Visible)
+                else if (_isSelectionMenuVisible)
                 {
                     // If a game is selected, attempt to start the game
                     if (_currentlySelectedGameIndex >= 0)
@@ -2517,13 +2410,13 @@ namespace ArcademiaGameLauncher.Windows
                 _timeSinceLastButton = 0;
 
                 // If the Home Menu is visible
-                if (HomeMenu.Visibility == Visibility.Visible)
+                if (_isHomeMenuVisible)
                 {
                     // Go back to the Start Menu
                     ExitButton_Click(null, null);
                 }
                 // Else if the Selection Menu is visible
-                else if (SelectionMenu.Visibility == Visibility.Visible)
+                else if (_isSelectionMenuVisible)
                 {
                     // Go back to the Home Menu
                     BackFromGameLibraryButton_Click(null, null);
@@ -2555,116 +2448,130 @@ namespace ArcademiaGameLauncher.Windows
             // Reset the colour of all Home Menu Options and remove the "<" character if present
             foreach (TextBlock option in _homeOptionsList)
             {
-                option.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-                if (option.Text.EndsWith(" <"))
-                    option.Text = option.Text[..^2];
+                Application.Current?.Dispatcher?.InvokeAsync(() =>
+                {
+                    // Ensure UI updates are done on the main thread
+                    option.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                    if (option.Text.EndsWith(" <"))
+                        option.Text = option.Text[..^2];
+                });
             }
 
             // Highlight the currently selected Home Menu Option and add the "<" character
-            _homeOptionsList[_currentlySelectedHomeIndex].Foreground =
-                GetCurrentSelectionAnimationBrush();
-            if (!_homeOptionsList[_currentlySelectedHomeIndex].Text.EndsWith(" <"))
-                _homeOptionsList[_currentlySelectedHomeIndex].Text += " <";
+            Application.Current?.Dispatcher?.InvokeAsync(() =>
+            {
+                // Ensure UI updates are done on the main thread
+                _homeOptionsList[_currentlySelectedHomeIndex].Foreground =
+                    GetCurrentSelectionAnimationBrush();
+                if (!_homeOptionsList[_currentlySelectedHomeIndex].Text.EndsWith(" <"))
+                    _homeOptionsList[_currentlySelectedHomeIndex].Text += " <";
+            });
         }
 
         private void HighlightCurrentGameMenuOption()
         {
-            // Reset the colour of all Game Menu Options
-            foreach (Label title in _gameTitlesList)
-                title.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-
-            // Check if the current page needs to be changed
-            int pageIndex = _currentlySelectedGameIndex / _tilesPerPage;
-            if (pageIndex != _previousPageIndex)
-                ChangePage(pageIndex);
-
-            //If a game is selected
-            if (_currentlySelectedGameIndex >= 0)
+            Application.Current?.Dispatcher?.InvokeAsync(() =>
             {
-                // Highlight the currently selected Game Menu Option
-                _gameTitlesList[_currentlySelectedGameIndex % _tilesPerPage].Foreground =
-                    GetCurrentSelectionAnimationBrush();
+                // Reset the colour of all Game Menu Options
+                foreach (Label title in _gameTitlesList)
+                    title.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
 
-                // Style the Back Button
-                BackFromGameLibraryButton.IsChecked = false;
-            }
+                // Check if the current page needs to be changed
+                int pageIndex = _currentlySelectedGameIndex / _tilesPerPage;
+                if (pageIndex != _previousPageIndex)
+                    ChangePage(pageIndex);
 
-            // Check if the page needs to be changed
-            if (_currentlySelectedGameIndex < 0)
-            {
-                // Reset the game info display
-                ResetGameInfoDisplay();
+                //If a game is selected
+                if (_currentlySelectedGameIndex >= 0)
+                {
+                    // Highlight the currently selected Game Menu Option
+                    _gameTitlesList[_currentlySelectedGameIndex % _tilesPerPage].Foreground =
+                        GetCurrentSelectionAnimationBrush();
 
-                // Highlight the Back Button and disable the Start Button
-                BackFromGameLibraryButton.IsChecked = true;
-                StartButton.IsChecked = false;
-                StartButton.Content = "Select a Game";
-                StartButton.IsEnabled = false;
+                    // Style the Back Button
+                    BackFromGameLibraryButton.IsChecked = false;
+                }
 
-                return;
-            }
+                // Check if the page needs to be changed
+                if (_currentlySelectedGameIndex < 0)
+                {
+                    // Reset the game info display
+                    ResetGameInfoDisplay();
+
+                    // Highlight the Back Button and disable the Start Button
+                    BackFromGameLibraryButton.IsChecked = true;
+                    StartButton.IsChecked = false;
+                    StartButton.Content = "Select a Game";
+                    StartButton.IsEnabled = false;
+
+                    return;
+                }
+            });
         }
 
         private void UpdateInputMenuFeedback()
         {
-            SolidColorBrush activeFillColour = new(Color.FromArgb(0xFF, 0x00, 0xFF, 0x00));
-            SolidColorBrush activeBorderColour = new(Color.FromArgb(0xFF, 0x00, 0xBB, 0x00));
-
-            SolidColorBrush inactiveFillColour = new(Color.FromArgb(0xFF, 0xFF, 0x00, 0x00));
-            SolidColorBrush inactiveBorderColour = new(Color.FromArgb(0xFF, 0xBB, 0x00, 0x00));
-
-            int exitHeldMilliseconds = 1500;
-
-            // Update the held countdown text
-            int exitHeldFor = _controllerManager.GetExitButtonHeldFor();
-
-            if (exitHeldFor > 0)
-                InputMenu_HoldBackCountdownText.Text = (
-                    (double)(exitHeldMilliseconds - exitHeldFor) / 1000
-                ).ToString("0.0");
-            else
-                InputMenu_HoldBackCountdownText.Text = "";
-
-            // Check if the exit button has been held for 1.5 seconds, if so, go back to the Start Menu
-            if (exitHeldFor >= exitHeldMilliseconds)
-                ExitButton_Click(null, null);
-
-            // For each Controller State
-            for (int i = 0; i < _controllerManager.GetControllerCount(); i++)
+            Application.Current?.Dispatcher?.InvokeAsync(() =>
             {
-                // Joystick Input
-                int[] leftStickDirection = _controllerManager.GetPlayerLeftStickDirection(i);
-                _inputMenuJoysticks[i].Margin = new(
-                    leftStickDirection[0] * 50,
-                    leftStickDirection[1] * 50,
-                    0,
-                    0
-                );
+                SolidColorBrush activeFillColour = new(Color.FromArgb(0xFF, 0x00, 0xFF, 0x00));
+                SolidColorBrush activeBorderColour = new(Color.FromArgb(0xFF, 0x00, 0xBB, 0x00));
 
-                // For each button in the Input Menu
-                for (int j = 0; j < _inputMenuButtons[i].Length; j++)
+                SolidColorBrush inactiveFillColour = new(Color.FromArgb(0xFF, 0xFF, 0x00, 0x00));
+                SolidColorBrush inactiveBorderColour = new(Color.FromArgb(0xFF, 0xBB, 0x00, 0x00));
+
+                int exitHeldMilliseconds = 1500;
+
+                // Update the held countdown text
+                int exitHeldFor = _controllerManager.GetExitButtonHeldFor();
+
+                if (exitHeldFor > 0)
+                    InputMenu_HoldBackCountdownText.Text = (
+                        (double)(exitHeldMilliseconds - exitHeldFor) / 1000
+                    ).ToString("0.0");
+                else
+                    InputMenu_HoldBackCountdownText.Text = "";
+
+                // Check if the exit button has been held for 1.5 seconds, if so, go back to the Start Menu
+                if (exitHeldFor >= exitHeldMilliseconds)
+                    ExitButton_Click(null, null);
+
+                // For each Controller State
+                for (int i = 0; i < _controllerManager.GetControllerCount(); i++)
                 {
-                    if (_inputMenuButtons[i][j] == null)
-                        continue;
+                    // Joystick Input
+                    int[] leftStickDirection = _controllerManager.GetPlayerLeftStickDirection(i);
+                    _inputMenuJoysticks[i].Margin = new(
+                        leftStickDirection[0] * 50,
+                        leftStickDirection[1] * 50,
+                        0,
+                        0
+                    );
 
-                    // If the user is pressing the button, highlight the button
-                    if (
-                        _controllerManager.GetPlayerButtonState(
-                            i,
-                            (ControllerState.ControllerButtons)j
+                    // For each button in the Input Menu
+                    for (int j = 0; j < _inputMenuButtons[i].Length; j++)
+                    {
+                        if (_inputMenuButtons[i][j] == null)
+                            continue;
+
+                        // If the user is pressing the button, highlight the button
+                        if (
+                            _controllerManager.GetPlayerButtonState(
+                                i,
+                                (ControllerState.ControllerButtons)j
+                            )
                         )
-                    )
-                    {
-                        _inputMenuButtons[i][j].Fill = activeFillColour;
-                        _inputMenuButtons[i][j].Stroke = activeBorderColour;
-                    }
-                    else
-                    {
-                        _inputMenuButtons[i][j].Fill = inactiveFillColour;
-                        _inputMenuButtons[i][j].Stroke = inactiveBorderColour;
+                        {
+                            _inputMenuButtons[i][j].Fill = activeFillColour;
+                            _inputMenuButtons[i][j].Stroke = activeBorderColour;
+                        }
+                        else
+                        {
+                            _inputMenuButtons[i][j].Fill = inactiveFillColour;
+                            _inputMenuButtons[i][j].Stroke = inactiveBorderColour;
+                        }
                     }
                 }
-            }
+            });
         }
 
         private void ChangePage(int _pageIndex)
@@ -2789,61 +2696,40 @@ namespace ArcademiaGameLauncher.Windows
             {
                 ResetGameInfoDisplay();
 
-                StartButton.IsChecked = true;
+                Application.Current?.Dispatcher?.InvokeAsync(() =>
+                {
+                    StartButton.IsChecked = true;
 
-                // Set the Game Thumbnail
-                if (
-                    _gameInfoList[_currentlySelectedGameIndex]
-                        ["ThumbnailUrl"]
-                        .ToString()
-                        .StartsWith("http")
-                )
-                {
-                    NonGif_GameThumbnail.Source = new BitmapImage(
-                        new(
-                            _gameInfoList[_currentlySelectedGameIndex]["ThumbnailUrl"].ToString(),
-                            UriKind.Absolute
-                        )
-                    );
-                    AnimationBehavior.SetSourceUri(
-                        Gif_GameThumbnail,
-                        new(
-                            _gameInfoList[_currentlySelectedGameIndex]["ThumbnailUrl"].ToString(),
-                            UriKind.Absolute
-                        )
-                    );
-                }
-                else
-                {
+                    // Set the Game Thumbnail
                     if (
-                        File.Exists(
-                            Path.Combine(
-                                _gameDirectoryPath,
-                                _gameInfoList[_currentlySelectedGameIndex]["FolderName"].ToString(),
-                                _gameInfoList[_currentlySelectedGameIndex]
-                                    ["ThumbnailUrl"]
-                                    .ToString()
-                            )
-                        )
+                        _gameInfoList[_currentlySelectedGameIndex]
+                            ["ThumbnailUrl"]
+                            .ToString()
+                            .StartsWith("http")
                     )
                     {
                         NonGif_GameThumbnail.Source = new BitmapImage(
                             new(
-                                Path.Combine(
-                                    _gameDirectoryPath,
-                                    _gameInfoList[_currentlySelectedGameIndex]
-                                        ["FolderName"]
-                                        .ToString(),
-                                    _gameInfoList[_currentlySelectedGameIndex]
-                                        ["ThumbnailUrl"]
-                                        .ToString()
-                                ),
+                                _gameInfoList[_currentlySelectedGameIndex]
+                                    ["ThumbnailUrl"]
+                                    .ToString(),
                                 UriKind.Absolute
                             )
                         );
                         AnimationBehavior.SetSourceUri(
                             Gif_GameThumbnail,
                             new(
+                                _gameInfoList[_currentlySelectedGameIndex]
+                                    ["ThumbnailUrl"]
+                                    .ToString(),
+                                UriKind.Absolute
+                            )
+                        );
+                    }
+                    else
+                    {
+                        if (
+                            File.Exists(
                                 Path.Combine(
                                     _gameDirectoryPath,
                                     _gameInfoList[_currentlySelectedGameIndex]
@@ -2852,104 +2738,139 @@ namespace ArcademiaGameLauncher.Windows
                                     _gameInfoList[_currentlySelectedGameIndex]
                                         ["ThumbnailUrl"]
                                         .ToString()
-                                ),
-                                UriKind.Absolute
+                                )
                             )
+                        )
+                        {
+                            NonGif_GameThumbnail.Source = new BitmapImage(
+                                new(
+                                    Path.Combine(
+                                        _gameDirectoryPath,
+                                        _gameInfoList[_currentlySelectedGameIndex]
+                                            ["FolderName"]
+                                            .ToString(),
+                                        _gameInfoList[_currentlySelectedGameIndex]
+                                            ["ThumbnailUrl"]
+                                            .ToString()
+                                    ),
+                                    UriKind.Absolute
+                                )
+                            );
+                            AnimationBehavior.SetSourceUri(
+                                Gif_GameThumbnail,
+                                new(
+                                    Path.Combine(
+                                        _gameDirectoryPath,
+                                        _gameInfoList[_currentlySelectedGameIndex]
+                                            ["FolderName"]
+                                            .ToString(),
+                                        _gameInfoList[_currentlySelectedGameIndex]
+                                            ["ThumbnailUrl"]
+                                            .ToString()
+                                    ),
+                                    UriKind.Absolute
+                                )
+                            );
+                        }
+                    }
+
+                    // Set the Game Info and Authors
+                    GameTitle.FitTextToTextBlock(
+                        desiredText: _emojiParser.ReplaceColonNames(
+                            _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
+                        ),
+                        targetFontSize: 32,
+                        maxLines: 1,
+                        minFontSize: 8,
+                        precision: 0.1
+                    );
+                    GameAuthors.FitTextToTextBlock(
+                        desiredText: string.Join(
+                            ", ",
+                            _gameInfoList[_currentlySelectedGameIndex]
+                                ["Authors"]
+                                .ToObject<string[]>()
+                        ),
+                        targetFontSize: 14,
+                        maxLines: 2,
+                        minFontSize: 8,
+                        precision: 0.1
+                    );
+
+                    // Fetch the Game Tag Elements (Borders and TextBlocks)
+                    Border[] GameTagBorder =
+                    [
+                        GameTagBorder0,
+                        GameTagBorder1,
+                        GameTagBorder2,
+                        GameTagBorder3,
+                        GameTagBorder4,
+                        GameTagBorder5,
+                        GameTagBorder6,
+                        GameTagBorder7,
+                        GameTagBorder8,
+                    ];
+                    TextBlock[] GameTag =
+                    [
+                        GameTag0,
+                        GameTag1,
+                        GameTag2,
+                        GameTag3,
+                        GameTag4,
+                        GameTag5,
+                        GameTag6,
+                        GameTag7,
+                        GameTag8,
+                    ];
+                    JArray tags = (JArray)_gameInfoList[_currentlySelectedGameIndex]["Tags"];
+
+                    // For each Stated Game Tag
+                    for (int j = 0; j < tags.Count; j++)
+                    {
+                        // Change Visibility
+                        GameTagBorder[j].Visibility = Visibility.Visible;
+
+                        // Change Text Content
+                        GameTag[j].Text = _emojiParser.ReplaceColonNames(
+                            tags[j]["Name"].ToString()
+                        );
+
+                        // Change Border and Text Colour
+                        string colour = "#FF777777";
+
+                        // If the Colour is not null or empty, set the colour
+                        if (tags[j]["Colour"] != null && tags[j]["Colour"].ToString() != "")
+                            colour = tags[j]["Colour"].ToString();
+
+                        // Set the Border and Text Colour
+                        GameTag[j].Foreground = new SolidColorBrush(
+                            (Color)ColorConverter.ConvertFromString(colour)
+                        );
+                        GameTagBorder[j].BorderBrush = new SolidColorBrush(
+                            (Color)ColorConverter.ConvertFromString(colour)
                         );
                     }
-                }
 
-                // Set the Game Info and Authors
-                GameTitle.FitTextToTextBlock(
-                    desiredText: _emojiParser.ReplaceColonNames(
-                        _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
-                    ),
-                    targetFontSize: 32,
-                    maxLines: 1,
-                    minFontSize: 8,
-                    precision: 0.1
-                );
-                GameAuthors.FitTextToTextBlock(
-                    desiredText: string.Join(
-                        ", ",
-                        _gameInfoList[_currentlySelectedGameIndex]["Authors"].ToObject<string[]>()
-                    ),
-                    targetFontSize: 14,
-                    maxLines: 2,
-                    minFontSize: 8,
-                    precision: 0.1
-                );
-
-                // Fetch the Game Tag Elements (Borders and TextBlocks)
-                Border[] GameTagBorder =
-                [
-                    GameTagBorder0,
-                    GameTagBorder1,
-                    GameTagBorder2,
-                    GameTagBorder3,
-                    GameTagBorder4,
-                    GameTagBorder5,
-                    GameTagBorder6,
-                    GameTagBorder7,
-                    GameTagBorder8,
-                ];
-                TextBlock[] GameTag =
-                [
-                    GameTag0,
-                    GameTag1,
-                    GameTag2,
-                    GameTag3,
-                    GameTag4,
-                    GameTag5,
-                    GameTag6,
-                    GameTag7,
-                    GameTag8,
-                ];
-                JArray tags = (JArray)_gameInfoList[_currentlySelectedGameIndex]["Tags"];
-
-                // For each Stated Game Tag
-                for (int j = 0; j < tags.Count; j++)
-                {
-                    // Change Visibility
-                    GameTagBorder[j].Visibility = Visibility.Visible;
-
-                    // Change Text Content
-                    GameTag[j].Text = _emojiParser.ReplaceColonNames(tags[j]["Name"].ToString());
-
-                    // Change Border and Text Colour
-                    string colour = "#FF777777";
-
-                    // If the Colour is not null or empty, set the colour
-                    if (tags[j]["Colour"] != null && tags[j]["Colour"].ToString() != "")
-                        colour = tags[j]["Colour"].ToString();
-
-                    // Set the Border and Text Colour
-                    GameTag[j].Foreground = new SolidColorBrush(
-                        (Color)ColorConverter.ConvertFromString(colour)
+                    // Set the Game Description and Version
+                    GameDescription.FitTextToTextBlock(
+                        desiredText: _emojiParser.ReplaceColonNames(
+                            // Make sure to replace \n with an actual newline character in the description
+                            _gameInfoList[_currentlySelectedGameIndex]
+                                ["Description"]
+                                .ToString()
+                                .Replace("\\n", "\n")
+                        ),
+                        targetFontSize: 14,
+                        maxLines: 100,
+                        minFontSize: 8,
+                        precision: 0.1
                     );
-                    GameTagBorder[j].BorderBrush = new SolidColorBrush(
-                        (Color)ColorConverter.ConvertFromString(colour)
-                    );
-                }
+                    VersionText.Text =
+                        "v"
+                        + _gameInfoList[_currentlySelectedGameIndex]["VersionNumber"].ToString();
 
-                // Set the Game Description and Version
-                GameDescription.FitTextToTextBlock(
-                    desiredText: _emojiParser.ReplaceColonNames(
-                        // Make sure to replace \n with an actual newline character in the description
-                        _gameInfoList[_currentlySelectedGameIndex]
-                            ["Description"]
-                            .ToString()
-                            .Replace("\\n", "\n")
-                    ),
-                    targetFontSize: 14,
-                    maxLines: 100,
-                    minFontSize: 8,
-                    precision: 0.1
-                );
-                VersionText.Text =
-                    "v" + _gameInfoList[_currentlySelectedGameIndex]["VersionNumber"].ToString();
-
-                _showingDebouncedGame = true;
+                    _showingDebouncedGame = true;
+                });
             }
 
             if (_currentlySelectedGameIndex >= 0)
@@ -2967,11 +2888,7 @@ namespace ArcademiaGameLauncher.Windows
             try
             {
                 _logger.LogDebug("[UI] StyleStartButtonState: Queued");
-                _logger.LogInformation(
-                    "[UI] StyleStartButtonState: GameState = {GameState}",
-                    _gameState
-                );
-                Application.Current?.Dispatcher?.BeginInvoke(() =>
+                Application.Current?.Dispatcher?.InvokeAsync(() =>
                 {
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[UI] StyleStartButtonState: Start");
@@ -3055,80 +2972,83 @@ namespace ArcademiaGameLauncher.Windows
 
         private void ResetGameInfoDisplay()
         {
-            // Reset the Thumbnail
-            NonGif_GameThumbnail.Source = new BitmapImage(
-                new("Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
-            );
-            AnimationBehavior.SetSourceUri(
-                Gif_GameThumbnail,
-                new("Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
-            );
+            Application.Current?.Dispatcher?.InvokeAsync(() =>
+            {
+                // Reset the Thumbnail
+                NonGif_GameThumbnail.Source = new BitmapImage(
+                    new("Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
+                );
+                AnimationBehavior.SetSourceUri(
+                    Gif_GameThumbnail,
+                    new("Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
+                );
 
-            // Reset the Text Content of each element
-            GameTitle.Text = "Select A Game";
-            GameAuthors.Text = "";
-            GameDescription.Text = "Select a game using the joystick and by pressing A.";
-            VersionText.Text = "";
+                // Reset the Text Content of each element
+                GameTitle.Text = "Select A Game";
+                GameAuthors.Text = "";
+                GameDescription.Text = "Select a game using the joystick and by pressing A.";
+                VersionText.Text = "";
 
-            GameTag0.Text = "";
-            GameTag1.Text = "";
-            GameTag2.Text = "";
-            GameTag3.Text = "";
-            GameTag4.Text = "";
-            GameTag5.Text = "";
-            GameTag6.Text = "";
-            GameTag7.Text = "";
-            GameTag8.Text = "";
+                GameTag0.Text = "";
+                GameTag1.Text = "";
+                GameTag2.Text = "";
+                GameTag3.Text = "";
+                GameTag4.Text = "";
+                GameTag5.Text = "";
+                GameTag6.Text = "";
+                GameTag7.Text = "";
+                GameTag8.Text = "";
 
-            // Reset the Visibility of each Game Tag
-            GameTagBorder0.Visibility = Visibility.Hidden;
-            GameTagBorder1.Visibility = Visibility.Hidden;
-            GameTagBorder2.Visibility = Visibility.Hidden;
-            GameTagBorder3.Visibility = Visibility.Hidden;
-            GameTagBorder4.Visibility = Visibility.Hidden;
-            GameTagBorder5.Visibility = Visibility.Hidden;
-            GameTagBorder6.Visibility = Visibility.Hidden;
-            GameTagBorder7.Visibility = Visibility.Hidden;
-            GameTagBorder8.Visibility = Visibility.Hidden;
+                // Reset the Visibility of each Game Tag
+                GameTagBorder0.Visibility = Visibility.Hidden;
+                GameTagBorder1.Visibility = Visibility.Hidden;
+                GameTagBorder2.Visibility = Visibility.Hidden;
+                GameTagBorder3.Visibility = Visibility.Hidden;
+                GameTagBorder4.Visibility = Visibility.Hidden;
+                GameTagBorder5.Visibility = Visibility.Hidden;
+                GameTagBorder6.Visibility = Visibility.Hidden;
+                GameTagBorder7.Visibility = Visibility.Hidden;
+                GameTagBorder8.Visibility = Visibility.Hidden;
 
-            // Reset the Border and Text Colour of each Game Tag
-            GameTag0.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-            GameTag1.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-            GameTag2.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-            GameTag3.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-            GameTag4.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-            GameTag5.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-            GameTag6.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-            GameTag7.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
-            GameTag8.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                // Reset the Border and Text Colour of each Game Tag
+                GameTag0.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                GameTag1.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                GameTag2.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                GameTag3.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                GameTag4.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                GameTag5.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                GameTag6.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                GameTag7.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
+                GameTag8.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x77, 0x77, 0x77));
 
-            GameTagBorder0.BorderBrush = new SolidColorBrush(
-                Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
-            );
-            GameTagBorder1.BorderBrush = new SolidColorBrush(
-                Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
-            );
-            GameTagBorder2.BorderBrush = new SolidColorBrush(
-                Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
-            );
-            GameTagBorder3.BorderBrush = new SolidColorBrush(
-                Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
-            );
-            GameTagBorder4.BorderBrush = new SolidColorBrush(
-                Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
-            );
-            GameTagBorder5.BorderBrush = new SolidColorBrush(
-                Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
-            );
-            GameTagBorder6.BorderBrush = new SolidColorBrush(
-                Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
-            );
-            GameTagBorder7.BorderBrush = new SolidColorBrush(
-                Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
-            );
-            GameTagBorder8.BorderBrush = new SolidColorBrush(
-                Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
-            );
+                GameTagBorder0.BorderBrush = new SolidColorBrush(
+                    Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
+                );
+                GameTagBorder1.BorderBrush = new SolidColorBrush(
+                    Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
+                );
+                GameTagBorder2.BorderBrush = new SolidColorBrush(
+                    Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
+                );
+                GameTagBorder3.BorderBrush = new SolidColorBrush(
+                    Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
+                );
+                GameTagBorder4.BorderBrush = new SolidColorBrush(
+                    Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
+                );
+                GameTagBorder5.BorderBrush = new SolidColorBrush(
+                    Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
+                );
+                GameTagBorder6.BorderBrush = new SolidColorBrush(
+                    Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
+                );
+                GameTagBorder7.BorderBrush = new SolidColorBrush(
+                    Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
+                );
+                GameTagBorder8.BorderBrush = new SolidColorBrush(
+                    Color.FromArgb(0xFF, 0x77, 0x77, 0x77)
+                );
+            });
         }
 
         // Custom Methods (Debounce, CloneXamlElement, EncodeOneDriveLink, PlayAudioFile)
@@ -3157,31 +3077,7 @@ namespace ArcademiaGameLauncher.Windows
 
             // Create a new Timer for Debouncing the UpdateGameInfoDisplay method to prevent it from being called more than once every 500ms
             _updateGameInfoDisplayDebounceTimer = new System.Timers.Timer(500);
-            _updateGameInfoDisplayDebounceTimer.Elapsed += (sender, e) =>
-            {
-                try
-                {
-                    _logger.LogDebug("[UI] DebounceUpdateGameInfoDisplay (Timer): Queued");
-                    Application.Current?.Dispatcher?.BeginInvoke(() =>
-                    {
-                        if (_logger.IsEnabled(LogLevel.Debug))
-                            _logger.LogDebug("[UI] DebounceUpdateGameInfoDisplay (Timer): Start");
-
-                        UpdateGameInfoDisplay();
-
-                        if (_logger.IsEnabled(LogLevel.Debug))
-                            _logger.LogDebug("[UI] DebounceUpdateGameInfoDisplay (Timer): End");
-                    });
-                }
-                catch (TaskCanceledException tcx)
-                {
-                    if (_logger.IsEnabled(LogLevel.Error))
-                        _logger.LogError(
-                            tcx,
-                            "[UI] DebounceUpdateGameInfoDisplay (Timer): Task Canceled"
-                        );
-                }
-            };
+            _updateGameInfoDisplayDebounceTimer.Elapsed += (sender, e) => UpdateGameInfoDisplay();
 
             // Set the Timer to AutoReset and Enabled
             _updateGameInfoDisplayDebounceTimer.AutoReset = false;
