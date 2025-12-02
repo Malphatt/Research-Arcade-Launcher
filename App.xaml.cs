@@ -96,6 +96,7 @@ namespace ArcademiaGameLauncher
 
                     services.AddSingleton<IUpdaterService, UpdaterService>();
                     services.AddSingleton<ISfxPlayer, SfxPlayer>();
+                    services.AddSingleton<IDispatcherQueueService, DispatcherQueueService>();
 
                     services.AddSingleton<Windows.MainWindow>();
                     services.AddSingleton<Services.CreditsGenerator>();
