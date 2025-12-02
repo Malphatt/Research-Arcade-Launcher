@@ -36,7 +36,7 @@ namespace ArcademiaGameLauncher.Windows
         [DllImport("User32.dll")]
         public static extern int GetAsyncKeyState(Int32 i);
 
-        private static IHost _host;
+        private readonly ISfxPlayer _sfxPlayer;
         private readonly IUpdaterService _updater;
 
         public readonly string _applicationPath;
@@ -129,12 +129,30 @@ namespace ArcademiaGameLauncher.Windows
         public MainWindow(
             ILogger<MainWindow> logger,
             CreditsGenerator creditsGenerator,
-            GameDatabaseService gameDatabaseService
+            GameDatabaseService gameDatabaseService,
+            ISfxPlayer sfxPlayer,
+            IUpdaterService updaterService,
+            JObject config,
+            string applicationPath,
+            ILoggerFactory loggerFactory
         )
         {
             _logger = logger;
             _creditsGenerator = creditsGenerator;
             _gameDatabaseService = gameDatabaseService;
+            _sfxPlayer = sfxPlayer;
+            _updater = updaterService;
+            _config = config;
+            _applicationPath = applicationPath;
+
+            production = !Directory.Exists(Path.Combine(_applicationPath, "Launcher")); // Logic inverted? Original: if Launcher exists, path is Launcher, prod=true.
+            // Wait, original logic:
+            // if (Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "Launcher"))) -> _applicationPath = ...Launcher, production = true.
+            // else -> _applicationPath = ...Current, production = false.
+            // So if _applicationPath ends with "Launcher", production is true.
+            production = _applicationPath.EndsWith("Launcher");
+
+            _gameDirectoryPath = Path.Combine(_applicationPath, "Games");
 
             // Setup closing event
             Closing += Window_Closing;
@@ -172,37 +190,7 @@ namespace ArcademiaGameLauncher.Windows
                 InputMenu_P2_F,
             ];
 
-            // Setup Directories
-            if (Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "Launcher")))
-            {
-                _applicationPath = Path.Combine(Directory.GetCurrentDirectory(), "Launcher");
-                production = true;
-            }
-            else
-            {
-                _applicationPath = Directory.GetCurrentDirectory();
-                production = false;
-            }
-
             _emojiParser = new();
-
-            // Load the Config.json file
-            if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "Config.json")))
-            {
-                MessageBox.Show(
-                    "Config.json file not found. Please ensure it exists in the application directory.",
-                    "Configuration Error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
-                Application.Current?.Shutdown();
-                return;
-            }
-
-            _config = JObject.Parse(
-                File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "Config.json"))
-            );
-            _gameDirectoryPath = Path.Combine(_applicationPath, "Games");
 
             if (_config != null && _config.ContainsKey("NoInputTimeout_ms"))
                 _noInputTimeout = _config.ContainsKey("NoInputTimeout_ms")
@@ -213,40 +201,22 @@ namespace ArcademiaGameLauncher.Windows
             if (!Directory.Exists(_gameDirectoryPath))
                 Directory.CreateDirectory(_gameDirectoryPath);
 
-            _host = Host.CreateDefaultBuilder()
-                .ConfigureServices(
-                    (context, services) =>
-                    {
-                        var host = _config["ApiHost"]?.ToString() ?? "https://localhost:5001";
-                        var user = _config["ApiUser"]?.ToString() ?? "Research-Arcade-User";
-                        var pass = _config["ApiPass"]?.ToString() ?? "Research-Arcade-Password";
+            // Socket Setup
+            var host = _config["ApiHost"]?.ToString() ?? "https://localhost:5001";
+            var user = _config["ApiUser"]?.ToString() ?? "Research-Arcade-User";
+            var pass = _config["ApiPass"]?.ToString() ?? "Research-Arcade-Password";
 
-                        var creds = Convert.ToBase64String(
-                            Encoding.UTF8.GetBytes($"{user}:{pass}")
-                        );
+            _socket = new Socket(
+                host,
+                user,
+                pass,
+                this,
+                _sfxPlayer,
+                loggerFactory.CreateLogger<Socket>()
+            );
+            _ = _socket.SafeReportStatus("Idle");
 
-                        services
-                            .AddHttpClient<IApiClient, ApiClient>(client =>
-                            {
-                                client.BaseAddress = new(host);
-                                client.DefaultRequestHeaders.Authorization = new(
-                                    "ArcadeMachine",
-                                    creds
-                                );
-                            })
-                            .ConfigurePrimaryHttpMessageHandler(() =>
-                            {
-                                return new HttpClientHandler { AllowAutoRedirect = false };
-                            });
-
-                        services.AddSingleton<string>(_applicationPath);
-                        services.AddSingleton<IUpdaterService, UpdaterService>();
-                        services.AddSingleton<ISfxPlayer, SfxPlayer>();
-                    }
-                )
-                .Build();
-
-            _updater = _host.Services.GetRequiredService<IUpdaterService>();
+            _updater = updaterService; // Already assigned above, but fine.
 
             _updater.LogoDownloaded += Updater_LogoDownloaded;
             _updater.GameStateChanged += Updater_GameStateChanged;
@@ -307,17 +277,6 @@ namespace ArcademiaGameLauncher.Windows
             // Show the Start Menu
             StartMenu.Visibility = Visibility.Visible;
             _isStartMenuVisible = true;
-
-            var socketLogger = LoggerFactory.Create(b => b.AddSerilog()).CreateLogger<Socket>();
-
-            // Connect to the WebSocket Server
-            _socket = new Socket(
-                _config["ApiHost"]?.ToString() ?? "https://localhost:5001",
-                _config["ApiUser"]?.ToString() ?? "Research-Arcade-User",
-                _config["ApiPass"]?.ToString() ?? "Research-Arcade-Password",
-                this,
-                socketLogger
-            );
 
             //Application.Current.Dispatcher.Hooks.OperationStarted += (s, e) =>
             //{
@@ -477,7 +436,7 @@ namespace ArcademiaGameLauncher.Windows
 
                         await Task.Run(async () =>
                             {
-                                await PlayRandomPeriodicSFX();
+                                await _sfxPlayer.PlayRandomPeriodicAsync();
                             })
                             .ConfigureAwait(false);
 
@@ -1598,15 +1557,14 @@ namespace ArcademiaGameLauncher.Windows
 
         // Misc
 
-        public static void RestartLauncher() =>
+        public void RestartLauncher() =>
             Application.Current?.Dispatcher?.Invoke(() =>
             {
-                var logger = _host.Services.GetRequiredService<ILogger<MainWindow>>();
-                if (logger.IsEnabled(LogLevel.Information))
-                    logger.LogInformation("[System] RestartLauncher: Start");
+                if (_logger.IsEnabled(LogLevel.Information))
+                    _logger.LogInformation("[System] RestartLauncher: Start");
                 Application.Current?.Shutdown();
-                if (logger.IsEnabled(LogLevel.Information))
-                    logger.LogInformation("[System] RestartLauncher: End");
+                if (_logger.IsEnabled(LogLevel.Information))
+                    _logger.LogInformation("[System] RestartLauncher: End");
             });
 
         // Credits
@@ -2628,7 +2586,7 @@ namespace ArcademiaGameLauncher.Windows
             });
         }
 
-        // Custom Methods (Debounce, CloneXamlElement, EncodeOneDriveLink, PlayAudioFile)
+        // Debounce Update Game Info Display
 
         private void DebounceUpdateGameInfoDisplay()
         {
@@ -2660,23 +2618,5 @@ namespace ArcademiaGameLauncher.Windows
             _updateGameInfoDisplayDebounceTimer.AutoReset = false;
             _updateGameInfoDisplayDebounceTimer.Enabled = true;
         }
-
-        private static T CloneXamlElement<T>(T element)
-            where T : UIElement
-        {
-            // Clone the XAML element and return it
-            string xaml = XamlWriter.Save(element);
-            StringReader stringReader = new(xaml);
-            XmlReader xmlReader = XmlReader.Create(stringReader);
-            return (T)XamlReader.Load(xmlReader);
-        }
-
-        // Audio File Methods
-
-        public static async Task PlaySFX(string fileUrl) =>
-            await _host.Services.GetRequiredService<ISfxPlayer>().PlayAsync(fileUrl);
-
-        public static async Task PlayRandomPeriodicSFX() =>
-            await _host.Services.GetRequiredService<ISfxPlayer>().PlayRandomPeriodicAsync();
     }
 }

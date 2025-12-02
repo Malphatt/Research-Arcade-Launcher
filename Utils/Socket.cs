@@ -2,6 +2,7 @@
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using ArcademiaGameLauncher.Services;
 using ArcademiaGameLauncher.Windows;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +13,7 @@ namespace ArcademiaGameLauncher.Utils
     internal class Socket
     {
         private readonly MainWindow _mainWindow;
+        private readonly ISfxPlayer _sfxPlayer;
         private readonly HubConnection _hub;
         private readonly CancellationTokenSource _heartbeatCts = new();
         private readonly ILogger<Socket> _logger;
@@ -25,10 +27,12 @@ namespace ArcademiaGameLauncher.Utils
             string authUser,
             string authPass,
             MainWindow mainWindow,
+            ISfxPlayer sfxPlayer,
             ILogger<Socket> logger
         )
         {
             _mainWindow = mainWindow;
+            _sfxPlayer = sfxPlayer;
             _logger = logger;
 
             var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{authUser}:{authPass}"));
@@ -183,7 +187,7 @@ namespace ArcademiaGameLauncher.Utils
                 () =>
                 {
                     _logger.LogInformation("[SignalR] Received UpdateLauncher");
-                    MainWindow.RestartLauncher();
+                    _mainWindow.RestartLauncher();
                 }
             );
 
@@ -202,7 +206,7 @@ namespace ArcademiaGameLauncher.Utils
                 async (fileUrl) =>
                 {
                     _logger.LogInformation("[SignalR] Received PlaySFX: {FileUrl}", fileUrl);
-                    await MainWindow.PlaySFX(fileUrl);
+                    await _sfxPlayer.PlayAsync(fileUrl);
                 }
             );
 
