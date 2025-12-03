@@ -1408,86 +1408,74 @@ namespace ArcademiaGameLauncher.Windows
             }
 
             _logger.LogDebug("[Updater] Updater_GameUpdateCompleted: Queued");
-            Application.Current?.Dispatcher?.InvokeAsync(() =>
+
+            // Pre-calculate image URI off UI thread
+            Uri imageUri = null;
+            bool isVisible =
+                gameIndex >= _previousPageIndex * _tilesPerPage
+                && gameIndex < (_previousPageIndex + 1) * _tilesPerPage;
+
+            if (isVisible)
             {
-                if (_logger.IsEnabled(LogLevel.Debug))
-                    _logger.LogDebug("[Updater] Updater_GameUpdateCompleted: Start");
+                var gameInfo = _gameInfoList[gameIndex % _tilesPerPage];
+                string thumbnailUrl = gameInfo["ThumbnailUrl"].ToString();
 
-                // Update the game title text block if it's visible
-                if (
-                    gameIndex >= _previousPageIndex * _tilesPerPage
-                    && gameIndex < (_previousPageIndex + 1) * _tilesPerPage
-                )
+                if (thumbnailUrl.StartsWith("http"))
                 {
-                    // Update the game title text block
-                    _gameTitlesList[gameIndex % _tilesPerPage]
-                        .FitTextToLabel(
-                            desiredText: _emojiParser.ReplaceColonNames(
-                                _gameInfoList[gameIndex]["Name"].ToString()
-                            ),
-                            targetFontSize: 24,
-                            maxLines: 1,
-                            minFontSize: 8,
-                            precision: 0.1
-                        );
-                    _gameTilesList[gameIndex % _tilesPerPage].Visibility = Visibility.Visible;
-
-                    // Update the game image
-                    if (
-                        _gameInfoList[gameIndex % _tilesPerPage]
-                            ["ThumbnailUrl"]
-                            .ToString()
-                            .StartsWith("http")
-                    )
+                    imageUri = new Uri(thumbnailUrl, UriKind.Absolute);
+                }
+                else
+                {
+                    string localPath = Path.Combine(
+                        _gameDirectoryPath,
+                        gameInfo["FolderName"].ToString(),
+                        thumbnailUrl
+                    );
+                    if (File.Exists(localPath))
                     {
-                        AnimationBehavior.SetSourceUri(
-                            _gameImagesList[gameIndex % _tilesPerPage],
-                            new(
-                                _gameInfoList[gameIndex % _tilesPerPage]["ThumbnailUrl"].ToString(),
-                                UriKind.Absolute
-                            )
-                        );
+                        imageUri = new Uri(localPath, UriKind.Absolute);
                     }
-                    else
+                }
+            }
+
+            string gameName = _gameInfoList[gameIndex]["Name"].ToString();
+
+            _dispatcherQueue.EnqueueUnique(
+                $"UpdateGameTile_{gameIndex}",
+                () =>
+                {
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("[Updater] Updater_GameUpdateCompleted: Start");
+
+                    if (isVisible)
                     {
-                        if (
-                            File.Exists(
-                                Path.Combine(
-                                    _gameDirectoryPath,
-                                    _gameInfoList[gameIndex % _tilesPerPage]
-                                        ["FolderName"]
-                                        .ToString(),
-                                    _gameInfoList[gameIndex % _tilesPerPage]
-                                        ["ThumbnailUrl"]
-                                        .ToString()
-                                )
-                            )
-                        )
+                        // Update the game title text block
+                        _gameTitlesList[gameIndex % _tilesPerPage]
+                            .FitTextToLabel(
+                                desiredText: _emojiParser.ReplaceColonNames(gameName),
+                                targetFontSize: 24,
+                                maxLines: 1,
+                                minFontSize: 8,
+                                precision: 0.1
+                            );
+                        _gameTitlesList[gameIndex % _tilesPerPage].Visibility = Visibility.Visible;
+
+                        // Update the game image
+                        if (imageUri != null)
                         {
                             AnimationBehavior.SetSourceUri(
                                 _gameImagesList[gameIndex % _tilesPerPage],
-                                new(
-                                    Path.Combine(
-                                        _gameDirectoryPath,
-                                        _gameInfoList[gameIndex % _tilesPerPage]
-                                            ["FolderName"]
-                                            .ToString(),
-                                        _gameInfoList[gameIndex % _tilesPerPage]
-                                            ["ThumbnailUrl"]
-                                            .ToString()
-                                    ),
-                                    UriKind.Absolute
-                                )
+                                imageUri
                             );
                         }
                     }
+
+                    SetGameTitleState(gameIndex, GameState.ready);
+
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("[Updater] Updater_GameUpdateCompleted: End");
                 }
-
-                SetGameTitleState(gameIndex, GameState.ready);
-
-                if (_logger.IsEnabled(LogLevel.Debug))
-                    _logger.LogDebug("[Updater] Updater_GameUpdateCompleted: End");
-            });
+            );
 
             if (_currentlySelectedGameIndex == gameIndex)
                 DebounceUpdateGameInfoDisplay();
@@ -2435,57 +2423,60 @@ namespace ArcademiaGameLauncher.Windows
             try
             {
                 _logger.LogDebug("[UI] StyleStartButtonState: Queued");
-                Application.Current?.Dispatcher?.InvokeAsync(() =>
-                {
-                    if (_logger.IsEnabled(LogLevel.Debug))
-                        _logger.LogDebug("[UI] StyleStartButtonState: Start");
-
-                    // Style the StartButton
-                    switch (_gameState)
+                _dispatcherQueue.EnqueueUnique(
+                    "StyleStartButton",
+                    () =>
                     {
-                        case GameState.fetchingInfo:
-                            StartButton.IsChecked = false;
-                            StartButton.Content = "Fetching Game Info...";
-                            break;
-                        case GameState.checkingForUpdates:
-                            StartButton.IsChecked = false;
-                            StartButton.Content = "Checking for Updates...";
-                            break;
-                        case GameState.downloadingGame:
-                            StartButton.IsChecked = false;
-                            StartButton.Content = "Downloading Game...";
-                            break;
-                        case GameState.downloadingUpdate:
-                            StartButton.IsChecked = false;
-                            StartButton.Content = "Updating Game...";
-                            break;
-                        case GameState.failed:
-                            StartButton.IsChecked = false;
-                            StartButton.Content = "Failed";
-                            break;
-                        case GameState.loadingInfo:
-                            StartButton.IsChecked = false;
-                            StartButton.Content = "Loading Game Info...";
-                            break;
-                        case GameState.ready:
-                            StartButton.IsChecked = true;
-                            StartButton.Content = "Start";
-                            break;
-                        case GameState.launching:
-                            StartButton.IsChecked = false;
-                            StartButton.Content = "Launching Game...";
-                            break;
-                        case GameState.runningGame:
-                            StartButton.IsChecked = false;
-                            StartButton.Content = "Running Game...";
-                            break;
-                        default:
-                            break;
-                    }
+                        if (_logger.IsEnabled(LogLevel.Debug))
+                            _logger.LogDebug("[UI] StyleStartButtonState: Start");
 
-                    if (_logger.IsEnabled(LogLevel.Information))
-                        _logger.LogInformation("[UI] StyleStartButtonState: End");
-                });
+                        // Style the StartButton
+                        switch (_gameState)
+                        {
+                            case GameState.fetchingInfo:
+                                StartButton.IsChecked = false;
+                                StartButton.Content = "Fetching Game Info...";
+                                break;
+                            case GameState.checkingForUpdates:
+                                StartButton.IsChecked = false;
+                                StartButton.Content = "Checking for Updates...";
+                                break;
+                            case GameState.downloadingGame:
+                                StartButton.IsChecked = false;
+                                StartButton.Content = "Downloading Game...";
+                                break;
+                            case GameState.downloadingUpdate:
+                                StartButton.IsChecked = false;
+                                StartButton.Content = "Updating Game...";
+                                break;
+                            case GameState.failed:
+                                StartButton.IsChecked = false;
+                                StartButton.Content = "Failed";
+                                break;
+                            case GameState.loadingInfo:
+                                StartButton.IsChecked = false;
+                                StartButton.Content = "Loading Game Info...";
+                                break;
+                            case GameState.ready:
+                                StartButton.IsChecked = true;
+                                StartButton.Content = "Start";
+                                break;
+                            case GameState.launching:
+                                StartButton.IsChecked = false;
+                                StartButton.Content = "Launching Game...";
+                                break;
+                            case GameState.runningGame:
+                                StartButton.IsChecked = false;
+                                StartButton.Content = "Running Game...";
+                                break;
+                            default:
+                                break;
+                        }
+
+                        if (_logger.IsEnabled(LogLevel.Information))
+                            _logger.LogInformation("[UI] StyleStartButtonState: End");
+                    }
+                );
             }
             catch (TaskCanceledException tcx)
             {
