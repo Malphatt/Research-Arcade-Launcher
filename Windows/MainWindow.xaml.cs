@@ -282,34 +282,6 @@ namespace ArcademiaGameLauncher.Windows
             StartMenu.Visibility = Visibility.Visible;
             _isStartMenuVisible = true;
 
-            //Application.Current.Dispatcher.Hooks.OperationStarted += (s, e) =>
-            //{
-            //    if (_logger.IsEnabled(LogLevel.Debug))
-            //    {
-            //        string opDetails = GetOperationDetails(e.Operation);
-            //        // Log to console instead of serilog (log file fills up too quickly)
-            //        Console.WriteLine(
-            //            "[Dispatcher] Operation Started: Priority={0}, Method={1}",
-            //            e.Operation.Priority,
-            //            opDetails
-            //        );
-            //    }
-            //};
-
-            //Application.Current.Dispatcher.Hooks.OperationCompleted += (s, e) =>
-            //{
-            //    if (_logger.IsEnabled(LogLevel.Debug))
-            //    {
-            //        string opDetails = GetOperationDetails(e.Operation);
-            //        // Log to console instead of serilog (log file fills up too quickly)
-            //        Console.WriteLine(
-            //            "[Dispatcher] Operation Completed: Priority={0}, Method={1}",
-            //            e.Operation.Priority,
-            //            opDetails
-            //        );
-            //    }
-            //};
-
             // Start the Debug Watchdog
             StartWatchdog();
 
@@ -886,7 +858,14 @@ namespace ArcademiaGameLauncher.Windows
                 await Task.Delay(3000);
 
                 if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
+                {
+                    // Ensure the Game is on Top
                     WindowHelper.ForceForeground(_currentlyRunningProcess.MainWindowHandle);
+                    WindowHelper.EnsureTopMost(_currentlyRunningProcess.MainWindowHandle);
+
+                    // Ensure the Launcher is behind
+                    WindowHelper.SendToBack(this);
+                }
 
                 SetGameTitleState(_currentlySelectedGameIndex, GameState.runningGame);
                 StyleStartButtonState(_currentlySelectedGameIndex);
@@ -992,37 +971,106 @@ namespace ArcademiaGameLauncher.Windows
 
             _lastSuccessfulTick = DateTime.Now;
 
-            _currentStep = "Maintenance Check";
-            if (_isMaintenanceVisible)
-                return;
-
-            _currentStep = "Keyboard Check";
-            if (GetAsyncKeyState(69) != 0)
-                Window_Closing(null, null);
-
-            _currentStep = "Exit Logic";
-            if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
+            try
             {
-                int exitHeldFor = _controllerManager.GetExitButtonHeldFor();
+                _currentStep = "Maintenance Check";
+                if (_isMaintenanceVisible)
+                    return;
 
-                if (exitHeldFor >= 1000)
+                _currentStep = "Keyboard Check";
+                if (GetAsyncKeyState(69) != 0)
+                    Window_Closing(null, null);
+
+                _currentStep = "Exit Logic";
+                if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
                 {
-                    if (_isInfoWindowVisible && _isInfoWindowForceExitVisible)
-                        _infoWindow?.UpdateCountdown(3000 - exitHeldFor);
-                    else if (!_isInfoWindowVisible && !_isInfoWindowIdleVisible)
+                    int exitHeldFor = _controllerManager.GetExitButtonHeldFor();
+
+                    if (exitHeldFor >= 3000)
                     {
-                        _isInfoWindowVisible = true;
-                        _isInfoWindowForceExitVisible = true;
+                        _logger.LogInformation("[Force Exit] Force-exiting game.");
 
-                        _infoWindow?.SetCloseGameName(
-                            _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
+                        _dispatcherQueue.EnqueueUnique(
+                            "ForceExit",
+                            () =>
+                            {
+                                _infoWindow?.HideWindow();
+                                _isInfoWindowVisible = false;
+                                _isInfoWindowIdleVisible = false;
+                                _isInfoWindowForceExitVisible = false;
+
+                                SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
+                                ResetControllerStates();
+
+                                try
+                                {
+                                    if (
+                                        _currentlyRunningProcess != null
+                                        && !_currentlyRunningProcess.HasExited
+                                    )
+                                        _currentlyRunningProcess.Kill();
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, "[Force Exit] Failed to kill process.");
+                                }
+
+                                _currentlyRunningProcess = null;
+                                _ = _socket.SafeReportStatus("Idle");
+
+                                WindowHelper.ForceForeground(this);
+                            }
                         );
-                        _infoWindow?.ShowWindow(InfoWindowType.ForceExit);
-                        _infoWindow?.UpdateCountdown(3000 - exitHeldFor);
                     }
+                    else if (exitHeldFor >= 1000)
+                    {
+                        if (_isInfoWindowVisible && _isInfoWindowForceExitVisible)
+                            _infoWindow?.UpdateCountdown(3000 - exitHeldFor);
+                        else if (!_isInfoWindowVisible && !_isInfoWindowIdleVisible)
+                        {
+                            _isInfoWindowVisible = true;
+                            _isInfoWindowForceExitVisible = true;
 
-                    if (exitHeldFor % 200 < _tickSpeed)
-                        _infoWindow?.ForceForeground();
+                            _infoWindow?.SetCloseGameName(
+                                _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
+                            );
+                            _infoWindow?.ShowWindow(InfoWindowType.ForceExit);
+                            _infoWindow?.UpdateCountdown(3000 - exitHeldFor);
+                        }
+
+                        if (exitHeldFor % 500 < _tickSpeed)
+                            WindowHelper.EnsureTopMost(_infoWindow);
+                    }
+                    else if (
+                        _isInfoWindowVisible
+                        && _isInfoWindowForceExitVisible
+                        && exitHeldFor < 500
+                    )
+                    {
+                        _infoWindow?.HideWindow();
+
+                        Application.Current?.Dispatcher?.InvokeAsync(
+                            () => WindowHelper.ForceForeground(this)
+                        );
+
+                        _isInfoWindowVisible = false;
+                        _isInfoWindowIdleVisible = false;
+                        _isInfoWindowForceExitVisible = false;
+                    }
+                }
+                else if (_currentlyRunningProcess != null && _currentlyRunningProcess.HasExited)
+                {
+                    _logger.LogInformation("[Game Exit] Game exited naturally.");
+
+                    SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
+                    ResetControllerStates();
+                    _ = _socket.SafeReportStatus("Idle");
+                    _currentlyRunningProcess = null;
+
+                    Application.Current?.Dispatcher?.InvokeAsync(() =>
+                    {
+                        WindowHelper.ForceForeground(this);
+                    });
                 }
                 else if (_isInfoWindowVisible && _isInfoWindowForceExitVisible)
                 {
@@ -1033,82 +1081,10 @@ namespace ArcademiaGameLauncher.Windows
                     );
 
                     _isInfoWindowVisible = false;
-                    _isInfoWindowIdleVisible = false;
                     _isInfoWindowForceExitVisible = false;
                 }
 
-                if (exitHeldFor >= 3000)
-                {
-                    _logger.LogInformation("[Force Exit] Force-exiting game.");
-
-                    SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
-                    ResetControllerStates();
-                    _currentlyRunningProcess.Kill();
-                    _infoWindow?.HideWindow();
-
-                    Application.Current?.Dispatcher?.InvokeAsync(() =>
-                    {
-                        WindowHelper.ForceForeground(this);
-                    });
-
-                    _ = _socket.SafeReportStatus("Idle");
-                    _currentlyRunningProcess = null;
-
-                    _isInfoWindowVisible = false;
-                    _isInfoWindowIdleVisible = false;
-                    _isInfoWindowForceExitVisible = false;
-                }
-            }
-            else if (_currentlyRunningProcess != null && _currentlyRunningProcess.HasExited)
-            {
-                _logger.LogInformation("[Game Exit] Game exited naturally.");
-
-                SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
-                ResetControllerStates();
-                _ = _socket.SafeReportStatus("Idle");
-                _currentlyRunningProcess = null;
-
-                Application.Current?.Dispatcher?.InvokeAsync(() =>
-                {
-                    WindowHelper.ForceForeground(this);
-                });
-            }
-            else if (_isInfoWindowVisible && _isInfoWindowForceExitVisible)
-            {
-                _infoWindow?.HideWindow();
-
-                Application.Current?.Dispatcher?.InvokeAsync(
-                    () => WindowHelper.ForceForeground(this)
-                );
-
-                _isInfoWindowVisible = false;
-                _isInfoWindowForceExitVisible = false;
-            }
-
-            _currentStep = "AFK Check";
-            if (_afkTimer >= _noInputTimeout)
-            {
-                if (!_isInfoWindowIdleVisible)
-                {
-                    _isInfoWindowVisible = true;
-                    _isInfoWindowIdleVisible = true;
-
-                    if (_currentlyRunningProcess != null)
-                        _infoWindow?.SetCloseGameName(
-                            _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
-                        );
-                    else
-                        _infoWindow?.SetCloseGameName(null);
-
-                    _infoWindow?.ShowWindow(InfoWindowType.Idle);
-                }
-
-                if (_afkTimer % 100 < _tickSpeed)
-                    _infoWindow?.UpdateCountdown(_noInputTimeout + 5000 - _afkTimer);
-
-                if (_afkTimer % 250 < _tickSpeed)
-                    _infoWindow?.ForceForeground();
-
+                _currentStep = "AFK Check";
                 if (_afkTimer >= _noInputTimeout + 5000)
                 {
                     _logger.LogInformation("[AFK Check] AFK timer expired. Force-exiting game.");
@@ -1124,6 +1100,7 @@ namespace ArcademiaGameLauncher.Windows
 
                     if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
                     {
+                        SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
                         ResetControllerStates();
                         try
                         {
@@ -1148,95 +1125,121 @@ namespace ArcademiaGameLauncher.Windows
                         WindowHelper.ForceForeground(this);
                     });
                 }
-            }
-            else if (_isInfoWindowVisible)
-            {
-                _infoWindow?.HideWindow();
-                _timeSinceLastButton = 0;
-
-                Application.Current?.Dispatcher?.InvokeAsync(() =>
+                else if (_afkTimer >= _noInputTimeout)
                 {
-                    if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
-                        WindowHelper.ForceForeground(_currentlyRunningProcess.MainWindowHandle);
+                    if (!_isInfoWindowIdleVisible)
+                    {
+                        _isInfoWindowVisible = true;
+                        _isInfoWindowIdleVisible = true;
+
+                        if (_currentlyRunningProcess != null)
+                            _infoWindow?.SetCloseGameName(
+                                _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
+                            );
+                        else
+                            _infoWindow?.SetCloseGameName(null);
+
+                        _infoWindow?.ShowWindow(InfoWindowType.Idle);
+                    }
+
+                    if (_afkTimer % 100 < _tickSpeed)
+                        _infoWindow?.UpdateCountdown(_noInputTimeout + 5000 - _afkTimer);
+                }
+                else if (_isInfoWindowVisible && _isInfoWindowIdleVisible)
+                {
+                    _infoWindow?.HideWindow();
+                    _timeSinceLastButton = 0;
+
+                    Application.Current?.Dispatcher?.InvokeAsync(() =>
+                    {
+                        if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
+                            WindowHelper.ForceForeground(_currentlyRunningProcess.MainWindowHandle);
+                        else
+                            WindowHelper.ForceForeground(this);
+                    });
+
+                    _isInfoWindowVisible = false;
+                    _isInfoWindowIdleVisible = false;
+                    _isInfoWindowForceExitVisible = false;
+                }
+
+                _currentStep = "UI Animations";
+                if (
+                    (_isHomeMenuVisible || _isSelectionMenuVisible)
+                    && _globalCounter % _selectionAnimationFrameRate == 0
+                )
+                {
+                    if (_selectionAnimationFrame < _selectionAnimationFrames.Length - 1)
+                        _selectionAnimationFrame++;
                     else
-                        WindowHelper.ForceForeground(this);
-                });
+                        _selectionAnimationFrame = 0;
 
-                _isInfoWindowVisible = false;
-                _isInfoWindowIdleVisible = false;
-                _isInfoWindowForceExitVisible = false;
-            }
-
-            _currentStep = "UI Animations";
-            if (
-                (_isHomeMenuVisible || _isSelectionMenuVisible)
-                && _globalCounter % _selectionAnimationFrameRate == 0
-            )
-            {
-                if (_selectionAnimationFrame < _selectionAnimationFrames.Length - 1)
-                    _selectionAnimationFrame++;
-                else
-                    _selectionAnimationFrame = 0;
+                    Task.Run(() =>
+                    {
+                        if (_isHomeMenuVisible)
+                            HighlightCurrentHomeMenuOption();
+                        else if (_isSelectionMenuVisible)
+                            HighlightCurrentGameMenuOption();
+                    });
+                }
 
                 Task.Run(() =>
                 {
-                    if (_isHomeMenuVisible)
-                        HighlightCurrentHomeMenuOption();
-                    else if (_isSelectionMenuVisible)
-                        HighlightCurrentGameMenuOption();
+                    if (_isInputMenuVisible)
+                        UpdateInputMenuFeedback();
+
+                    if (_isHomeMenuVisible || _isSelectionMenuVisible)
+                        UpdateCurrentSelection();
+
+                    if (_isCreditsVisible)
+                        AutoScrollCredits();
                 });
-            }
 
-            Task.Run(() =>
-            {
-                if (_isInputMenuVisible)
-                    UpdateInputMenuFeedback();
-
-                if (_isHomeMenuVisible || _isSelectionMenuVisible)
-                    UpdateCurrentSelection();
-
-                if (_isCreditsVisible)
-                    AutoScrollCredits();
-            });
-
-            if (_isStartMenuVisible)
-            {
-                if (_timeSinceLastButton % 300 == 0)
+                if (_isStartMenuVisible)
                 {
-                    Application.Current?.Dispatcher?.InvokeAsync(
-                        () =>
-                            PressStartText.Visibility =
-                                PressStartText.Visibility == Visibility.Visible
-                                    ? Visibility.Hidden
-                                    : Visibility.Visible
-                    );
+                    if (_timeSinceLastButton % 300 == 0)
+                    {
+                        Application.Current?.Dispatcher?.InvokeAsync(
+                            () =>
+                                PressStartText.Visibility =
+                                    PressStartText.Visibility == Visibility.Visible
+                                        ? Visibility.Hidden
+                                        : Visibility.Visible
+                        );
+                    }
                 }
+
+                _currentStep = "Counters";
+                if (_afkTimerActive)
+                    _afkTimer += _tickSpeed;
+                if (_selectionUpdateCounter > _selectionUpdateInterval)
+                    _selectionUpdateIntervalCounter = 0;
+
+                _selectionUpdateCounter += _tickSpeed;
+                _timeSinceLastButton += _tickSpeed;
+
+                _globalCounter += _tickSpeed;
+
+                if (_globalCounter >= int.MaxValue)
+                    _globalCounter = 0;
+
+                _currentStep = "Finished";
             }
-
-            _currentStep = "Counters";
-            if (_afkTimerActive)
-                _afkTimer += _tickSpeed;
-            if (_selectionUpdateCounter > _selectionUpdateInterval)
-                _selectionUpdateIntervalCounter = 0;
-
-            _selectionUpdateCounter += _tickSpeed;
-            _timeSinceLastButton += _tickSpeed;
-
-            _globalCounter += _tickSpeed;
-
-            if (_globalCounter >= int.MaxValue)
-                _globalCounter = 0;
-
-            _currentStep = "Finished";
-
-            _isTimerRunning = false;
-            if (_updateTimer != null)
+            catch (Exception ex)
             {
-                try
+                _logger.LogError(ex, $"[Timer Loop] Exception in step: {_currentStep}");
+            }
+            finally
+            {
+                _isTimerRunning = false;
+                if (_updateTimer != null)
                 {
-                    _updateTimer.Start();
+                    try
+                    {
+                        _updateTimer.Start();
+                    }
+                    catch { }
                 }
-                catch { }
             }
         }
 
