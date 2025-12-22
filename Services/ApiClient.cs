@@ -71,8 +71,11 @@ namespace ArcademiaGameLauncher.Services
                     response.StatusCode == System.Net.HttpStatusCode.BadRequest
                     || response.StatusCode == System.Net.HttpStatusCode.NotFound
                 )
-                    _logger.LogWarning("[ApiClient] Warningwhilst executing GetLatestUpdaterVersionAsync: {message}", errorMessage);
-                else
+                {
+                    if (_logger.IsEnabled(LogLevel.Warning))
+                        _logger.LogWarning("[ApiClient] Warning whilst executing GetLatestUpdaterVersionAsync: {message}", errorMessage);
+                }
+                else if (_logger.IsEnabled(LogLevel.Error))
                     _logger.LogError("[ApiClient] Unexpected error whilst executing GetLatestUpdaterVersionAsync: {StatusCode}", response.StatusCode);
 
                 throw new InvalidOperationException("Failed to retrieve UpdaterInfo.");
