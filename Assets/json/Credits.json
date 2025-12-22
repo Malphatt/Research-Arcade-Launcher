@@ -14,21 +14,39 @@
     },
     {
       "Type": "Note",
-      "Value": "The Arcademia project has been rebooted since its initial development in 2022. This Game Launcher is a successor to The Research Arcade project (and Arcademia 2022). This project is made in collaboration with the Computer Science Society (CSS)."
+      "Value": "The Arcademia project has been rebooted since its initial development in 2022. This project is the successor to \"The Research Arcade\" (and Arcademia 2022) and was made to bring together student developers across the world to make arcade games."
     },
     {
       "Type": "Heading",
       "Value": "Lead Developer / Project Lead / Resource Lead / Management",
       "Subheadings": [
         {
-          "Value": "Matthew Freeman",
+          "Value": "Matthew \"Malphatt\" Freeman",
           "Colour": "White"
         }
       ]
     },
     {
       "Type": "Heading",
-      "Value": "Updated Cabinet Design",
+      "Value": "Site Coordinators",
+      "Subheadings": [
+        {
+          "Value": "Matthew Freeman (Lincoln, UK)",
+          "Colour": "White"
+        },
+        {
+          "Value": "Mike Lowen (Lincoln, UK)",
+          "Colour": "White"
+        },
+        {
+          "Value": "Lance Bunt (North-West University, ZA)",
+          "Colour": "White"
+        }
+      ]
+    },
+    {
+      "Type": "Heading",
+      "Value": "Painted Cabinet Design (Lincoln, UK)",
       "Subheadings": [
         {
           "Value": "Alex Dickinson",
@@ -42,15 +60,11 @@
     },
     {
       "Type": "Heading",
-      "Value": "Tech Support",
+      "Value": "Cabinet Design (North-West University, ZA)",
       "Subheadings": [
         {
-          "Value": "Alex Dickinson",
-          "Colour": "White"
-        },
-        {
-          "Value": "Matthew Freeman",
-          "Colour": "White"
+          "Value": "Lance Bunt",
+          "Colour": "#E8A2D2"
         }
       ]
     },

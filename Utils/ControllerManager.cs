@@ -108,8 +108,7 @@ namespace ArcademiaGameLauncher.Utils
                     joystick,
                     _controllerStates.Count,
                     () => _mainWindow.Key_Pressed(),
-                    SendKey,
-                    _mainWindow._applicationPath
+                    SendKey
                 );
                 _controllerStates.Add(controllerState);
             }
@@ -387,7 +386,7 @@ namespace ArcademiaGameLauncher.Utils
             });
         }
 
-        private int GetVirtualKey(string key)
+        private static int GetVirtualKey(string key)
         {
             if (Enum.TryParse(key, true, out Keyboard.VirtualKeyShort result))
                 return (int)result;

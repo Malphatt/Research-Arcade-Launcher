@@ -71,9 +71,9 @@ namespace ArcademiaGameLauncher.Services
                     response.StatusCode == System.Net.HttpStatusCode.BadRequest
                     || response.StatusCode == System.Net.HttpStatusCode.NotFound
                 )
-                    _logger.LogWarning("Warning: {message}", errorMessage);
+                    _logger.LogWarning("[ApiClient] Warningwhilst executing GetLatestUpdaterVersionAsync: {message}", errorMessage);
                 else
-                    _logger.LogError("Unexpected error: {StatusCode}", response.StatusCode);
+                    _logger.LogError("[ApiClient] Unexpected error whilst executing GetLatestUpdaterVersionAsync: {StatusCode}", response.StatusCode);
 
                 throw new InvalidOperationException("Failed to retrieve UpdaterInfo.");
             }
@@ -121,9 +121,12 @@ namespace ArcademiaGameLauncher.Services
                     response.StatusCode == System.Net.HttpStatusCode.BadRequest
                     || response.StatusCode == System.Net.HttpStatusCode.NotFound
                 )
-                    _logger.LogWarning("Warning: {message}", errorMessage);
-                else
-                    _logger.LogError("Unexpected error: {StatusCode}", response.StatusCode);
+                {
+                    if (_logger.IsEnabled(LogLevel.Warning))
+                        _logger.LogWarning("[ApiClient] Warning whilst executing UpdateRemoteUpdaterVersionAsync: {message}", errorMessage);
+                }
+                else if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError("[ApiClient] Unexpected error whilst executing UpdateRemoteUpdaterVersionAsync: {StatusCode}", response.StatusCode);
             }
             response.EnsureSuccessStatusCode();
 
@@ -136,16 +139,16 @@ namespace ArcademiaGameLauncher.Services
         )
         {
             _logger.LogInformation(
-                "Fetching games assigned to this machine from the API... " + "Auth header: {Auth}",
-                _http.DefaultRequestHeaders.Authorization?.ToString() ?? "<null>"
+                "[ApiClient] Fetching machine games from API..."
             );
 
             var response = await _http.GetAsync($"/api/GameAssignments/Machine", cancellationToken);
 
-            _logger.LogInformation(
-                "Received response with status code: {StatusCode}",
-                response.StatusCode
-            );
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation(
+                    "[ApiClient] Received response with status code: {StatusCode}",
+                    response.StatusCode
+                );
 
             if (!response.IsSuccessStatusCode)
             {
@@ -155,11 +158,14 @@ namespace ArcademiaGameLauncher.Services
                     response.StatusCode == System.Net.HttpStatusCode.BadRequest
                     || response.StatusCode == System.Net.HttpStatusCode.NotFound
                 )
-                    _logger.LogWarning("Warning: {message}", errorMessage);
-                else
-                    _logger.LogError("Unexpected error: {StatusCode}", response.StatusCode);
+                {
+                    if (_logger.IsEnabled(LogLevel.Warning))
+                        _logger.LogWarning("[ApiClient] Warning whilst executing GetMachineGamesAsync: {message}", errorMessage);
+                }
+                else if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError("[ApiClient] Unexpected error whilst executing GetMachineGamesAsync: {StatusCode}", response.StatusCode);
 
-                _logger.LogInformation("No games retrieved from the API.");
+                _logger.LogInformation("[ApiClient] Returning empty game list due to error.");
 
                 return [];
             }
@@ -174,10 +180,8 @@ namespace ArcademiaGameLauncher.Services
                 options
             );
 
-            // Log the retrieved games
-            _logger.LogInformation("Retrieved {Count} games from the API.", games.Count());
-
-            _logger.LogInformation("Games: {Games}", string.Join(", ", games.Select(g => g.Name)));
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation("[ApiClient] Retrieved {GameCount} games from API.", games?.Count() ?? 0);
 
             return games ?? [];
         }
@@ -226,9 +230,12 @@ namespace ArcademiaGameLauncher.Services
                     response.StatusCode == System.Net.HttpStatusCode.BadRequest
                     || response.StatusCode == System.Net.HttpStatusCode.NotFound
                 )
-                    _logger.LogWarning("Warning: {message}", errorMessage);
-                else
-                    _logger.LogError("Unexpected error: {StatusCode}", response.StatusCode);
+                {
+                    if (_logger.IsEnabled(LogLevel.Warning))
+                        _logger.LogWarning("[ApiClient] Warning whilst executing UpdateRemoteGameVersionAsync: {message}", errorMessage);
+                }
+                else if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError("[ApiClient] Unexpected error whilst executing UpdateRemoteGameVersionAsync: {StatusCode}", response.StatusCode);
             }
             response.EnsureSuccessStatusCode();
 

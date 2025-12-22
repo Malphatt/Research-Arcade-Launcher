@@ -37,14 +37,15 @@ namespace ArcademiaGameLauncher.Services
             {
                 var requestUri = ToRelativeIfSameHost(_http.BaseAddress, fileUrl);
 
-                _log.LogDebug("[Audio] GET {Url}", requestUri);
+                if (_log.IsEnabled(LogLevel.Debug))
+                    _log.LogDebug("[Audio] GET {Url}", requestUri);
 
                 using var resp = await _http
                     .GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, ct)
                     .ConfigureAwait(false);
 
                 // Handle unexpected redirect responses
-                if (IsRedirect(resp.StatusCode))
+                if (IsRedirect(resp.StatusCode) && _log.IsEnabled(LogLevel.Warning))
                 {
                     _log.LogWarning(
                         "[Audio] Unexpected redirect ({Status}) for {Url}",
@@ -64,7 +65,9 @@ namespace ArcademiaGameLauncher.Services
                 ms.Position = 0;
 
                 var contentType = resp.Content.Headers.ContentType?.MediaType?.ToLowerInvariant();
-                _log.LogDebug("[Audio] Content-Type: {ContentType}", contentType);
+
+                if (_log.IsEnabled(LogLevel.Debug))
+                    _log.LogDebug("[Audio] Content-Type: {ContentType}", contentType);
 
                 using var reader = CreateReaderFor(requestUri.ToString(), contentType, ms);
                 using var output = new WaveOutEvent();
@@ -81,11 +84,13 @@ namespace ArcademiaGameLauncher.Services
             }
             catch (OperationCanceledException)
             {
-                _log.LogInformation("[Audio] Playback cancelled for {Url}", fileUrl);
+                if (_log.IsEnabled(LogLevel.Information))
+                    _log.LogInformation("[Audio] Playback cancelled for {Url}", fileUrl);
             }
             catch (Exception ex)
             {
-                _log.LogError(ex, "[Audio] Failed to play '{Url}'", fileUrl);
+                if (_log.IsEnabled(LogLevel.Error))
+                    _log.LogError(ex, "[Audio] Failed to play '{Url}'", fileUrl);
             }
         }
 

@@ -99,8 +99,6 @@ namespace ArcademiaGameLauncher
                     services.AddSingleton<IDispatcherQueueService, DispatcherQueueService>();
 
                     services.AddSingleton<Windows.MainWindow>();
-                    services.AddSingleton<Services.CreditsGenerator>();
-                    services.AddSingleton<Services.GameDatabaseService>();
                 })
                 .Build();
 

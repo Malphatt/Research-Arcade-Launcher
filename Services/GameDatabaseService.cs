@@ -6,7 +6,7 @@ namespace ArcademiaGameLauncher.Services
 {
     public class GameDatabaseService
     {
-        public JObject[] LoadGameDatabase(string gameDirectoryPath)
+        public static JObject[] LoadGameDatabase(string gameDirectoryPath)
         {
             // Load the game database from the GameDatabase.json file
             string gameDatabasePath = Path.Combine(gameDirectoryPath, "GameDatabase.json");
@@ -26,7 +26,7 @@ namespace ArcademiaGameLauncher.Services
             }
         }
 
-        public GameState[] ValidateGameExecutables(JObject[] gameInfoList, string gameDirectoryPath)
+        public static GameState[] ValidateGameExecutables(JObject[] gameInfoList, string gameDirectoryPath)
         {
             GameState[] gameTitleStates = new GameState[gameInfoList.Length];
 

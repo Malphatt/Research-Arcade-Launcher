@@ -1,11 +1,11 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using SharpDX.DirectInput;
+using System;
+using System.Text;
 using System.IO;
-using System.Runtime.InteropServices;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using ArcademiaGameLauncher.Windows;
-using Newtonsoft.Json.Linq;
-using SharpDX.DirectInput;
 
 namespace ArcademiaGameLauncher.Utils
 {
@@ -60,8 +60,7 @@ namespace ArcademiaGameLauncher.Utils
             Joystick _joystick,
             int _index,
             Action onInputDetected,
-            Action<string, bool> onSendKey,
-            string applicationPath
+            Action<string, bool> onSendKey
         )
         {
             // Set the joystick
@@ -77,11 +76,17 @@ namespace ArcademiaGameLauncher.Utils
             // Set the keybinds for the player
             try
             {
-                JObject playerControls = JObject.Parse(
-                    File.ReadAllText(
-                        Path.Combine(applicationPath, "Configuration", "ButtonConfig.json")
-                    )
-                );
+                var assembly = Assembly.GetExecutingAssembly();
+                const string resourceName = "ArcademiaGameLauncher.Assets.json.ButtonConfig.json";
+
+                // Read embedded JSON resource from assembly
+                using Stream stream =
+                    assembly.GetManifestResourceStream(resourceName)
+                    ?? throw new FileNotFoundException("Embedded resource not found.", resourceName);
+                using StreamReader reader = new(stream, Encoding.UTF8);
+                string json = reader.ReadToEnd();
+
+                JObject playerControls = JObject.Parse(json);
                 keybinds = new Keybinds(playerControls, index);
             }
             catch { }

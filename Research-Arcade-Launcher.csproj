@@ -7,11 +7,21 @@
     <UseWPF>true</UseWPF>
     <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>Assets\Images\Arcademia_Favicon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Assets\Images\Arcademia_Favicon.ico" />
+    <None Remove="Assets\json\ButtonConfig.json" />
+    <None Remove="Assets\json\Credits.json" />
     <None Remove="Assets\json\emojis.json" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Assets\Images\Arcademia_Favicon.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\Images\Arcademia_Favicon.ico">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
     <Resource Include="Fonts\Early GameBoy.ttf" />
     <Resource Include="Fonts\Press Start 2P.ttf" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
@@ -75,6 +85,8 @@
     <Resource Include="Assets\Images\Scroll-Arrow.gif">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
+    <EmbeddedResource Include="Assets\json\ButtonConfig.json" />
+    <EmbeddedResource Include="Assets\json\Credits.json" />
     <EmbeddedResource Include="Assets\json\emojis.json" />
   </ItemGroup>
 </Project>
