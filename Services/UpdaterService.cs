@@ -19,10 +19,12 @@ namespace ArcademiaGameLauncher.Services
         event EventHandler<GameUpdateCompletedEventArgs> GameUpdateCompleted;
         event EventHandler CloseGameAndUpdater;
         event EventHandler RelaunchUpdater;
+        event EventHandler<ControllerMapping> ControllerMappingFetched;
 
         Task DownloadSiteLogo();
         Task CheckUpdaterAndUpdateAsync(CancellationToken cancellationToken);
         Task CheckGamesAndUpdateAsync(JObject[] gameinfoList, CancellationToken cancellationToken);
+        Task CheckControllerMappingAsync(CancellationToken cancellationToken);
     }
 
     public class GameStateChangedEventArgs(GameState newState, string gameName)
@@ -84,6 +86,11 @@ namespace ArcademiaGameLauncher.Services
         public event EventHandler RelaunchUpdater;
 
         protected void OnRelaunchUpdater() => RelaunchUpdater?.Invoke(this, EventArgs.Empty);
+
+        public event EventHandler<ControllerMapping> ControllerMappingFetched;
+
+        protected void OnControllerMappingFetched(ControllerMapping mapping) =>
+            ControllerMappingFetched?.Invoke(this, mapping);
 
         private readonly IApiClient _apiClient;
         private readonly ILogger<UpdaterService> _logger;
@@ -283,7 +290,10 @@ namespace ArcademiaGameLauncher.Services
         )
         {
             if (_logger.IsEnabled(LogLevel.Information))
-                _logger.LogInformation("[UpdaterService] Downloading updater version: {VersionNumber}", versionNumber);
+                _logger.LogInformation(
+                    "[UpdaterService] Downloading updater version: {VersionNumber}",
+                    versionNumber
+                );
 
             // Delete the old updater files (except the Launcher folder and Config.json)
             foreach (string file in Directory.GetFiles(_updaterDir))
@@ -362,7 +372,10 @@ namespace ArcademiaGameLauncher.Services
                 await zipStream.CopyToAsync(fileStream, cancellationToken);
 
             if (_logger.IsEnabled(LogLevel.Information))
-                _logger.LogInformation("[UpdaterService] Game downloaded successfully: {GameName}", game.Name);
+                _logger.LogInformation(
+                    "[UpdaterService] Game downloaded successfully: {GameName}",
+                    game.Name
+                );
 
             // Extract the zip file
             FastZip fastZip = new();
@@ -370,6 +383,26 @@ namespace ArcademiaGameLauncher.Services
 
             // Delete the zip file
             File.Delete(zipFilePath);
+        }
+
+        public async Task CheckControllerMappingAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("[UpdaterService] Checking for controller mapping updates...");
+            try
+            {
+                var mapping = await _apiClient.GetControllerMappingAsync(cancellationToken);
+                if (mapping != null)
+                {
+                    _logger.LogInformation(
+                        "[UpdaterService] Controller mapping fetched successfully."
+                    );
+                    OnControllerMappingFetched(mapping);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[UpdaterService] Failed to fetch controller mapping.");
+            }
         }
     }
 }

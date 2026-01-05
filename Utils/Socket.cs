@@ -117,7 +117,7 @@ namespace ArcademiaGameLauncher.Utils
                 {
                     _logger.LogError(
                         ex,
-                        "[SignalR] Initial connect failed – will retry in {DelayMs} ms",
+                        "[SignalR] Initial connect failed - will retry in {DelayMs} ms",
                         delayMs
                     );
                     try
@@ -152,7 +152,7 @@ namespace ArcademiaGameLauncher.Utils
                     {
                         _logger.LogWarning(
                             e,
-                            "[SignalR] Reconnect attempt failed – will retry in {DelayMs} ms",
+                            "[SignalR] Reconnect attempt failed - will retry in {DelayMs} ms",
                             delayMs
                         );
                         delayMs = Math.Min(delayMs * 2, 60_000);
@@ -197,6 +197,15 @@ namespace ArcademiaGameLauncher.Utils
                 {
                     _logger.LogInformation("[SignalR] Received UpdateGames");
                     await _mainWindow.CheckForGameDatabaseChanges();
+                }
+            );
+
+            _hub.On(
+                "UpdateControllerMapping",
+                async () =>
+                {
+                    _logger.LogInformation("[SignalR] Received UpdateControllerMapping");
+                    await _mainWindow.CheckControllerMapping();
                 }
             );
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using ArcademiaGameLauncher.Models;
 using ArcademiaGameLauncher.Windows;
 using Microsoft.Extensions.Logging;
 using SharpDX.DirectInput;
@@ -154,7 +155,7 @@ namespace ArcademiaGameLauncher.Utils
             return _controllerStates[playerIndex].GetLeftStickDirection();
         }
 
-        public bool GetEitherButtonState(ControllerState.ControllerButtons button)
+        public bool GetEitherButtonState(ControllerState.ControllerActions button)
         {
             foreach (var controllerState in _controllerStates)
                 if (controllerState.GetButtonState(button))
@@ -163,7 +164,7 @@ namespace ArcademiaGameLauncher.Utils
             return false;
         }
 
-        public bool GetPlayerButtonState(int playerIndex, ControllerState.ControllerButtons button)
+        public bool GetPlayerButtonState(int playerIndex, ControllerState.ControllerActions button)
         {
             if (playerIndex < 0 || playerIndex >= _controllerStates.Count)
                 return false;
@@ -171,7 +172,7 @@ namespace ArcademiaGameLauncher.Utils
             return _controllerStates[playerIndex].GetButtonState(button);
         }
 
-        public bool GetEitherButtonDownState(ControllerState.ControllerButtons button)
+        public bool GetEitherButtonDownState(ControllerState.ControllerActions button)
         {
             foreach (var controllerState in _controllerStates)
                 if (controllerState.GetButtonDownState(button))
@@ -182,7 +183,7 @@ namespace ArcademiaGameLauncher.Utils
 
         public bool GetPlayerButtonDownState(
             int playerIndex,
-            ControllerState.ControllerButtons button
+            ControllerState.ControllerActions button
         )
         {
             if (playerIndex < 0 || playerIndex >= _controllerStates.Count)
@@ -331,50 +332,50 @@ namespace ArcademiaGameLauncher.Utils
                         // --- Button Input ---
 
                         // Exit
-                        controllerState.SetDebugButtonState(
-                            ControllerState.ControllerButtons.Exit,
+                        controllerState.SetDebugAction(
+                            ControllerState.ControllerActions.Exit,
                             ((ushort)GetAsyncKeyState(GetVirtualKey(keybinds.Exit)) & 0x8000) != 0
                         );
 
                         // Start
-                        controllerState.SetDebugButtonState(
-                            ControllerState.ControllerButtons.Start,
+                        controllerState.SetDebugAction(
+                            ControllerState.ControllerActions.Start,
                             ((ushort)GetAsyncKeyState(GetVirtualKey(keybinds.Start)) & 0x8000) != 0
                         );
 
                         // A
-                        controllerState.SetDebugButtonState(
-                            ControllerState.ControllerButtons.A,
+                        controllerState.SetDebugAction(
+                            ControllerState.ControllerActions.A,
                             ((ushort)GetAsyncKeyState(GetVirtualKey(keybinds.A)) & 0x8000) != 0
                         );
 
                         // B
-                        controllerState.SetDebugButtonState(
-                            ControllerState.ControllerButtons.B,
+                        controllerState.SetDebugAction(
+                            ControllerState.ControllerActions.B,
                             ((ushort)GetAsyncKeyState(GetVirtualKey(keybinds.B)) & 0x8000) != 0
                         );
 
                         // C
-                        controllerState.SetDebugButtonState(
-                            ControllerState.ControllerButtons.C,
+                        controllerState.SetDebugAction(
+                            ControllerState.ControllerActions.C,
                             ((ushort)GetAsyncKeyState(GetVirtualKey(keybinds.C)) & 0x8000) != 0
                         );
 
                         // D
-                        controllerState.SetDebugButtonState(
-                            ControllerState.ControllerButtons.D,
+                        controllerState.SetDebugAction(
+                            ControllerState.ControllerActions.D,
                             ((ushort)GetAsyncKeyState(GetVirtualKey(keybinds.D)) & 0x8000) != 0
                         );
 
                         // E
-                        controllerState.SetDebugButtonState(
-                            ControllerState.ControllerButtons.E,
+                        controllerState.SetDebugAction(
+                            ControllerState.ControllerActions.E,
                             ((ushort)GetAsyncKeyState(GetVirtualKey(keybinds.E)) & 0x8000) != 0
                         );
 
                         // F
-                        controllerState.SetDebugButtonState(
-                            ControllerState.ControllerButtons.F,
+                        controllerState.SetDebugAction(
+                            ControllerState.ControllerActions.F,
                             ((ushort)GetAsyncKeyState(GetVirtualKey(keybinds.F)) & 0x8000) != 0
                         );
                     }
@@ -384,6 +385,13 @@ namespace ArcademiaGameLauncher.Utils
 
                 _debugModeRunning = false;
             });
+        }
+
+        public void UpdateMapping(ControllerMapping mapping)
+        {
+            _logger.LogInformation("[ControllerManager] Updating controller mappings...");
+            foreach (var controllerState in _controllerStates)
+                controllerState.UpdateMapping(mapping);
         }
 
         private static int GetVirtualKey(string key)

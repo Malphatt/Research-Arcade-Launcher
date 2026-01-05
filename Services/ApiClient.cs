@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +16,7 @@ namespace ArcademiaGameLauncher.Services
     {
         HttpClient Http { get; }
 
+        Task<ControllerMapping> GetControllerMappingAsync(CancellationToken cancellationToken);
         Task<Stream> GetSiteLogoAsync(CancellationToken cancellationToken);
         Task<string> GetLatestUpdaterVersionAsync(ILogger<UpdaterService> _logger);
         Task<Stream> GetUpdaterDownloadAsync(
@@ -46,6 +48,21 @@ namespace ArcademiaGameLauncher.Services
         private readonly HttpClient _http = http;
         public HttpClient Http => _http;
 
+        public async Task<ControllerMapping> GetControllerMappingAsync(
+            CancellationToken cancellationToken
+        )
+        {
+            var response = await _http.GetAsync("/api/Assets/ControllerMapping", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new Exception(
+                    $"Failed to download controller mapping: {response.StatusCode} - {error}"
+                );
+            }
+            return await response.Content.ReadFromJsonAsync<ControllerMapping>(cancellationToken);
+        }
+
         public async Task<Stream> GetSiteLogoAsync(CancellationToken cancellationToken)
         {
             var response = await _http.GetAsync("/api/Assets/Logo", cancellationToken);
@@ -73,10 +90,16 @@ namespace ArcademiaGameLauncher.Services
                 )
                 {
                     if (_logger.IsEnabled(LogLevel.Warning))
-                        _logger.LogWarning("[ApiClient] Warning whilst executing GetLatestUpdaterVersionAsync: {message}", errorMessage);
+                        _logger.LogWarning(
+                            "[ApiClient] Warning whilst executing GetLatestUpdaterVersionAsync: {message}",
+                            errorMessage
+                        );
                 }
                 else if (_logger.IsEnabled(LogLevel.Error))
-                    _logger.LogError("[ApiClient] Unexpected error whilst executing GetLatestUpdaterVersionAsync: {StatusCode}", response.StatusCode);
+                    _logger.LogError(
+                        "[ApiClient] Unexpected error whilst executing GetLatestUpdaterVersionAsync: {StatusCode}",
+                        response.StatusCode
+                    );
 
                 throw new InvalidOperationException("Failed to retrieve UpdaterInfo.");
             }
@@ -126,10 +149,16 @@ namespace ArcademiaGameLauncher.Services
                 )
                 {
                     if (_logger.IsEnabled(LogLevel.Warning))
-                        _logger.LogWarning("[ApiClient] Warning whilst executing UpdateRemoteUpdaterVersionAsync: {message}", errorMessage);
+                        _logger.LogWarning(
+                            "[ApiClient] Warning whilst executing UpdateRemoteUpdaterVersionAsync: {message}",
+                            errorMessage
+                        );
                 }
                 else if (_logger.IsEnabled(LogLevel.Error))
-                    _logger.LogError("[ApiClient] Unexpected error whilst executing UpdateRemoteUpdaterVersionAsync: {StatusCode}", response.StatusCode);
+                    _logger.LogError(
+                        "[ApiClient] Unexpected error whilst executing UpdateRemoteUpdaterVersionAsync: {StatusCode}",
+                        response.StatusCode
+                    );
             }
             response.EnsureSuccessStatusCode();
 
@@ -141,9 +170,7 @@ namespace ArcademiaGameLauncher.Services
             CancellationToken cancellationToken
         )
         {
-            _logger.LogInformation(
-                "[ApiClient] Fetching machine games from API..."
-            );
+            _logger.LogInformation("[ApiClient] Fetching machine games from API...");
 
             var response = await _http.GetAsync($"/api/GameAssignments/Machine", cancellationToken);
 
@@ -163,10 +190,16 @@ namespace ArcademiaGameLauncher.Services
                 )
                 {
                     if (_logger.IsEnabled(LogLevel.Warning))
-                        _logger.LogWarning("[ApiClient] Warning whilst executing GetMachineGamesAsync: {message}", errorMessage);
+                        _logger.LogWarning(
+                            "[ApiClient] Warning whilst executing GetMachineGamesAsync: {message}",
+                            errorMessage
+                        );
                 }
                 else if (_logger.IsEnabled(LogLevel.Error))
-                    _logger.LogError("[ApiClient] Unexpected error whilst executing GetMachineGamesAsync: {StatusCode}", response.StatusCode);
+                    _logger.LogError(
+                        "[ApiClient] Unexpected error whilst executing GetMachineGamesAsync: {StatusCode}",
+                        response.StatusCode
+                    );
 
                 _logger.LogInformation("[ApiClient] Returning empty game list due to error.");
 
@@ -184,7 +217,10 @@ namespace ArcademiaGameLauncher.Services
             );
 
             if (_logger.IsEnabled(LogLevel.Information))
-                _logger.LogInformation("[ApiClient] Retrieved {GameCount} games from API.", games?.Count() ?? 0);
+                _logger.LogInformation(
+                    "[ApiClient] Retrieved {GameCount} games from API.",
+                    games?.Count() ?? 0
+                );
 
             return games ?? [];
         }
@@ -235,10 +271,16 @@ namespace ArcademiaGameLauncher.Services
                 )
                 {
                     if (_logger.IsEnabled(LogLevel.Warning))
-                        _logger.LogWarning("[ApiClient] Warning whilst executing UpdateRemoteGameVersionAsync: {message}", errorMessage);
+                        _logger.LogWarning(
+                            "[ApiClient] Warning whilst executing UpdateRemoteGameVersionAsync: {message}",
+                            errorMessage
+                        );
                 }
                 else if (_logger.IsEnabled(LogLevel.Error))
-                    _logger.LogError("[ApiClient] Unexpected error whilst executing UpdateRemoteGameVersionAsync: {StatusCode}", response.StatusCode);
+                    _logger.LogError(
+                        "[ApiClient] Unexpected error whilst executing UpdateRemoteGameVersionAsync: {StatusCode}",
+                        response.StatusCode
+                    );
             }
             response.EnsureSuccessStatusCode();
 

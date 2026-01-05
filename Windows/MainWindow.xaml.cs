@@ -200,8 +200,9 @@ namespace ArcademiaGameLauncher.Windows
             );
             _ = _socket.SafeReportStatus("Idle");
 
-            _updater = updaterService; // Already assigned above, but fine.
+            _updater = updaterService;
 
+            _updater.ControllerMappingFetched += Updater_ControllerMappingFetched;
             _updater.LogoDownloaded += Updater_LogoDownloaded;
             _updater.GameStateChanged += Updater_GameStateChanged;
             _updater.GameDatabaseFetched += Updater_GameDatabaseFetched;
@@ -330,44 +331,17 @@ namespace ArcademiaGameLauncher.Windows
 
             LoadGameDatabase();
 
-            Task.Run(async () =>
-            {
-                try
-                {
-                    if (production)
-                        await CheckForUpdaterUpdates();
-                    await CheckForGameDatabaseChanges();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "[Updater Loop] Initial check failed");
-                }
+            // Perform an initial update of the game info display
+            _currentlySelectedGameIndex = 0;
+            UpdateGameInfoDisplay();
 
-                while (true)
-                {
-                    await Task.Delay(30 * 60 * 1000); // 30 Minutes
-                    try
-                    {
-                        _logger.LogInformation("[Updater Loop] Starting scheduled update check...");
+            // Initialize the updateTimer
+            InitializeUpdateTimer();
 
-                        if (production)
-                            await CheckForUpdaterUpdates();
-
-                        await CheckForGameDatabaseChanges();
-
-                        _logger.LogInformation("[Updater Loop] Scheduled update check finished.");
-                    }
-                    catch (TaskCanceledException tcx)
-                    {
-                        if (_logger.IsEnabled(LogLevel.Error))
-                            _logger.LogError(tcx, "[Updater Loop] Scheduled update check canceled");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "[Updater Loop] Error during update check");
-                    }
-                }
-            });
+            var controllerManagerLogger = LoggerFactory
+                .Create(b => b.AddSerilog())
+                .CreateLogger<ControllerManager>();
+            _controllerManager = new ControllerManager(this, _tickSpeed, controllerManagerLogger);
 
             Task.Run(async () =>
             {
@@ -405,17 +379,47 @@ namespace ArcademiaGameLauncher.Windows
                 }
             });
 
-            // Perform an initial update of the game info display
-            _currentlySelectedGameIndex = 0;
-            UpdateGameInfoDisplay();
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await _updater.CheckControllerMappingAsync(CancellationToken.None);
 
-            // Initialize the updateTimer
-            InitializeUpdateTimer();
+                    if (production)
+                        await CheckForUpdaterUpdates();
+                    await CheckForGameDatabaseChanges();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[Updater Loop] Initial check failed");
+                }
 
-            var controllerManagerLogger = LoggerFactory
-                .Create(b => b.AddSerilog())
-                .CreateLogger<ControllerManager>();
-            _controllerManager = new ControllerManager(this, _tickSpeed, controllerManagerLogger);
+                while (true)
+                {
+                    await Task.Delay(30 * 60 * 1000); // 30 Minutes
+                    try
+                    {
+                        _logger.LogInformation("[Updater Loop] Starting scheduled update check...");
+
+                        if (production)
+                            await CheckForUpdaterUpdates();
+
+                        await CheckForGameDatabaseChanges();
+                        await _updater.CheckControllerMappingAsync(CancellationToken.None);
+
+                        _logger.LogInformation("[Updater Loop] Scheduled update check finished.");
+                    }
+                    catch (TaskCanceledException tcx)
+                    {
+                        if (_logger.IsEnabled(LogLevel.Error))
+                            _logger.LogError(tcx, "[Updater Loop] Scheduled update check canceled");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "[Updater Loop] Error during update check");
+                    }
+                }
+            });
 
             _logger.LogInformation("[MainWindow] Initialized.");
         }
@@ -490,6 +494,9 @@ namespace ArcademiaGameLauncher.Windows
 
         public async Task CheckForUpdaterUpdates() =>
             await _updater.CheckUpdaterAndUpdateAsync(CancellationToken.None);
+
+        public async Task CheckControllerMapping() =>
+            await _updater.CheckControllerMappingAsync(CancellationToken.None);
 
         public async Task<bool> CheckForGameDatabaseChanges()
         {
@@ -658,10 +665,7 @@ namespace ArcademiaGameLauncher.Windows
                     Canvas.SetTop(CreditsPanel, logicalScreenHeight);
 
                     // Generate the Credits
-                    CreditsGenerator.Generate(
-                        CreditsPanel,
-                        GifTemplateElement_Parent
-                    );
+                    CreditsGenerator.Generate(CreditsPanel, GifTemplateElement_Parent);
 
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Navigation] AboutButton_Click: End");
@@ -943,7 +947,7 @@ namespace ArcademiaGameLauncher.Windows
 
                 _currentStep = "AFK Check";
                 HandleAFKCheck();
-                
+
                 _currentStep = "UI Animations";
                 AnimateUI();
 
@@ -1052,19 +1056,13 @@ namespace ArcademiaGameLauncher.Windows
                         WindowHelper.EnsureTopMost(_infoWindow);
                 }
                 // If the info window is visible but the exit button is not held
-                else if (
-                    _isInfoWindowVisible
-                    && _isInfoWindowForceExitVisible
-                    && exitHeldFor < 500
-                )
+                else if (_isInfoWindowVisible && _isInfoWindowForceExitVisible && exitHeldFor < 500)
                 {
                     _infoWindow?.HideWindow();
 
                     Dispatcher?.InvokeAsync(
                         () =>
-                            WindowHelper.ForceForeground(
-                                _currentlyRunningProcess.MainWindowHandle
-                            )
+                            WindowHelper.ForceForeground(_currentlyRunningProcess.MainWindowHandle)
                     );
 
                     _isInfoWindowVisible = false;
@@ -1186,9 +1184,9 @@ namespace ArcademiaGameLauncher.Windows
         private void AnimateUI()
         {
             if (
-                    (_isHomeMenuVisible || _isSelectionMenuVisible)
-                    && _globalCounter % _selectionAnimationFrameRate == 0
-                )
+                (_isHomeMenuVisible || _isSelectionMenuVisible)
+                && _globalCounter % _selectionAnimationFrameRate == 0
+            )
             {
                 if (_selectionAnimationFrame < _selectionAnimationFrames.Length - 1)
                     _selectionAnimationFrame++;
@@ -1702,7 +1700,6 @@ namespace ArcademiaGameLauncher.Windows
                                 }
                                 else
                                     _currentlySelectedGameIndex = -1;
-
                             }
                         }
                     }
@@ -1817,10 +1814,10 @@ namespace ArcademiaGameLauncher.Windows
                 _timeSinceLastButton > 250
                 && (
                     _controllerManager.GetEitherButtonDownState(
-                        ControllerState.ControllerButtons.Start
+                        ControllerState.ControllerActions.Start
                     )
                     || _controllerManager.GetEitherButtonDownState(
-                        ControllerState.ControllerButtons.A
+                        ControllerState.ControllerActions.A
                     )
                 )
             )
@@ -1887,10 +1884,10 @@ namespace ArcademiaGameLauncher.Windows
                 _timeSinceLastButton > 250
                 && (
                     _controllerManager.GetEitherButtonDownState(
-                        ControllerState.ControllerButtons.Exit
+                        ControllerState.ControllerActions.Exit
                     )
                     || _controllerManager.GetEitherButtonDownState(
-                        ControllerState.ControllerButtons.B
+                        ControllerState.ControllerActions.B
                     )
                 )
             )
@@ -2066,7 +2063,7 @@ namespace ArcademiaGameLauncher.Windows
                                 if (
                                     _controllerManager.GetPlayerButtonState(
                                         i,
-                                        (ControllerState.ControllerButtons)j
+                                        (ControllerState.ControllerActions)j
                                     )
                                 )
                                 {
@@ -2567,6 +2564,28 @@ namespace ArcademiaGameLauncher.Windows
 
             _showingDebouncedGame = false;
             _dispatcherQueue.EnqueueUnique("UpdateGameInfo", () => UpdateGameInfoDisplay(false));
+        }
+
+        private void Updater_ControllerMappingFetched(object sender, ControllerMapping mapping)
+        {
+            Application.Current?.Dispatcher?.Invoke(async () =>
+            {
+                try
+                {
+                    // Save to file
+                    var json = System.Text.Json.JsonSerializer.Serialize(mapping);
+                    var path = Path.Combine(_applicationPath, "ControllerMapping.json");
+                    await File.WriteAllTextAsync(path, json);
+                    _logger.LogInformation("[Controller Mapping] Saved mapping to {Path}", path);
+
+                    // Update Controller Manager
+                    _controllerManager.UpdateMapping(mapping);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[Controller Mapping] Failed to save/update mapping.");
+                }
+            });
         }
     }
 }

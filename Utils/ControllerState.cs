@@ -1,11 +1,13 @@
-﻿using Newtonsoft.Json.Linq;
-using SharpDX.DirectInput;
-using System;
-using System.Text;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using ArcademiaGameLauncher.Models;
+using Newtonsoft.Json.Linq;
+using SharpDX.DirectInput;
 
 namespace ArcademiaGameLauncher.Utils
 {
@@ -43,8 +45,98 @@ namespace ArcademiaGameLauncher.Utils
         private bool _lastSentRight = false;
         private bool _lastSentUp = false;
         private bool _lastSentDown = false;
+        private Dictionary<string, bool> _lastActionStates = [];
 
-        public enum ControllerButtons
+        private Dictionary<int, string> _buttonActionMap = [];
+
+        private void UpdateActionState(string action)
+        {
+            bool isActionPressed = false;
+
+            // Check if ANY button mapped to this action is currently pressed
+            foreach (var kvp in _buttonActionMap)
+            {
+                if (kvp.Value.Equals(action, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (buttonStates[kvp.Key])
+                    {
+                        isActionPressed = true;
+                        break;
+                    }
+                }
+            }
+
+            // Check if the state has changed
+            if (!_lastActionStates.ContainsKey(action))
+                _lastActionStates[action] = false;
+
+            bool wasActionPressed = _lastActionStates[action];
+
+            if (isActionPressed != wasActionPressed)
+            {
+                // State changed, send the key
+                _lastActionStates[action] = isActionPressed;
+
+                if (isActionPressed)
+                    _onInputDetected?.Invoke();
+
+                switch (action.ToLower())
+                {
+                    case "exit":
+                        _onSendKey?.Invoke(keybinds.Exit, isActionPressed);
+                        break;
+                    case "start":
+                        _onSendKey?.Invoke(keybinds.Start, isActionPressed);
+                        break;
+                    case "a":
+                        _onSendKey?.Invoke(keybinds.A, isActionPressed);
+                        break;
+                    case "b":
+                        _onSendKey?.Invoke(keybinds.B, isActionPressed);
+                        break;
+                    case "c":
+                        _onSendKey?.Invoke(keybinds.C, isActionPressed);
+                        break;
+                    case "d":
+                        _onSendKey?.Invoke(keybinds.D, isActionPressed);
+                        break;
+                    case "e":
+                        _onSendKey?.Invoke(keybinds.E, isActionPressed);
+                        break;
+                    case "f":
+                        _onSendKey?.Invoke(keybinds.F, isActionPressed);
+                        break;
+                }
+            }
+        }
+
+        public void UpdateMapping(ControllerMapping mapping)
+        {
+            if (mapping == null)
+                return;
+            _buttonActionMap[0] = mapping.Button0?.Trim().ToLower() ?? "exit";
+            _buttonActionMap[1] = mapping.Button1?.Trim().ToLower() ?? "start";
+            _buttonActionMap[2] = mapping.Button2?.Trim().ToLower() ?? "a";
+            _buttonActionMap[3] = mapping.Button3?.Trim().ToLower() ?? "b";
+            _buttonActionMap[4] = mapping.Button4?.Trim().ToLower() ?? "c";
+            _buttonActionMap[5] = mapping.Button5?.Trim().ToLower() ?? "d";
+            _buttonActionMap[6] = mapping.Button6?.Trim().ToLower() ?? "e";
+            _buttonActionMap[7] = mapping.Button7?.Trim().ToLower() ?? "f";
+        }
+
+        private void InitializeDefaultMapping()
+        {
+            _buttonActionMap[0] = "exit";
+            _buttonActionMap[1] = "start";
+            _buttonActionMap[2] = "a";
+            _buttonActionMap[3] = "b";
+            _buttonActionMap[4] = "c";
+            _buttonActionMap[5] = "d";
+            _buttonActionMap[6] = "e";
+            _buttonActionMap[7] = "f";
+        }
+
+        public enum ControllerActions
         {
             Exit = 0,
             Start = 1,
@@ -82,7 +174,10 @@ namespace ArcademiaGameLauncher.Utils
                 // Read embedded JSON resource from assembly
                 using Stream stream =
                     assembly.GetManifestResourceStream(resourceName)
-                    ?? throw new FileNotFoundException("Embedded resource not found.", resourceName);
+                    ?? throw new FileNotFoundException(
+                        "Embedded resource not found.",
+                        resourceName
+                    );
                 using StreamReader reader = new(stream, Encoding.UTF8);
                 string json = reader.ReadToEnd();
 
@@ -101,6 +196,30 @@ namespace ArcademiaGameLauncher.Utils
             try
             {
                 state = joystick.GetCurrentState();
+            }
+            catch { }
+
+            InitializeDefaultMapping();
+            try
+            {
+                // Try to load from file
+                string mappingPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    "ControllerMapping.json"
+                );
+                if (File.Exists(mappingPath))
+                {
+                    string json = File.ReadAllText(mappingPath);
+                    var options = new System.Text.Json.JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true,
+                    };
+                    var mapping = System.Text.Json.JsonSerializer.Deserialize<ControllerMapping>(
+                        json
+                    );
+                    if (mapping != null)
+                        UpdateMapping(mapping);
+                }
             }
             catch { }
         }
@@ -249,15 +368,44 @@ namespace ArcademiaGameLauncher.Utils
         }
 
         // Getter and Setter for the button states
-        public bool GetButtonState(ControllerButtons _button) => buttonStates[(int)_button];
+        public bool GetButtonState(ControllerActions action)
+        {
+            string actionName = action.ToString().ToLower();
+            foreach (var kvp in _buttonActionMap)
+            {
+                if (kvp.Value == actionName)
+                {
+                    if (buttonStates[kvp.Key])
+                        return true;
+                }
+            }
+            return false;
+        }
 
-        public bool GetButtonDownState(ControllerButtons _button) => buttonDownStates[(int)_button];
+        public bool GetButtonDownState(ControllerActions action)
+        {
+            string actionName = action.ToString().ToLower();
+            foreach (var kvp in _buttonActionMap)
+            {
+                if (kvp.Value == actionName)
+                {
+                    if (buttonDownStates[kvp.Key])
+                        return true;
+                }
+            }
+            return false;
+        }
 
         public void SetButtonState(int _button, bool _buttonState)
         {
             if (_debugMode)
                 return;
 
+            InternalSetButtonState(_button, _buttonState);
+        }
+
+        private void InternalSetButtonState(int _button, bool _buttonState)
+        {
             if (!buttonStates[_button] && _buttonState)
                 buttonDownStates[_button] = true;
             else
@@ -268,65 +416,61 @@ namespace ArcademiaGameLauncher.Utils
             else
                 buttonUpStates[_button] = false;
 
-            if ((buttonDownStates[_button] || buttonUpStates[_button]) && _isKeymapping)
-            {
-                // Send the key press if the button is pressed
-                switch (_button)
-                {
-                    case 0:
-                        if (_buttonState)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.Exit, _buttonState);
-                        break;
-                    case 1:
-                        if (_buttonState)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.Start, _buttonState);
-                        break;
-                    case 2:
-                        if (_buttonState)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.A, _buttonState);
-                        break;
-                    case 3:
-                        if (_buttonState)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.B, _buttonState);
-                        break;
-                    case 4:
-                        if (_buttonState)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.C, _buttonState);
-                        break;
-                    case 5:
-                        if (_buttonState)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.D, _buttonState);
-                        break;
-                    case 6:
-                        if (_buttonState)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.E, _buttonState);
-                        break;
-                    case 7:
-                        if (_buttonState)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.F, _buttonState);
-                        break;
-                    default:
-                        break;
-                }
-            }
-
             buttonStates[_button] = _buttonState;
+
+            // Process the action associated with this button
+            if (_isKeymapping && _buttonActionMap.TryGetValue(_button, out string action))
+                UpdateActionState(action);
         }
 
         public void ReleaseButtons()
         {
-            // Release all buttons
+            // Release all physical buttons
             for (int i = 0; i < buttonStates.Length; i++)
-                if (buttonStates[i])
-                    SetButtonState(i, false);
+            {
+                buttonStates[i] = false;
+                buttonDownStates[i] = false;
+                buttonUpStates[i] = false;
+            }
+
+            // Release all logical actions
+            var actions = new List<string>(_lastActionStates.Keys);
+            foreach (var action in actions)
+            {
+                if (_lastActionStates[action])
+                {
+                    // Force release
+                    _lastActionStates[action] = false;
+                    switch (action.ToLower())
+                    {
+                        case "exit":
+                            _onSendKey?.Invoke(keybinds.Exit, false);
+                            break;
+                        case "start":
+                            _onSendKey?.Invoke(keybinds.Start, false);
+                            break;
+                        case "a":
+                            _onSendKey?.Invoke(keybinds.A, false);
+                            break;
+                        case "b":
+                            _onSendKey?.Invoke(keybinds.B, false);
+                            break;
+                        case "c":
+                            _onSendKey?.Invoke(keybinds.C, false);
+                            break;
+                        case "d":
+                            _onSendKey?.Invoke(keybinds.D, false);
+                            break;
+                        case "e":
+                            _onSendKey?.Invoke(keybinds.E, false);
+                            break;
+                        case "f":
+                            _onSendKey?.Invoke(keybinds.F, false);
+                            break;
+                    }
+                }
+            }
+            _lastActionStates.Clear();
 
             // Release Directionals
             if (_lastSentLeft)
@@ -408,72 +552,22 @@ namespace ArcademiaGameLauncher.Utils
             }
         }
 
-        public void SetDebugButtonState(ControllerButtons button, bool state)
+        public void SetDebugAction(ControllerActions action, bool state)
         {
             if (!_debugMode)
                 return;
 
-            if (!buttonStates[(int)button] && state)
-                buttonDownStates[(int)button] = true;
-            else
-                buttonDownStates[(int)button] = false;
+            string actionName = action.ToString().ToLower();
 
-            if (buttonStates[(int)button] && !state)
-                buttonUpStates[(int)button] = true;
-            else
-                buttonUpStates[(int)button] = false;
-
-            if ((buttonDownStates[(int)button] || buttonUpStates[(int)button]))
+            // Find ALL buttons mapped to this action
+            foreach (var kvp in _buttonActionMap)
             {
-                // Send the key press if the button is pressed
-                switch ((int)button)
+                if (kvp.Value.Equals(actionName, StringComparison.OrdinalIgnoreCase))
                 {
-                    case 0:
-                        if (state)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.Exit, state);
-                        break;
-                    case 1:
-                        if (state)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.Start, state);
-                        break;
-                    case 2:
-                        if (state)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.A, state);
-                        break;
-                    case 3:
-                        if (state)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.B, state);
-                        break;
-                    case 4:
-                        if (state)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.C, state);
-                        break;
-                    case 5:
-                        if (state)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.D, state);
-                        break;
-                    case 6:
-                        if (state)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.E, state);
-                        break;
-                    case 7:
-                        if (state)
-                            _onInputDetected?.Invoke();
-                        _onSendKey?.Invoke(keybinds.F, state);
-                        break;
-                    default:
-                        break;
+                    // Update the physical button state, which will trigger UpdateActionState
+                    InternalSetButtonState(kvp.Key, state);
                 }
             }
-
-            buttonStates[(int)button] = state;
         }
 
         // Getter for the index
