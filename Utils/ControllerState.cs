@@ -45,9 +45,9 @@ namespace ArcademiaGameLauncher.Utils
         private bool _lastSentRight = false;
         private bool _lastSentUp = false;
         private bool _lastSentDown = false;
-        private Dictionary<string, bool> _lastActionStates = [];
+        private readonly Dictionary<string, bool> _lastActionStates = [];
 
-        private Dictionary<int, string> _buttonActionMap = [];
+        private readonly Dictionary<int, string> _buttonActionMap = [];
 
         private void UpdateActionState(string action)
         {
@@ -56,7 +56,10 @@ namespace ArcademiaGameLauncher.Utils
             // Check if ANY button mapped to this action is currently pressed
             foreach (var kvp in _buttonActionMap)
             {
-                if (kvp.Value.Equals(action, StringComparison.OrdinalIgnoreCase))
+                if (
+                    !string.IsNullOrWhiteSpace(kvp.Value)
+                    && kvp.Value.Equals(action, StringComparison.OrdinalIgnoreCase)
+                )
                 {
                     if (buttonStates[kvp.Key])
                     {
@@ -114,14 +117,15 @@ namespace ArcademiaGameLauncher.Utils
         {
             if (mapping == null)
                 return;
-            _buttonActionMap[0] = mapping.Button0?.Trim().ToLower() ?? "exit";
-            _buttonActionMap[1] = mapping.Button1?.Trim().ToLower() ?? "start";
-            _buttonActionMap[2] = mapping.Button2?.Trim().ToLower() ?? "a";
-            _buttonActionMap[3] = mapping.Button3?.Trim().ToLower() ?? "b";
-            _buttonActionMap[4] = mapping.Button4?.Trim().ToLower() ?? "c";
-            _buttonActionMap[5] = mapping.Button5?.Trim().ToLower() ?? "d";
-            _buttonActionMap[6] = mapping.Button6?.Trim().ToLower() ?? "e";
-            _buttonActionMap[7] = mapping.Button7?.Trim().ToLower() ?? "f";
+
+            _buttonActionMap[0] = mapping.Button0?.Trim().ToLower();
+            _buttonActionMap[1] = mapping.Button1?.Trim().ToLower();
+            _buttonActionMap[2] = mapping.Button2?.Trim().ToLower();
+            _buttonActionMap[3] = mapping.Button3?.Trim().ToLower();
+            _buttonActionMap[4] = mapping.Button4?.Trim().ToLower();
+            _buttonActionMap[5] = mapping.Button5?.Trim().ToLower();
+            _buttonActionMap[6] = mapping.Button6?.Trim().ToLower();
+            _buttonActionMap[7] = mapping.Button7?.Trim().ToLower();
         }
 
         private void InitializeDefaultMapping()
@@ -419,8 +423,14 @@ namespace ArcademiaGameLauncher.Utils
             buttonStates[_button] = _buttonState;
 
             // Process the action associated with this button
-            if (_isKeymapping && _buttonActionMap.TryGetValue(_button, out string action))
+            if (
+                _isKeymapping
+                && _buttonActionMap.TryGetValue(_button, out string action)
+                && !string.IsNullOrWhiteSpace(action)
+            )
+            {
                 UpdateActionState(action);
+            }
         }
 
         public void ReleaseButtons()
