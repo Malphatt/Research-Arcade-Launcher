@@ -232,7 +232,7 @@ namespace ArcademiaGameLauncher.Services
         )
         {
             var response = await _http.GetAsync(
-                $"/api/GameAssignments/{gameId}/Download?versionNumber={versionNumber}",
+                $"/api/GameAssignments/{gameId}/Download?versionNumber={versionNumber ?? "0.0.0"}",
                 cancellationToken
             );
 

@@ -16,7 +16,7 @@
         Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
     <!-- Declare the Launcher Version, Global Font and ToggleButton style -->
     <Window.Resources>
-        <System:String x:Key="LauncherVersion">[v2.5.1-26 Release Build]</System:String>
+        <System:String x:Key="LauncherVersion">[v2.5.4-26 Release Build]</System:String>
         <System:String x:Key="YearStyle">yyyy</System:String>
         <System:Double x:Key="LogicalSizeWidth">1920</System:Double>
         <System:Double x:Key="LogicalSizeHeight">1080</System:Double>
@@ -593,6 +593,7 @@
                     </Grid>
                 </Grid>
                 <Grid x:Name="HomeMenuImageArea"
+                      ClipToBounds="True"
                       Grid.Column="1">
                     <Canvas>
                         <Grid x:Name="HomeImage"

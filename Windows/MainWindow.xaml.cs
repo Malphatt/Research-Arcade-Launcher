@@ -2270,7 +2270,13 @@ namespace ArcademiaGameLauncher.Windows
                             }
                             else
                             {
-                                // Fallback handled by ResetGameInfoDisplay
+                                // Set the placeholder image
+                                NonGif_GameThumbnail.Source = new BitmapImage(
+                                    new Uri(
+                                        "/Assets/Images/ThumbnailPlaceholder.png",
+                                        UriKind.Relative
+                                    )
+                                );
                             }
 
                             // Set the Game Info and Authors

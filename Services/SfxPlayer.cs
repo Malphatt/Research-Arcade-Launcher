@@ -127,7 +127,7 @@ namespace ArcademiaGameLauncher.Services
 
         private static WaveStream CreateReaderFor(string url, string contentType, Stream stream)
         {
-            // Check if the fileURL is 
+            // Check if the fileURL is
 
             if (
                 url.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)

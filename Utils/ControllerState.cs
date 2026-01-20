@@ -275,7 +275,20 @@ namespace ArcademiaGameLauncher.Utils
                     SetButtonState(i, state.Buttons[i]);
 
                 // Update the exit button held for time
-                if (buttonStates[0])
+                bool isExitDown = false;
+                foreach (var kvp in _buttonActionMap)
+                {
+                    if (
+                        string.Equals(kvp.Value, "exit", StringComparison.OrdinalIgnoreCase)
+                        && buttonStates[kvp.Key]
+                    )
+                    {
+                        isExitDown = true;
+                        break;
+                    }
+                }
+
+                if (isExitDown)
                     exitButtonHeldFor += _pollingRate;
                 else
                     exitButtonHeldFor = 0;

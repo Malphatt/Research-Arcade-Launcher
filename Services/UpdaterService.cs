@@ -218,11 +218,14 @@ namespace ArcademiaGameLauncher.Services
                                     game.Name
                                 );
 
-                            // If the local version matches the remote version, skip the update
+                            // If the local version matches the remote version and the exe exists, skip the update
                             if (
                                 gameinfoList.Any(g =>
                                     g["Name"].ToString() == game.Name
                                     && g["VersionNumber"].ToString() == game.VersionNumber
+                                )
+                                && File.Exists(
+                                    Path.Combine(_gamesDir, game.FolderName, game.NameOfExecutable)
                                 )
                             )
                             {
@@ -297,7 +300,10 @@ namespace ArcademiaGameLauncher.Services
 
             // Delete the old updater files (except the Launcher folder and Config.json)
             foreach (string file in Directory.GetFiles(_updaterDir))
-                if (Path.GetFileName(file) != "Launcher" && Path.GetFileName(file) != "Config.json")
+                if (
+                    Path.GetFileName(file).ToLower() != "launcher"
+                    && Path.GetFileName(file).ToLower() != "config.json"
+                )
                     File.Delete(file);
 
             // Download the updater zip file
@@ -345,6 +351,7 @@ namespace ArcademiaGameLauncher.Services
             OnStateChanged(GameState.downloadingGame, game.Name);
 
             var gameDir = Path.Combine(_gamesDir, game.FolderName);
+            var gameExists = File.Exists(Path.Combine(gameDir, game.NameOfExecutable));
 
             // Ensure the game directory exists
             if (!Directory.Exists(gameDir))
@@ -356,7 +363,7 @@ namespace ArcademiaGameLauncher.Services
             // Download the game zip file
             await using var zipStream = await _apiClient.GetGameDownloadAsync(
                 game.Id,
-                game.VersionNumber,
+                gameExists ? game.VersionNumber : null,
                 cancellationToken
             );
             var zipFilePath = Path.Combine(gameDir, $"{game.FolderName}.zip");

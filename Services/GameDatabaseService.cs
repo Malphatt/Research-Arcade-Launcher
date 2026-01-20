@@ -26,7 +26,10 @@ namespace ArcademiaGameLauncher.Services
             }
         }
 
-        public static GameState[] ValidateGameExecutables(JObject[] gameInfoList, string gameDirectoryPath)
+        public static GameState[] ValidateGameExecutables(
+            JObject[] gameInfoList,
+            string gameDirectoryPath
+        )
         {
             GameState[] gameTitleStates = new GameState[gameInfoList.Length];
 

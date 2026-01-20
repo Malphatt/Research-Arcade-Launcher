@@ -1,14 +1,14 @@
-using Newtonsoft.Json.Linq;
 using System;
-using System.Text;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Xml;
+using Newtonsoft.Json.Linq;
 using XamlAnimatedGif;
 
 namespace ArcademiaGameLauncher.Services
@@ -248,8 +248,7 @@ namespace ArcademiaGameLauncher.Services
 
                         break;
                     case "Note":
-                        int noteHeight =
-                            20 + (creditsObject["Value"].ToString().Length / 80 * 20);
+                        int noteHeight = 20 + (creditsObject["Value"].ToString().Length / 80 * 20);
 
                         // Create a new RowDefinition
                         RowDefinition noteRow = new()
@@ -382,9 +381,7 @@ namespace ArcademiaGameLauncher.Services
                         if (imagePath.EndsWith(".gif"))
                         {
                             // Copy GifTemplateElement_Parent's child element to make a new Image
-                            Image imageGif = CloneXamlElement(
-                                (Image)gifTemplateParent.Children[0]
-                            );
+                            Image imageGif = CloneXamlElement((Image)gifTemplateParent.Children[0]);
                             AnimationBehavior.SetSourceUri(
                                 imageGif,
                                 new(imagePath, UriKind.Relative)
