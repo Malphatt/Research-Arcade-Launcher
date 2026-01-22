@@ -34,6 +34,7 @@ namespace ArcademiaGameLauncher.Services
         Task<Stream> GetGameDownloadAsync(
             int gameId,
             string versionNumber,
+            ILogger<UpdaterService> _logger,
             CancellationToken cancellationToken
         );
         Task<bool> UpdateRemoteGameVersionAsync(
@@ -228,6 +229,7 @@ namespace ArcademiaGameLauncher.Services
         public async Task<Stream> GetGameDownloadAsync(
             int gameId,
             string versionNumber,
+            ILogger<UpdaterService> _logger,
             CancellationToken cancellationToken
         )
         {

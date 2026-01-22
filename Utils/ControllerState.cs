@@ -585,7 +585,10 @@ namespace ArcademiaGameLauncher.Utils
             // Find ALL buttons mapped to this action
             foreach (var kvp in _buttonActionMap)
             {
-                if (kvp.Value.Equals(actionName, StringComparison.OrdinalIgnoreCase))
+                if (
+                    !string.IsNullOrWhiteSpace(kvp.Value)
+                    && kvp.Value.Equals(actionName, StringComparison.OrdinalIgnoreCase)
+                )
                 {
                     // Update the physical button state, which will trigger UpdateActionState
                     InternalSetButtonState(kvp.Key, state);

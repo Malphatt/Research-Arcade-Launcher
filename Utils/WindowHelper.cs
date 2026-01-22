@@ -183,5 +183,38 @@ namespace ArcademiaGameLauncher.Utils
                 );
             });
         }
+
+        public static void SetWindowOrder(Window top, Window middle, Window bottom)
+        {
+            Application.Current?.Dispatcher?.InvokeAsync(() =>
+            {
+                IntPtr topHandle = top != null ? new WindowInteropHelper(top).Handle : IntPtr.Zero;
+                IntPtr middleHandle =
+                    middle != null ? new WindowInteropHelper(middle).Handle : IntPtr.Zero;
+                IntPtr bottomHandle =
+                    bottom != null ? new WindowInteropHelper(bottom).Handle : IntPtr.Zero;
+
+                SetWindowOrder(topHandle, middleHandle, bottomHandle);
+            });
+        }
+
+        public static void SetWindowOrder(
+            IntPtr topHandle,
+            IntPtr middleHandle,
+            IntPtr bottomHandle
+        )
+        {
+            Application.Current?.Dispatcher?.InvokeAsync(() =>
+            {
+                if (bottomHandle != IntPtr.Zero)
+                    EnsureTopMost(bottomHandle);
+
+                if (middleHandle != IntPtr.Zero)
+                    EnsureTopMost(middleHandle);
+
+                if (topHandle != IntPtr.Zero)
+                    EnsureTopMost(topHandle);
+            });
+        }
     }
 }

@@ -364,6 +364,7 @@ namespace ArcademiaGameLauncher.Services
             await using var zipStream = await _apiClient.GetGameDownloadAsync(
                 game.Id,
                 gameExists ? game.VersionNumber : null,
+                _logger,
                 cancellationToken
             );
             var zipFilePath = Path.Combine(gameDir, $"{game.FolderName}.zip");

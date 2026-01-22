@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Xml;
@@ -587,7 +588,7 @@ namespace ArcademiaGameLauncher.Windows
             }
 
             // Set the focus to the game launcher
-            WindowHelper.ForceForeground(this);
+            ApplyWindowZOrder();
 
             // Set the currently selected game index to 0
             _currentlySelectedGameIndex = 0;
@@ -625,7 +626,7 @@ namespace ArcademiaGameLauncher.Windows
             }
 
             // Set the focus to the game launcher
-            WindowHelper.ForceForeground(this);
+            ApplyWindowZOrder();
         }
 
         private void AboutButton_Click(object sender, RoutedEventArgs e)
@@ -718,7 +719,7 @@ namespace ArcademiaGameLauncher.Windows
             }
 
             // Set the focus to the game launcher
-            WindowHelper.ForceForeground(this);
+            ApplyWindowZOrder();
 
             // Reset AFK Timer after Half a Second
             Task.Delay(500)
@@ -765,7 +766,7 @@ namespace ArcademiaGameLauncher.Windows
             }
 
             // Set the focus to the game launcher
-            WindowHelper.ForceForeground(this);
+            ApplyWindowZOrder();
 
             // Set the currently selected Home Index to 0 and highlight the current Home Menu Option
             _currentlySelectedHomeIndex = 0;
@@ -813,20 +814,13 @@ namespace ArcademiaGameLauncher.Windows
                 }
 
                 // Set focus to the currently running process
-                WindowHelper.ForceForeground(_currentlyRunningProcess.MainWindowHandle);
+                ApplyWindowZOrder();
 
                 // After 3 seconds, set the focus to the currently running process
                 await Task.Delay(3000);
 
                 if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
-                {
-                    // Ensure the Game is on Top
-                    WindowHelper.ForceForeground(_currentlyRunningProcess.MainWindowHandle);
-                    WindowHelper.EnsureTopMost(_currentlyRunningProcess.MainWindowHandle);
-
-                    // Ensure the Launcher is behind
-                    WindowHelper.SendToBack(this);
-                }
+                    ApplyWindowZOrder();
 
                 SetGameTitleState(_currentlySelectedGameIndex, GameState.runningGame);
                 StyleStartButtonState(_currentlySelectedGameIndex);
@@ -880,7 +874,7 @@ namespace ArcademiaGameLauncher.Windows
                 }
 
                 // Set the focus to the game launcher
-                WindowHelper.ForceForeground(this);
+                ApplyWindowZOrder();
             }
         }
 
@@ -895,7 +889,9 @@ namespace ArcademiaGameLauncher.Windows
             base.OnSourceInitialized(e);
 
             if (_infoWindow != null)
-                _infoWindow.Owner = this;
+            {
+                // _infoWindow.Owner = this; // Commented out to allow the Game window to be between InfoWindow and Launcher
+            }
         }
 
         private async void StartWatchdog()
@@ -985,6 +981,73 @@ namespace ArcademiaGameLauncher.Windows
             }
         }
 
+        private void ApplyWindowZOrder()
+        {
+            Dispatcher?.InvokeAsync(() =>
+            {
+                IntPtr gameHandle = IntPtr.Zero;
+                if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
+                {
+                    try
+                    {
+                        gameHandle = _currentlyRunningProcess.MainWindowHandle;
+                    }
+                    catch { }
+                }
+
+                IntPtr infoHandle = IntPtr.Zero;
+                if (_infoWindow != null)
+                {
+                    try
+                    {
+                        infoHandle = new WindowInteropHelper(_infoWindow).Handle;
+                    }
+                    catch { }
+                }
+
+                IntPtr launcherHandle = IntPtr.Zero;
+                try
+                {
+                    launcherHandle = new WindowInteropHelper(this).Handle;
+                }
+                catch { }
+
+                if (_isInfoWindowVisible)
+                    WindowHelper.SetWindowOrder(infoHandle, gameHandle, launcherHandle);
+                else if (gameHandle != IntPtr.Zero)
+                    WindowHelper.SetWindowOrder(gameHandle, infoHandle, launcherHandle);
+                else
+                    WindowHelper.SetWindowOrder(launcherHandle, infoHandle, IntPtr.Zero);
+            });
+        }
+
+        private void UpdateInfoWindowPosition()
+        {
+            Dispatcher?.InvokeAsync(() =>
+            {
+                if (_infoWindow != null)
+                {
+                    double targetWidth = this.ActualWidth;
+                    double targetHeight = this.ActualHeight;
+
+                    double infoWidth =
+                        _infoWindow.ActualWidth > 0 ? _infoWindow.ActualWidth : _infoWindow.Width;
+                    double infoHeight =
+                        _infoWindow.ActualHeight > 0
+                            ? _infoWindow.ActualHeight
+                            : _infoWindow.Height;
+
+                    if (double.IsNaN(infoWidth))
+                        infoWidth = 1000;
+                    if (double.IsNaN(infoHeight))
+                        infoHeight = 600;
+
+                    _infoWindow.Left = this.Left + (targetWidth - infoWidth) / 2;
+                    _infoWindow.Top = this.Top + (targetHeight - infoHeight) / 2;
+                }
+            });
+        }
+
         private void HandleExitLogic()
         {
             // If a game is running
@@ -1031,7 +1094,7 @@ namespace ArcademiaGameLauncher.Windows
                             _currentlyRunningProcess = null;
                             _ = _socket.SafeReportStatus("Idle");
 
-                            WindowHelper.ForceForeground(this);
+                            ApplyWindowZOrder();
                         }
                     );
                 }
@@ -1048,22 +1111,20 @@ namespace ArcademiaGameLauncher.Windows
                         _infoWindow?.SetCloseGameName(
                             _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
                         );
+                        UpdateInfoWindowPosition();
                         _infoWindow?.ShowWindow(InfoWindowType.ForceExit);
                         _infoWindow?.UpdateCountdown(3000 - exitHeldFor);
                     }
 
                     if (exitHeldFor % 500 < _tickSpeed)
-                        WindowHelper.EnsureTopMost(_infoWindow);
+                        ApplyWindowZOrder();
                 }
                 // If the info window is visible but the exit button is not held
                 else if (_isInfoWindowVisible && _isInfoWindowForceExitVisible && exitHeldFor < 500)
                 {
                     _infoWindow?.HideWindow();
 
-                    Dispatcher?.InvokeAsync(
-                        () =>
-                            WindowHelper.ForceForeground(_currentlyRunningProcess.MainWindowHandle)
-                    );
+                    ApplyWindowZOrder();
 
                     _isInfoWindowVisible = false;
                     _isInfoWindowIdleVisible = false;
@@ -1080,14 +1141,14 @@ namespace ArcademiaGameLauncher.Windows
                 _ = _socket.SafeReportStatus("Idle");
                 _currentlyRunningProcess = null;
 
-                Dispatcher?.InvokeAsync(() => WindowHelper.ForceForeground(this));
+                ApplyWindowZOrder();
             }
             // If no game is running but the force exit info window is visible
             else if (_isInfoWindowVisible && _isInfoWindowForceExitVisible)
             {
                 _infoWindow?.HideWindow();
 
-                Dispatcher?.InvokeAsync(() => WindowHelper.ForceForeground(this));
+                ApplyWindowZOrder();
 
                 _isInfoWindowVisible = false;
                 _isInfoWindowForceExitVisible = false;
@@ -1137,7 +1198,7 @@ namespace ArcademiaGameLauncher.Windows
                         InputMenu.Visibility = Visibility.Collapsed;
                         _isInputMenuVisible = false;
 
-                        WindowHelper.ForceForeground(this);
+                        ApplyWindowZOrder();
                     }
                 );
             }
@@ -1146,6 +1207,8 @@ namespace ArcademiaGameLauncher.Windows
             {
                 if (!_isInfoWindowIdleVisible)
                 {
+                    _logger.LogInformation("[AFK Check] Detected AFK. Showing idle window");
+
                     _isInfoWindowVisible = true;
                     _isInfoWindowIdleVisible = true;
 
@@ -1155,7 +1218,9 @@ namespace ArcademiaGameLauncher.Windows
                             : null
                     );
 
+                    UpdateInfoWindowPosition();
                     _infoWindow?.ShowWindow(InfoWindowType.Idle);
+                    ApplyWindowZOrder();
                 }
 
                 if (_afkTimer % 100 < _tickSpeed)
@@ -1167,17 +1232,11 @@ namespace ArcademiaGameLauncher.Windows
                 _infoWindow?.HideWindow();
                 _timeSinceLastButton = 0;
 
-                Dispatcher?.InvokeAsync(() =>
-                {
-                    if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
-                        WindowHelper.ForceForeground(_currentlyRunningProcess.MainWindowHandle);
-                    else
-                        WindowHelper.ForceForeground(this);
-                });
-
                 _isInfoWindowVisible = false;
                 _isInfoWindowIdleVisible = false;
                 _isInfoWindowForceExitVisible = false;
+
+                ApplyWindowZOrder();
             }
         }
 
