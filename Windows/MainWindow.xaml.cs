@@ -39,6 +39,7 @@ namespace ArcademiaGameLauncher.Windows
 
         private readonly JObject _config;
         private JObject[] _gameInfoList;
+        private string _thumbnailCacheBuster = DateTime.Now.Ticks.ToString();
 
         private readonly ControllerManager _controllerManager;
 
@@ -437,6 +438,7 @@ namespace ArcademiaGameLauncher.Windows
 
         private void LoadGameDatabase()
         {
+            _thumbnailCacheBuster = DateTime.Now.Ticks.ToString();
             // Load the game database from the GameDatabase.json file
             _gameInfoList = GameDatabaseService.LoadGameDatabase(_gameDirectoryPath);
             _gameTitleStates = GameDatabaseService.ValidateGameExecutables(
@@ -513,6 +515,7 @@ namespace ArcademiaGameLauncher.Windows
                     if (_logger.IsEnabled(LogLevel.Debug))
                         _logger.LogDebug("[Load Database] CheckForGameDatabaseChanges: Start");
 
+                    _thumbnailCacheBuster = DateTime.Now.Ticks.ToString();
                     _gameInfoList = GameDatabaseService.LoadGameDatabase(_applicationPath);
                     _gameTitleStates = GameDatabaseService.ValidateGameExecutables(
                         _gameInfoList,
@@ -1346,6 +1349,7 @@ namespace ArcademiaGameLauncher.Windows
 
         private void Updater_GameDatabaseFetched(object sender, GameDatabaseFetchedEventArgs e)
         {
+            _thumbnailCacheBuster = DateTime.Now.Ticks.ToString();
             SimplifiedGameInfo[] games = e.Games;
 
             // Convert to JsonArray for local storage
@@ -1470,7 +1474,12 @@ namespace ArcademiaGameLauncher.Windows
 
                 if (thumbnailUrl.StartsWith("http"))
                 {
-                    imageUri = new Uri(thumbnailUrl, UriKind.Absolute);
+                    string cacheBusterUrl =
+                        thumbnailUrl
+                        + (thumbnailUrl.Contains("?") ? "&" : "?")
+                        + "cb="
+                        + _thumbnailCacheBuster;
+                    imageUri = new Uri(cacheBusterUrl, UriKind.Absolute);
                 }
                 else
                 {
@@ -2176,6 +2185,7 @@ namespace ArcademiaGameLauncher.Windows
             var tilesPerPage = _tilesPerPage;
             var emojiParser = _emojiParser;
             var pageIndex = _pageIndex;
+            var cacheBuster = _thumbnailCacheBuster;
 
             Task.Run(() =>
             {
@@ -2199,7 +2209,8 @@ namespace ArcademiaGameLauncher.Windows
 
                     if (thumbUrl.StartsWith("http"))
                     {
-                        imageUri = thumbUrl;
+                        imageUri =
+                            thumbUrl + (thumbUrl.Contains("?") ? "&" : "?") + "cb=" + cacheBuster;
                         isHttp = true;
                     }
                     else
@@ -2277,6 +2288,7 @@ namespace ArcademiaGameLauncher.Windows
                 var game = _gameInfoList[index];
                 var gameDirPath = _gameDirectoryPath;
                 var emojiParser = _emojiParser;
+                var cacheBuster = _thumbnailCacheBuster;
 
                 Task.Run(() =>
                 {
@@ -2286,7 +2298,8 @@ namespace ArcademiaGameLauncher.Windows
 
                     if (thumbUrl.StartsWith("http"))
                     {
-                        imageUri = thumbUrl;
+                        imageUri =
+                            thumbUrl + (thumbUrl.Contains("?") ? "&" : "?") + "cb=" + cacheBuster;
                     }
                     else
                     {
@@ -2336,6 +2349,7 @@ namespace ArcademiaGameLauncher.Windows
                                         UriKind.Relative
                                     )
                                 );
+                                AnimationBehavior.SetSourceUri(Gif_GameThumbnail, null);
                             }
 
                             // Set the Game Info and Authors
@@ -2536,12 +2550,9 @@ namespace ArcademiaGameLauncher.Windows
             {
                 // Reset the Thumbnail
                 NonGif_GameThumbnail.Source = new BitmapImage(
-                    new("Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
+                    new Uri("/Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
                 );
-                AnimationBehavior.SetSourceUri(
-                    Gif_GameThumbnail,
-                    new("Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
-                );
+                AnimationBehavior.SetSourceUri(Gif_GameThumbnail, null);
 
                 // Reset the Text Content of each element
                 GameTitle.Text = "Select A Game";
