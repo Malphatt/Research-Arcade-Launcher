@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using ArcademiaGameLauncher.Models;
 using ArcademiaGameLauncher.Windows;
@@ -274,7 +275,7 @@ namespace ArcademiaGameLauncher.Utils
 
         private void ListenForDebugKey()
         {
-            Task.Run(async () =>
+            var thread = new Thread(() =>
             {
                 while (true)
                 {
@@ -286,9 +287,15 @@ namespace ArcademiaGameLauncher.Utils
 
                     _debugKeyDown = _debugKeyState;
 
-                    await Task.Delay(_pollingRate);
+                    Thread.Sleep(_pollingRate);
                 }
-            });
+            })
+            {
+                IsBackground = true,
+                Priority = ThreadPriority.BelowNormal,
+                Name = "DebugKeyListener",
+            };
+            thread.Start();
         }
 
         // Debug mode input listener
@@ -297,7 +304,7 @@ namespace ArcademiaGameLauncher.Utils
             if (_debugModeRunning)
                 return;
 
-            Task.Run(async () =>
+            var thread = new Thread(() =>
             {
                 _debugModeRunning = true;
 
@@ -380,11 +387,17 @@ namespace ArcademiaGameLauncher.Utils
                         );
                     }
 
-                    await Task.Delay(_pollingRate);
+                    Thread.Sleep(_pollingRate);
                 }
 
                 _debugModeRunning = false;
-            });
+            })
+            {
+                IsBackground = true,
+                Priority = ThreadPriority.BelowNormal,
+                Name = "DebugModeInputListener",
+            };
+            thread.Start();
         }
 
         public void UpdateMapping(ControllerMapping mapping)

@@ -104,6 +104,8 @@ namespace ArcademiaGameLauncher.Windows
         private readonly Label[] _gameTitlesList;
         private readonly Image[] _gameImagesList;
 
+        private readonly BitmapImage _placeholderBitmap;
+
         private readonly System.Windows.Shapes.Ellipse[] _inputMenuJoysticks;
         private readonly System.Windows.Shapes.Ellipse[][] _inputMenuButtons;
 
@@ -139,6 +141,17 @@ namespace ArcademiaGameLauncher.Windows
 
             production = _applicationPath.EndsWith("Launcher");
             _gameDirectoryPath = Path.Combine(_applicationPath, "Games");
+
+            _placeholderBitmap = new BitmapImage();
+            _placeholderBitmap.BeginInit();
+            _placeholderBitmap.UriSource = new Uri(
+                "/Assets/Images/ThumbnailPlaceholder.png",
+                UriKind.Relative
+            );
+            _placeholderBitmap.CacheOption = BitmapCacheOption.OnLoad;
+            _placeholderBitmap.CreateOptions = BitmapCreateOptions.DelayCreation;
+            _placeholderBitmap.EndInit();
+            _placeholderBitmap.Freeze();
 
             // Setup closing event
             Closing += Window_Closing;
@@ -1255,26 +1268,20 @@ namespace ArcademiaGameLauncher.Windows
                 else
                     _selectionAnimationFrame = 0;
 
-                Task.Run(() =>
-                {
-                    if (_isHomeMenuVisible)
-                        HighlightCurrentHomeMenuOption();
-                    else if (_isSelectionMenuVisible)
-                        HighlightCurrentGameMenuOption();
-                });
+                if (_isHomeMenuVisible)
+                    HighlightCurrentHomeMenuOption();
+                else if (_isSelectionMenuVisible)
+                    HighlightCurrentGameMenuOption();
             }
 
-            Task.Run(() =>
-            {
-                if (_isInputMenuVisible)
-                    UpdateInputMenuFeedback();
+            if (_isInputMenuVisible)
+                UpdateInputMenuFeedback();
 
-                if (_isHomeMenuVisible || _isSelectionMenuVisible)
-                    UpdateCurrentSelection();
+            if (_isHomeMenuVisible || _isSelectionMenuVisible)
+                UpdateCurrentSelection();
 
-                if (_isCreditsVisible)
-                    AutoScrollCredits();
-            });
+            if (_isCreditsVisible)
+                AutoScrollCredits();
 
             if (_isStartMenuVisible)
             {
@@ -1476,7 +1483,7 @@ namespace ArcademiaGameLauncher.Windows
                 {
                     string cacheBusterUrl =
                         thumbnailUrl
-                        + (thumbnailUrl.Contains("?") ? "&" : "?")
+                        + (thumbnailUrl.Contains('?') ? "&" : "?")
                         + "cb="
                         + _thumbnailCacheBuster;
                     imageUri = new Uri(cacheBusterUrl, UriKind.Absolute);
@@ -2210,7 +2217,7 @@ namespace ArcademiaGameLauncher.Windows
                     if (thumbUrl.StartsWith("http"))
                     {
                         imageUri =
-                            thumbUrl + (thumbUrl.Contains("?") ? "&" : "?") + "cb=" + cacheBuster;
+                            thumbUrl + (thumbUrl.Contains('?') ? "&" : "?") + "cb=" + cacheBuster;
                         isHttp = true;
                     }
                     else
@@ -2250,7 +2257,12 @@ namespace ArcademiaGameLauncher.Windows
                             _gameTilesList[tileIndex].Visibility = Visibility.Visible;
 
                             // Set the image thumbnail
-                            if (update.ImageUri != null)
+                            if (String.IsNullOrEmpty(update.ImageUri))
+                            {
+                                _gameImagesList[tileIndex].Source = _placeholderBitmap;
+                                AnimationBehavior.SetSourceUri(_gameImagesList[tileIndex], null);
+                            }
+                            else if (update.IsHttp)
                             {
                                 AnimationBehavior.SetSourceUri(
                                     _gameImagesList[tileIndex],
@@ -2299,7 +2311,7 @@ namespace ArcademiaGameLauncher.Windows
                     if (thumbUrl.StartsWith("http"))
                     {
                         imageUri =
-                            thumbUrl + (thumbUrl.Contains("?") ? "&" : "?") + "cb=" + cacheBuster;
+                            thumbUrl + (thumbUrl.Contains('?') ? "&" : "?") + "cb=" + cacheBuster;
                     }
                     else
                     {
@@ -2343,12 +2355,7 @@ namespace ArcademiaGameLauncher.Windows
                             else
                             {
                                 // Set the placeholder image
-                                NonGif_GameThumbnail.Source = new BitmapImage(
-                                    new Uri(
-                                        "/Assets/Images/ThumbnailPlaceholder.png",
-                                        UriKind.Relative
-                                    )
-                                );
+                                NonGif_GameThumbnail.Source = _placeholderBitmap;
                                 AnimationBehavior.SetSourceUri(Gif_GameThumbnail, null);
                             }
 
@@ -2399,8 +2406,16 @@ namespace ArcademiaGameLauncher.Windows
                             JArray tags = (JArray)game["Tags"];
 
                             // For each Stated Game Tag
-                            for (int j = 0; j < tags.Count; j++)
+                            for (int j = 0; j < GameTag.Length; j++)
                             {
+                                if (j >= tags.Count)
+                                {
+                                    // Hide any unused Game Tag elements
+                                    GameTagBorder[j].Visibility = Visibility.Hidden;
+                                    GameTag[j].Text = "";
+                                    continue;
+                                }
+
                                 // Change Visibility
                                 GameTagBorder[j].Visibility = Visibility.Visible;
 
@@ -2525,14 +2540,6 @@ namespace ArcademiaGameLauncher.Windows
 
         private void ResetTiles()
         {
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.UriSource = new Uri("/Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative);
-            bitmap.CacheOption = BitmapCacheOption.OnLoad; // Load into memory
-            bitmap.CreateOptions = BitmapCreateOptions.DelayCreation;
-            bitmap.EndInit();
-            bitmap.Freeze();
-
             for (int i = 0; i < _tilesPerPage; i++)
             {
                 // Reset the visibility of all titles
@@ -2540,7 +2547,7 @@ namespace ArcademiaGameLauncher.Windows
                 // Reset the text of all titles
                 _gameTitlesList[i].Content = "Loading...";
                 // Reset all the images
-                _gameImagesList[i].Source = bitmap;
+                _gameImagesList[i].Source = _placeholderBitmap;
             }
         }
 
@@ -2549,9 +2556,7 @@ namespace ArcademiaGameLauncher.Windows
             Application.Current?.Dispatcher?.InvokeAsync(() =>
             {
                 // Reset the Thumbnail
-                NonGif_GameThumbnail.Source = new BitmapImage(
-                    new Uri("/Assets/Images/ThumbnailPlaceholder.png", UriKind.Relative)
-                );
+                NonGif_GameThumbnail.Source = _placeholderBitmap;
                 AnimationBehavior.SetSourceUri(Gif_GameThumbnail, null);
 
                 // Reset the Text Content of each element

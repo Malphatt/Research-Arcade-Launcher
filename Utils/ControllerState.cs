@@ -27,7 +27,7 @@ namespace ArcademiaGameLauncher.Utils
         private volatile int exitButtonHeldFor;
 
         private CancellationTokenSource _cts;
-        private Task _pollingTask;
+        private Thread _pollingThread;
         private int _pollingRate;
 
         // Deadzone and Midpoint values for the joystick
@@ -232,21 +232,28 @@ namespace ArcademiaGameLauncher.Utils
         {
             _pollingRate = pollingRate;
 
-            if (_pollingTask != null && !_pollingTask.IsCompleted)
+            if (_pollingThread != null && _pollingThread.IsAlive)
                 return;
 
             _cts = new CancellationTokenSource();
-            _pollingTask = Task.Run(
-                async () =>
+            _pollingThread = new Thread(() =>
+            {
+                while (!_cts.Token.IsCancellationRequested)
                 {
-                    while (!_cts.Token.IsCancellationRequested)
-                    {
-                        UpdateButtonStates();
-                        await Task.Delay(10, _cts.Token).ConfigureAwait(false);
-                    }
-                },
-                _cts.Token
-            );
+                    UpdateButtonStates();
+
+                    // WaitOne blocking is more stable and has lower latency than await Task.Delay for input loops
+                    if (_cts.Token.WaitHandle.WaitOne(_pollingRate))
+                        break;
+                }
+            })
+            {
+                IsBackground = true,
+                Priority = ThreadPriority.AboveNormal,
+                Name = $"ControllerPolling_{index}",
+            };
+
+            _pollingThread.Start();
         }
 
         public void StopPolling()
@@ -254,7 +261,7 @@ namespace ArcademiaGameLauncher.Utils
             _cts?.Cancel();
             try
             {
-                _pollingTask?.Wait(500);
+                _pollingThread?.Join(500);
             }
             catch { }
         }

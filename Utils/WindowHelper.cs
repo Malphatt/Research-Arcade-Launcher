@@ -206,14 +206,49 @@ namespace ArcademiaGameLauncher.Utils
         {
             Application.Current?.Dispatcher?.InvokeAsync(() =>
             {
-                if (bottomHandle != IntPtr.Zero)
-                    EnsureTopMost(bottomHandle);
+                if (topHandle != IntPtr.Zero)
+                {
+                    SetWindowPos(
+                        topHandle,
+                        HWND_TOPMOST,
+                        0,
+                        0,
+                        0,
+                        0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+                    );
+                }
 
                 if (middleHandle != IntPtr.Zero)
-                    EnsureTopMost(middleHandle);
+                {
+                    IntPtr insertAfter = topHandle != IntPtr.Zero ? topHandle : HWND_TOPMOST;
+                    SetWindowPos(
+                        middleHandle,
+                        insertAfter,
+                        0,
+                        0,
+                        0,
+                        0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+                    );
+                }
 
-                if (topHandle != IntPtr.Zero)
-                    EnsureTopMost(topHandle);
+                if (bottomHandle != IntPtr.Zero)
+                {
+                    IntPtr insertAfter =
+                        middleHandle != IntPtr.Zero
+                            ? middleHandle
+                            : (topHandle != IntPtr.Zero ? topHandle : HWND_TOPMOST);
+                    SetWindowPos(
+                        bottomHandle,
+                        insertAfter,
+                        0,
+                        0,
+                        0,
+                        0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+                    );
+                }
             });
         }
     }
