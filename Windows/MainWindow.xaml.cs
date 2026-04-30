@@ -15,6 +15,7 @@ using System.Windows.Media.Imaging;
 using System.Xml;
 using ArcademiaGameLauncher.Models;
 using ArcademiaGameLauncher.Services;
+using ArcademiaGameLauncher.UserControls;
 using ArcademiaGameLauncher.Utils;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
@@ -40,6 +41,14 @@ namespace ArcademiaGameLauncher.Windows
         private readonly JObject _config;
         private JObject[] _gameInfoList;
         private string _thumbnailCacheBuster = DateTime.Now.Ticks.ToString();
+
+        private readonly Dictionary<string, ThumbnailEntry> _scrollThumbnailCache = new();
+        private readonly List<string> _scrollGifTempFiles = new();
+        private readonly object _scrollCacheLock = new();
+        private static readonly string _scrollGifTempDir = Path.Combine(
+            Path.GetTempPath(),
+            "arcademia_scroll"
+        );
 
         private readonly ControllerManager _controllerManager;
 
@@ -121,12 +130,14 @@ namespace ArcademiaGameLauncher.Windows
         // MAIN WINDOW
 
         private readonly IDispatcherQueueService _dispatcherQueue;
+        private readonly IApiClient _apiClient;
 
         public MainWindow(
             ILogger<MainWindow> logger,
             ISfxPlayer sfxPlayer,
             IUpdaterService updaterService,
             IDispatcherQueueService dispatcherQueue,
+            IApiClient apiClient,
             JObject config,
             string applicationPath,
             ILoggerFactory loggerFactory
@@ -136,6 +147,7 @@ namespace ArcademiaGameLauncher.Windows
             _sfxPlayer = sfxPlayer;
             _updater = updaterService;
             _dispatcherQueue = dispatcherQueue;
+            _apiClient = apiClient;
             _config = config;
             _applicationPath = applicationPath;
 
@@ -345,6 +357,7 @@ namespace ArcademiaGameLauncher.Windows
             ];
 
             LoadGameDatabase();
+            InitHomeThumbnailScroll();
 
             // Perform an initial update of the game info display
             _currentlySelectedGameIndex = 0;
@@ -506,6 +519,121 @@ namespace ArcademiaGameLauncher.Windows
             }
         }
 
+        private void InitHomeThumbnailScroll()
+        {
+            if (_gameInfoList == null || _gameInfoList.Length == 0)
+                return;
+
+            // GameDatabase.json does not store an Id field, but ThumbnailUrl contains
+            // the full API thumbnail URL for games that have one uploaded.
+            var urls = new List<string>(_gameInfoList.Length);
+            foreach (var game in _gameInfoList)
+            {
+                if (game == null)
+                    continue;
+                string url = game["ThumbnailUrl"]?.ToString();
+                if (!string.IsNullOrEmpty(url))
+                    urls.Add(url);
+            }
+
+            LoadHomeThumbnailScrollFromUrls(urls);
+        }
+
+        private void LoadHomeThumbnailScrollFromUrls(IEnumerable<string> thumbnailUrls)
+        {
+            var urls = new List<string>();
+            foreach (var url in thumbnailUrls)
+                if (!string.IsNullOrEmpty(url))
+                    urls.Add(url);
+
+            if (urls.Count == 0)
+                return;
+
+            _ = Task.Run(async () =>
+            {
+                Directory.CreateDirectory(_scrollGifTempDir);
+                var entries = new List<ThumbnailEntry>(urls.Count);
+
+                foreach (string url in urls)
+                {
+                    try
+                    {
+                        ThumbnailEntry entry;
+                        bool cached;
+                        lock (_scrollCacheLock)
+                            cached = _scrollThumbnailCache.TryGetValue(url, out entry);
+
+                        if (!cached)
+                        {
+                            var response = await _apiClient.Http.GetAsync(url);
+                            if (!response.IsSuccessStatusCode)
+                                continue;
+
+                            byte[] bytes = await response.Content.ReadAsByteArrayAsync();
+                            if (bytes == null || bytes.Length == 0)
+                                continue;
+
+                            bool isGif =
+                                response.Content.Headers.ContentType?.MediaType == "image/gif"
+                                || (
+                                    bytes.Length > 3
+                                    && bytes[0] == 0x47
+                                    && bytes[1] == 0x49
+                                    && bytes[2] == 0x46
+                                );
+
+                            if (isGif)
+                            {
+                                // Write to a local temp file
+                                string tempPath = Path.Combine(
+                                    _scrollGifTempDir,
+                                    Guid.NewGuid().ToString("N") + ".gif"
+                                );
+                                await File.WriteAllBytesAsync(tempPath, bytes);
+
+                                // Decode first frame as a frozen BitmapImage so the slot isn't empty while AnimationBehavior initialises the animation
+                                var firstFrame = new BitmapImage();
+                                firstFrame.BeginInit();
+                                firstFrame.StreamSource = new MemoryStream(bytes);
+                                firstFrame.CacheOption = BitmapCacheOption.OnLoad;
+                                firstFrame.EndInit();
+                                firstFrame.Freeze();
+
+                                entry = new ThumbnailEntry(firstFrame, tempPath);
+                                lock (_scrollCacheLock)
+                                {
+                                    _scrollThumbnailCache[url] = entry;
+                                    _scrollGifTempFiles.Add(tempPath);
+                                }
+                            }
+                            else
+                            {
+                                var bmp = new BitmapImage();
+                                bmp.BeginInit();
+                                bmp.StreamSource = new MemoryStream(bytes);
+                                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                                bmp.EndInit();
+                                bmp.Freeze();
+                                entry = new ThumbnailEntry(bmp);
+
+                                lock (_scrollCacheLock)
+                                    _scrollThumbnailCache[url] = entry;
+                            }
+                        }
+
+                        entries.Add(entry);
+                    }
+                    catch
+                    {
+                        // Skip thumbnails that fail to download or decode
+                    }
+                }
+
+                if (entries.Count > 0)
+                    await Dispatcher.InvokeAsync(() => HomeThumbnailScroll.LoadThumbnails(entries));
+            });
+        }
+
         // Updater Methods
 
         public async Task CheckForUpdaterUpdates() =>
@@ -665,7 +793,7 @@ namespace ArcademiaGameLauncher.Windows
                     InputMenu.Visibility = Visibility.Collapsed;
                     _isInputMenuVisible = false;
 
-                    HomeImage.Opacity = 0.2;
+                    HomeThumbnailScroll.Opacity = 0.2;
                     CreditsPanel.Visibility = Visibility.Visible;
                     _isCreditsVisible = true;
 
@@ -715,7 +843,7 @@ namespace ArcademiaGameLauncher.Windows
                     InputMenu.Visibility = Visibility.Collapsed;
                     _isInputMenuVisible = false;
 
-                    HomeImage.Opacity = 1;
+                    HomeThumbnailScroll.Opacity = 1;
                     CreditsPanel.Visibility = Visibility.Collapsed;
                     _isCreditsVisible = false;
 
@@ -1441,6 +1569,28 @@ namespace ArcademiaGameLauncher.Windows
                 if (_logger.IsEnabled(LogLevel.Error))
                     _logger.LogError(tcx, "[Updater] Updater_GameDatabaseFetched: Task Canceled");
             }
+
+            // Refresh the home screen thumbnail scroll with the latest ThumbnailUrls from the API.
+            // Clear the cache so newly-uploaded thumbnails are fetched fresh rather than stale.
+            List<string> oldTempFiles;
+            lock (_scrollCacheLock)
+            {
+                _scrollThumbnailCache.Clear();
+                oldTempFiles = new List<string>(_scrollGifTempFiles);
+                _scrollGifTempFiles.Clear();
+            }
+            foreach (var f in oldTempFiles)
+                try
+                {
+                    File.Delete(f);
+                }
+                catch { }
+
+            var freshUrls = new List<string>(games.Length);
+            foreach (var game in games)
+                if (!string.IsNullOrEmpty(game.ThumbnailUrl))
+                    freshUrls.Add(game.ThumbnailUrl);
+            LoadHomeThumbnailScrollFromUrls(freshUrls);
 
             // Update the game info display if the currently selected game is in the new game database
             DebounceUpdateGameInfoDisplay();

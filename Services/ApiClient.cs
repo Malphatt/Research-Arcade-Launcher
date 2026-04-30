@@ -42,6 +42,8 @@ namespace ArcademiaGameLauncher.Services
             string newVersion,
             ILogger<UpdaterService> _logger
         );
+
+        Task<byte[]> GetGameThumbnailBytesAsync(int gameId, CancellationToken cancellationToken);
     }
 
     public class ApiClient(HttpClient http) : IApiClient
@@ -287,6 +289,21 @@ namespace ArcademiaGameLauncher.Services
             response.EnsureSuccessStatusCode();
 
             return response.IsSuccessStatusCode;
+        }
+
+        public async Task<byte[]> GetGameThumbnailBytesAsync(
+            int gameId,
+            CancellationToken cancellationToken
+        )
+        {
+            var response = await _http.GetAsync(
+                $"/api/Games/{gameId}/Thumbnail",
+                cancellationToken
+            );
+            if (!response.IsSuccessStatusCode)
+                return null;
+            byte[] bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            return bytes.Length > 0 ? bytes : null;
         }
     }
 }
