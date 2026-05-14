@@ -14,6 +14,7 @@ namespace ArcademiaGameLauncher.Utils
     {
         private readonly MainWindow _mainWindow;
         private readonly ISfxPlayer _sfxPlayer;
+        private readonly ISessionTrackingService _sessionTracking;
         private readonly HubConnection _hub;
         private readonly CancellationTokenSource _heartbeatCts = new();
         private readonly ILogger<Socket> _logger;
@@ -28,11 +29,13 @@ namespace ArcademiaGameLauncher.Utils
             string authPass,
             MainWindow mainWindow,
             ISfxPlayer sfxPlayer,
+            ISessionTrackingService sessionTracking,
             ILogger<Socket> logger
         )
         {
             _mainWindow = mainWindow;
             _sfxPlayer = sfxPlayer;
+            _sessionTracking = sessionTracking;
             _logger = logger;
 
             var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{authUser}:{authPass}"));
@@ -56,6 +59,10 @@ namespace ArcademiaGameLauncher.Utils
                 .Build();
 
             WireServerEvents();
+
+            // Register transport so the session service can invoke hub methods directly
+            _sessionTracking.RegisterTransport(InvokeSessionStartAsync, InvokeSessionEndAsync);
+
             _ = ConnectAndStartHeartbeat();
         }
 
@@ -73,6 +80,13 @@ namespace ArcademiaGameLauncher.Utils
 
                     await SafeInvokeAck("Client connected");
                     await SafeReportStatus("Idle");
+
+                    _ = Task.Run(async () =>
+                    {
+                        await _sessionTracking.FlushQueueAsync();
+                        await _mainWindow.CheckForGameDatabaseChanges();
+                        await _mainWindow.CheckControllerMapping();
+                    });
 
                     // Start a single heartbeat loop tied to the same token
                     _ = Task.Run(
@@ -115,10 +129,10 @@ namespace ArcademiaGameLauncher.Utils
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(
-                        ex,
-                        "[SignalR] Initial connect failed - will retry in {DelayMs} ms",
-                        delayMs
+                    _logger.LogWarning(
+                        "[SignalR] Initial connect failed - will retry in {DelayMs} ms: {Message}",
+                        delayMs,
+                        ex.Message
                     );
                     try
                     {
@@ -146,6 +160,7 @@ namespace ArcademiaGameLauncher.Utils
                         await Task.Delay(delayMs, ct);
                         await _hub.StartAsync(ct);
                         _logger.LogInformation("[SignalR] Reconnected after close");
+                        _ = _sessionTracking.FlushQueueAsync();
                         break;
                     }
                     catch (Exception e)
@@ -160,10 +175,15 @@ namespace ArcademiaGameLauncher.Utils
                 }
             };
 
-            _hub.Reconnected += (id) =>
+            _hub.Reconnected += async (id) =>
             {
                 _logger.LogInformation("[SignalR] Reconnected (ConnId: {Id})", id);
-                return Task.CompletedTask;
+                await _sessionTracking.FlushQueueAsync();
+                _ = Task.Run(async () =>
+                {
+                    await _mainWindow.CheckForGameDatabaseChanges();
+                    await _mainWindow.CheckControllerMapping();
+                });
             };
 
             _hub.Reconnecting += (ex) =>
@@ -250,6 +270,39 @@ namespace ArcademiaGameLauncher.Utils
             }
         }
 
+        public async Task InvokeSessionStartAsync(
+            string externalId,
+            int gameAssignmentId,
+            string launcherStartedAtUtc
+        )
+        {
+            if (_hub.State != HubConnectionState.Connected)
+                throw new InvalidOperationException("Hub not connected");
+            await _hub.InvokeAsync(
+                "SessionStart",
+                externalId,
+                gameAssignmentId,
+                launcherStartedAtUtc
+            );
+            _logger.LogDebug("[SignalR] SessionStart sent: {ExternalId}", externalId);
+        }
+
+        public async Task InvokeSessionEndAsync(
+            string externalId,
+            string endReason,
+            string endedAtUtc
+        )
+        {
+            if (_hub.State != HubConnectionState.Connected)
+                throw new InvalidOperationException("Hub not connected");
+            await _hub.InvokeAsync("SessionEnd", externalId, endReason, endedAtUtc);
+            _logger.LogDebug(
+                "[SignalR] SessionEnd sent: {ExternalId} Reason={Reason}",
+                externalId,
+                endReason
+            );
+        }
+
         public async Task StopAsync()
         {
             _heartbeatCts.Cancel();
@@ -267,6 +320,12 @@ namespace ArcademiaGameLauncher.Utils
 #nullable restore
         {
             _logger.LogInformation("[SignalR] Reporting status: {Status} {Ext}", status, ext ?? "");
+
+            if (_hub.State != HubConnectionState.Connected)
+            {
+                _logger.LogDebug("[SignalR] ReportStatus skipped (hub not connected)");
+                return;
+            }
 
             try
             {

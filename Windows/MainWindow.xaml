@@ -17,7 +17,7 @@
         Height="{DynamicResource {x:Static SystemParameters.PrimaryScreenHeightKey}}">
     <!-- Declare the Launcher Version, Global Font and ToggleButton style -->
     <Window.Resources>
-        <System:String x:Key="LauncherVersion">[v2.6.0-26 Release Build]</System:String>
+        <System:String x:Key="LauncherVersion">[v2.6.1-26 Release Build]</System:String>
         <System:String x:Key="YearStyle">yyyy</System:String>
         <System:Double x:Key="LogicalSizeWidth">1920</System:Double>
         <System:Double x:Key="LogicalSizeHeight">1080</System:Double>
@@ -83,14 +83,24 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 Background="{TemplateBinding Background}"
-                                SnapsToDevicePixels="true">
-                            <ContentPresenter x:Name="contentPresenter"
-                                              Focusable="False"
-                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              Margin="{TemplateBinding Padding}"
-                                              RecognizesAccessKey="True"
-                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                SnapsToDevicePixels="true"
+                                ClipToBounds="True">
+                            <Grid>
+                                <Rectangle x:Name="PART_Fill"
+                                           Fill="Transparent"
+                                           RenderTransformOrigin="0,0.5">
+                                    <Rectangle.RenderTransform>
+                                        <ScaleTransform ScaleX="0"/>
+                                    </Rectangle.RenderTransform>
+                                </Rectangle>
+                                <ContentPresenter x:Name="contentPresenter"
+                                                  Focusable="False"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  Margin="{TemplateBinding Padding}"
+                                                  RecognizesAccessKey="True"
+                                                  SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsPressed"

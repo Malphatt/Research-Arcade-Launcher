@@ -31,7 +31,7 @@ namespace ArcademiaGameLauncher.Services
             ILogger<UpdaterService> _logger,
             CancellationToken cancellationToken
         );
-        Task<Stream> GetGameDownloadAsync(
+        Task<(Stream Stream, long? ContentLength)> GetGameDownloadAsync(
             int gameId,
             string versionNumber,
             ILogger<UpdaterService> _logger,
@@ -228,7 +228,7 @@ namespace ArcademiaGameLauncher.Services
             return games ?? [];
         }
 
-        public async Task<Stream> GetGameDownloadAsync(
+        public async Task<(Stream Stream, long? ContentLength)> GetGameDownloadAsync(
             int gameId,
             string versionNumber,
             ILogger<UpdaterService> _logger,
@@ -237,6 +237,7 @@ namespace ArcademiaGameLauncher.Services
         {
             var response = await _http.GetAsync(
                 $"/api/GameAssignments/{gameId}/Download?versionNumber={versionNumber ?? "0.0.0"}",
+                HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken
             );
 
@@ -246,7 +247,10 @@ namespace ArcademiaGameLauncher.Services
                 throw new Exception($"Failed to download game: {response.StatusCode} - {error}");
             }
 
-            return await response.Content.ReadAsStreamAsync(cancellationToken);
+            return (
+                await response.Content.ReadAsStreamAsync(cancellationToken),
+                response.Content.Headers.ContentLength
+            );
         }
 
         public async Task<bool> UpdateRemoteGameVersionAsync(

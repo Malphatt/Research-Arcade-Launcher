@@ -131,6 +131,7 @@ namespace ArcademiaGameLauncher.Windows
 
         private readonly IDispatcherQueueService _dispatcherQueue;
         private readonly IApiClient _apiClient;
+        private readonly ISessionTrackingService _sessionTracking;
 
         public MainWindow(
             ILogger<MainWindow> logger,
@@ -138,6 +139,7 @@ namespace ArcademiaGameLauncher.Windows
             IUpdaterService updaterService,
             IDispatcherQueueService dispatcherQueue,
             IApiClient apiClient,
+            ISessionTrackingService sessionTracking,
             JObject config,
             string applicationPath,
             ILoggerFactory loggerFactory
@@ -148,6 +150,7 @@ namespace ArcademiaGameLauncher.Windows
             _updater = updaterService;
             _dispatcherQueue = dispatcherQueue;
             _apiClient = apiClient;
+            _sessionTracking = sessionTracking;
             _config = config;
             _applicationPath = applicationPath;
 
@@ -223,6 +226,7 @@ namespace ArcademiaGameLauncher.Windows
                 pass,
                 this,
                 _sfxPlayer,
+                _sessionTracking,
                 loggerFactory.CreateLogger<Socket>()
             );
             _ = _socket.SafeReportStatus("Idle");
@@ -234,6 +238,7 @@ namespace ArcademiaGameLauncher.Windows
             _updater.GameStateChanged += Updater_GameStateChanged;
             _updater.GameDatabaseFetched += Updater_GameDatabaseFetched;
             _updater.GameUpdateCompleted += Updater_GameUpdateCompleted;
+            _updater.GameDownloadProgress += Updater_GameDownloadProgress;
             _updater.CloseGameAndUpdater += Updater_CloseGameAndUpdater;
             _updater.RelaunchUpdater += Updater_RelaunchUpdater;
 
@@ -945,9 +950,9 @@ namespace ArcademiaGameLauncher.Windows
                     WorkingDirectory = Path.Combine(_gameDirectoryPath, currentGameFolder),
                 };
 
-                // Start the game if no process is currently running
                 if (_currentlyRunningProcess == null || _currentlyRunningProcess.HasExited)
                 {
+                    // Start new process and poll until its window appears, then focus it
                     _currentlyRunningProcess = Process.Start(startInfo);
                     StyleStartButtonState(GameState.launching);
 
@@ -955,16 +960,27 @@ namespace ArcademiaGameLauncher.Windows
                         "Playing",
                         _gameInfoList[_currentlySelectedGameIndex]["Name"].ToString()
                     );
+
+                    var gameAssignmentId = (int)_gameInfoList[_currentlySelectedGameIndex]["Id"];
+                    _ = _sessionTracking.StartSessionAsync(
+                        gameAssignmentId,
+                        _currentlyRunningProcess?.StartTime ?? DateTime.UtcNow
+                    );
+
+                    await FocusGameWindowAsync(_currentlyRunningProcess);
                 }
-
-                // Set focus to the currently running process
-                ApplyWindowZOrder();
-
-                // After 3 seconds, set the focus to the currently running process
-                await Task.Delay(3000);
-
-                if (_currentlyRunningProcess != null && !_currentlyRunningProcess.HasExited)
-                    ApplyWindowZOrder();
+                else
+                {
+                    // Game already running — bring it to front immediately
+                    try
+                    {
+                        _currentlyRunningProcess.Refresh();
+                        var handle = _currentlyRunningProcess.MainWindowHandle;
+                        if (handle != IntPtr.Zero)
+                            WindowHelper.ForceForeground(handle);
+                    }
+                    catch { }
+                }
 
                 SetGameTitleState(_currentlySelectedGameIndex, GameState.runningGame);
                 StyleStartButtonState(_currentlySelectedGameIndex);
@@ -1125,6 +1141,58 @@ namespace ArcademiaGameLauncher.Windows
             }
         }
 
+        private async Task FocusGameWindowAsync(Process process)
+        {
+            if (process == null)
+                return;
+
+            // Poll for the game's window handle. MainWindowHandle is cached per-refresh,
+            // so Refresh() must be called each iteration or it returns stale IntPtr.Zero.
+            var deadline = DateTime.UtcNow.AddSeconds(10);
+            IntPtr handle = IntPtr.Zero;
+
+            while (DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    if (process.HasExited)
+                        return;
+                    process.Refresh();
+                    handle = process.MainWindowHandle;
+                    if (handle != IntPtr.Zero)
+                        break;
+                }
+                catch
+                {
+                    return;
+                }
+                await Task.Delay(200);
+            }
+
+            if (handle == IntPtr.Zero)
+            {
+                _logger.LogWarning("[Focus] Game window not found within timeout");
+                return;
+            }
+
+            _logger.LogDebug("[Focus] Game window found, applying focus");
+            WindowHelper.ForceForeground(handle);
+
+            // Re-apply after a short delay — some games briefly re-grab focus during startup
+            await Task.Delay(500);
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Refresh();
+                    handle = process.MainWindowHandle;
+                    if (handle != IntPtr.Zero)
+                        WindowHelper.ForceForeground(handle);
+                }
+            }
+            catch { }
+        }
+
         private void ApplyWindowZOrder()
         {
             Dispatcher?.InvokeAsync(() =>
@@ -1235,6 +1303,7 @@ namespace ArcademiaGameLauncher.Windows
                                 _logger.LogError(ex, "[Force Exit] Failed to kill process.");
                             }
 
+                            _ = _sessionTracking.EndSessionAsync("ForceExit");
                             _currentlyRunningProcess = null;
                             _ = _socket.SafeReportStatus("Idle");
 
@@ -1283,6 +1352,7 @@ namespace ArcademiaGameLauncher.Windows
                 SetGameTitleState(_currentlySelectedGameIndex, GameState.ready);
                 ResetControllerStates();
                 _ = _socket.SafeReportStatus("Idle");
+                _ = _sessionTracking.EndSessionAsync("Natural");
                 _currentlyRunningProcess = null;
 
                 ApplyWindowZOrder();
@@ -1325,6 +1395,7 @@ namespace ArcademiaGameLauncher.Windows
                         _currentlyRunningProcess.Kill();
                     }
                     catch { }
+                    _ = _sessionTracking.EndSessionAsync("AFK");
                     _ = _socket.SafeReportStatus("Idle");
                     _currentlyRunningProcess = null;
                 }
@@ -1482,6 +1553,27 @@ namespace ArcademiaGameLauncher.Windows
             SetGameTitleState(gameIndex, e.NewState);
         }
 
+        private void Updater_GameDownloadProgress(object sender, GameDownloadProgressEventArgs e)
+        {
+            if (
+                _gameInfoList == null
+                || _currentlySelectedGameIndex < 0
+                || _currentlySelectedGameIndex >= _gameInfoList.Length
+            )
+                return;
+            if (_gameInfoList[_currentlySelectedGameIndex]["Name"]?.ToString() != e.GameName)
+                return;
+
+            _dispatcherQueue.EnqueueUnique(
+                "DownloadProgress",
+                () =>
+                {
+                    StartButton.Content = $"Downloading Game... {e.Percent}%";
+                    SetStartButtonFill(e.Percent / 100.0, _fillDownloading);
+                }
+            );
+        }
+
         private void Updater_GameDatabaseFetched(object sender, GameDatabaseFetchedEventArgs e)
         {
             _thumbnailCacheBuster = DateTime.Now.Ticks.ToString();
@@ -1505,6 +1597,7 @@ namespace ArcademiaGameLauncher.Windows
 
                 JObject gameInfo = new()
                 {
+                    ["Id"] = game.Id,
                     ["VersionNumber"] = game.VersionNumber,
                     ["Name"] = game.Name,
                     ["Description"] = game.Description,
@@ -1591,6 +1684,15 @@ namespace ArcademiaGameLauncher.Windows
                 if (!string.IsNullOrEmpty(game.ThumbnailUrl))
                     freshUrls.Add(game.ThumbnailUrl);
             LoadHomeThumbnailScrollFromUrls(freshUrls);
+
+            // If the selection menu is already open, refresh the tile page so game names and
+            // thumbnails appear immediately instead of waiting for each update check to complete.
+            if (_isSelectionMenuVisible)
+                Application.Current?.Dispatcher?.InvokeAsync(() =>
+                {
+                    ChangePage(_previousPageIndex);
+                    HighlightCurrentGameMenuOption();
+                });
 
             // Update the game info display if the currently selected game is in the new game database
             DebounceUpdateGameInfoDisplay();
@@ -2619,6 +2721,32 @@ namespace ArcademiaGameLauncher.Windows
         public void StyleStartButtonState(int _index) =>
             StyleStartButtonState(_gameTitleStates[_index]);
 
+        private static readonly SolidColorBrush _fillChecking = new(
+            Color.FromRgb(0xFF, 0xC1, 0x07)
+        ); // Amber
+        private static readonly SolidColorBrush _fillDownloading = new(
+            Color.FromRgb(0x4C, 0xAF, 0x50)
+        ); // Green
+        private static readonly SolidColorBrush _fillFailed = new(Color.FromRgb(0xF4, 0x43, 0x36)); // Red
+        private static readonly SolidColorBrush _fillActive = new(Color.FromRgb(0x21, 0x96, 0xF3)); // Blue
+        private static readonly SolidColorBrush _fillNeutral = new(Color.FromRgb(0x60, 0x7D, 0x8B)); // Blue-grey
+
+        private void SetStartButtonFill(double scaleX, Brush brush)
+        {
+            if (
+                StartButton.Template.FindName("PART_Fill", StartButton)
+                is not System.Windows.Shapes.Rectangle fill
+            )
+                return;
+
+            if (fill.RenderTransform is ScaleTransform scale && !scale.IsFrozen)
+                scale.ScaleX = scaleX;
+            else
+                fill.RenderTransform = new ScaleTransform(scaleX, 1.0);
+
+            fill.Fill = brush;
+        }
+
         private void StyleStartButtonState(GameState _gameState)
         {
             try
@@ -2631,44 +2759,52 @@ namespace ArcademiaGameLauncher.Windows
                         if (_logger.IsEnabled(LogLevel.Debug))
                             _logger.LogDebug("[UI] StyleStartButtonState: Start");
 
-                        // Style the StartButton
                         switch (_gameState)
                         {
                             case GameState.fetchingInfo:
                                 StartButton.IsChecked = false;
                                 StartButton.Content = "Fetching Game Info...";
+                                SetStartButtonFill(1.0, _fillNeutral);
                                 break;
                             case GameState.checkingForUpdates:
                                 StartButton.IsChecked = false;
                                 StartButton.Content = "Checking for Updates...";
+                                SetStartButtonFill(1.0, _fillChecking);
                                 break;
                             case GameState.downloadingGame:
                                 StartButton.IsChecked = false;
                                 StartButton.Content = "Downloading Game...";
+                                SetStartButtonFill(0.0, _fillDownloading);
                                 break;
                             case GameState.downloadingUpdate:
                                 StartButton.IsChecked = false;
                                 StartButton.Content = "Updating Game...";
+                                SetStartButtonFill(0.0, _fillDownloading);
                                 break;
                             case GameState.failed:
                                 StartButton.IsChecked = false;
                                 StartButton.Content = "Failed";
+                                SetStartButtonFill(1.0, _fillFailed);
                                 break;
                             case GameState.loadingInfo:
                                 StartButton.IsChecked = false;
                                 StartButton.Content = "Loading Game Info...";
+                                SetStartButtonFill(1.0, _fillNeutral);
                                 break;
                             case GameState.ready:
                                 StartButton.IsChecked = true;
                                 StartButton.Content = "Start";
+                                SetStartButtonFill(0.0, Brushes.Transparent);
                                 break;
                             case GameState.launching:
                                 StartButton.IsChecked = false;
                                 StartButton.Content = "Launching Game...";
+                                SetStartButtonFill(1.0, _fillActive);
                                 break;
                             case GameState.runningGame:
                                 StartButton.IsChecked = false;
                                 StartButton.Content = "Running Game...";
+                                SetStartButtonFill(1.0, _fillActive);
                                 break;
                             default:
                                 break;

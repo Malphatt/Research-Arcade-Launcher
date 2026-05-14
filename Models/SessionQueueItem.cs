@@ -1,0 +1,19 @@
+using System;
+
+namespace ArcademiaGameLauncher.Models
+{
+    public class SessionQueueItem
+    {
+        public string Type { get; set; } = null!;
+        public string ExternalId { get; set; } = null!;
+
+        public int? GameAssignmentId { get; set; }
+        public string? LauncherStartedAtUtc { get; set; }
+
+        public string? EndReason { get; set; }
+        public string? EndedAtUtc { get; set; }
+
+        public string QueuedAtUtc { get; set; } = null!;
+        public int AttemptCount { get; set; }
+    }
+}

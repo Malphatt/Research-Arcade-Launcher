@@ -6,6 +6,7 @@ using System.Windows;
 using ArcademiaGameLauncher.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Serilog;
 using Serilog.Events;
@@ -23,6 +24,10 @@ namespace ArcademiaGameLauncher
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
                 //.MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                .MinimumLevel.Override(
+                    "System.Net.Http.HttpClient",
+                    Serilog.Events.LogEventLevel.Warning
+                )
                 .WriteTo.Console()
                 .WriteTo.File(
                     "Logs/ArcadeClient-.log",
@@ -97,12 +102,19 @@ namespace ArcademiaGameLauncher
                     services.AddSingleton<IUpdaterService, UpdaterService>();
                     services.AddSingleton<ISfxPlayer, SfxPlayer>();
                     services.AddSingleton<IDispatcherQueueService, DispatcherQueueService>();
+                    services.AddSingleton<ISessionTrackingService>(sp => new SessionTrackingService(
+                        applicationPath,
+                        sp.GetRequiredService<ILogger<SessionTrackingService>>()
+                    ));
 
                     services.AddSingleton<Windows.MainWindow>();
                 })
                 .Build();
 
             _host.Start();
+
+            var sessionTracking = _host.Services.GetRequiredService<ISessionTrackingService>();
+            sessionTracking.RecoverCrashAsync().GetAwaiter().GetResult();
 
             var mainWindow = _host.Services.GetRequiredService<Windows.MainWindow>();
             MainWindow = mainWindow;

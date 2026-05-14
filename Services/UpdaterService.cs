@@ -17,6 +17,7 @@ namespace ArcademiaGameLauncher.Services
         event EventHandler<GameStateChangedEventArgs> GameStateChanged;
         event EventHandler<GameDatabaseFetchedEventArgs> GameDatabaseFetched;
         event EventHandler<GameUpdateCompletedEventArgs> GameUpdateCompleted;
+        event EventHandler<GameDownloadProgressEventArgs> GameDownloadProgress;
         event EventHandler CloseGameAndUpdater;
         event EventHandler RelaunchUpdater;
         event EventHandler<ControllerMapping> ControllerMappingFetched;
@@ -44,8 +45,15 @@ namespace ArcademiaGameLauncher.Services
         public string GameName { get; } = gameName;
     }
 
+    public class GameDownloadProgressEventArgs(string gameName, int percent)
+    {
+        public string GameName { get; } = gameName;
+        public int Percent { get; } = percent;
+    }
+
     public class SimplifiedGameInfo(GameInfo game)
     {
+        public int Id { get; } = game.Id;
         public string VersionNumber { get; } = game.VersionNumber;
         public string Name { get; } = game.Name;
         public string Description { get; } = game.Description;
@@ -77,6 +85,14 @@ namespace ArcademiaGameLauncher.Services
 
         protected void OnGameUpdateCompleted(string gameName) =>
             GameUpdateCompleted?.Invoke(this, new GameUpdateCompletedEventArgs(gameName));
+
+        public event EventHandler<GameDownloadProgressEventArgs> GameDownloadProgress;
+
+        protected void OnGameDownloadProgress(string gameName, int percent) =>
+            GameDownloadProgress?.Invoke(
+                this,
+                new GameDownloadProgressEventArgs(gameName, percent)
+            );
 
         public event EventHandler CloseGameAndUpdater;
 
@@ -140,7 +156,10 @@ namespace ArcademiaGameLauncher.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[UpdaterService] Error downloading site icon.");
+                _logger.LogWarning(
+                    "[UpdaterService] Could not download site icon: {Message}",
+                    ex.Message
+                );
                 OnLogoDownloaded();
             }
         }
@@ -283,7 +302,10 @@ namespace ArcademiaGameLauncher.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[UpdaterService] Error while checking for game updates.");
+                _logger.LogWarning(
+                    "[UpdaterService] Could not check for game updates: {Message}",
+                    ex.Message
+                );
             }
         }
 
@@ -361,12 +383,14 @@ namespace ArcademiaGameLauncher.Services
                     File.Delete(file);
 
             // Download the game zip file
-            await using var zipStream = await _apiClient.GetGameDownloadAsync(
+            var downloadResult = await _apiClient.GetGameDownloadAsync(
                 game.Id,
                 gameExists ? game.VersionNumber : null,
                 _logger,
                 cancellationToken
             );
+            await using var zipStream = downloadResult.Stream;
+            var contentLength = downloadResult.ContentLength;
             var zipFilePath = Path.Combine(gameDir, $"{game.FolderName}.zip");
 
             await using (
@@ -377,7 +401,33 @@ namespace ArcademiaGameLauncher.Services
                     FileShare.None
                 )
             )
-                await zipStream.CopyToAsync(fileStream, cancellationToken);
+            {
+                if (contentLength is > 0)
+                {
+                    var buffer = new byte[81920];
+                    long totalRead = 0;
+                    int lastPercent = -1;
+                    int bytesRead;
+                    while ((bytesRead = await zipStream.ReadAsync(buffer, cancellationToken)) > 0)
+                    {
+                        await fileStream.WriteAsync(
+                            buffer.AsMemory(0, bytesRead),
+                            cancellationToken
+                        );
+                        totalRead += bytesRead;
+                        int percent = (int)(totalRead * 100 / contentLength.Value);
+                        if (percent != lastPercent)
+                        {
+                            lastPercent = percent;
+                            OnGameDownloadProgress(game.Name, percent);
+                        }
+                    }
+                }
+                else
+                {
+                    await zipStream.CopyToAsync(fileStream, cancellationToken);
+                }
+            }
 
             if (_logger.IsEnabled(LogLevel.Information))
                 _logger.LogInformation(
@@ -409,7 +459,10 @@ namespace ArcademiaGameLauncher.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[UpdaterService] Failed to fetch controller mapping.");
+                _logger.LogWarning(
+                    "[UpdaterService] Could not fetch controller mapping: {Message}",
+                    ex.Message
+                );
             }
         }
     }
